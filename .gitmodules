@@ -1,0 +1,6 @@
+[submodule "bayesian-torch"]
+	path = bayesian-torch
+	url = git@github.com:IntelLabs/bayesian-torch.git
+[submodule "OF-PathPred"]
+	path = OF-PathPred
+	url = git@github.com:cimat-ris/OF-PathPred.git
