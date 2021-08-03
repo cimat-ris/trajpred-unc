@@ -5,7 +5,39 @@ import matplotlib.image as mpimg
 import numpy as np
 import cv2
 import tensorflow as tf
-from path_prediction.batches_data import get_batch
+import torch
+from torch.utils.data import Dataset
+
+
+# Creamos la clase para el dataset
+class traj_dataset(Dataset):
+
+    def __init__(self, Xrel_Train, Yrel_Train, X_Train, Y_Train, transform=None):
+        self.Xrel_Train = Xrel_Train
+        self.Yrel_Train = Yrel_Train
+        self.X_Train = X_Train
+        self.Y_Train = Y_Train
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.X_Train)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+
+        xrel = self.Xrel_Train[idx]
+        yrel = self.Yrel_Train[idx]
+        x = self.X_Train[idx]
+        y = self.Y_Train[idx]
+
+        if self.transform:
+            x = self.transform(x)
+            y = self.transform(y)
+            xrel = self.transform(xrel)
+            yrel = self.transform(yrel)
+
+        return xrel, yrel, x, y
 
 def get_testing_batch_synthec(testing_data,testing_data_path):
     # A trajectory id
