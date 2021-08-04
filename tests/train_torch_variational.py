@@ -1,12 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-
-# # Para ejecutar en Google Colab en Drive
-# # Inicio de Código
-
-# In[1]:
-
-
 # Imports
 import sys,os,logging, argparse
 ''' TF_CPP_MIN_LOG_LEVEL
@@ -46,7 +39,7 @@ def main():
     parser.set_defaults(pickle=False)
     parser.add_argument('--noretrain', dest='noretrain', action='store_true',help='When set, does not retrain the model, and only restores the last checkpoint')
     parser.set_defaults(noretrain=False)
-    parser.add_argument('--epochs', '--e', type=int, default=45,help='Number of epochs (default: 35)')
+    parser.add_argument('--epochs', '--e', type=int, default=35,help='Number of epochs (default: 35)')
     args     = parser.parse_args()
 
     logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
@@ -67,9 +60,9 @@ def main():
     #############################################################
     # Model parameters
     num_epochs     = args.epochs
-    initial_lr     = 0.03
-    batch_size     = 256
-    num_mc = 10
+    initial_lr     = 0.02
+    batch_size     = 128
+    num_mc = 1
 
     # Creamos el dataset para torch
     train_data = traj_dataset(training_data['obs_traj_rel'], training_data['pred_traj_rel'],training_data['obs_traj'], training_data['pred_traj'])
@@ -78,13 +71,12 @@ def main():
 
     # Form batches
     batched_train_data = torch.utils.data.DataLoader( train_data, batch_size = batch_size, shuffle=True)
-    batched_val_data =  torch.utils.data.DataLoader( val_data, batch_size = batch_size, shuffle=True)
+    batched_val_data  =  torch.utils.data.DataLoader( val_data, batch_size = batch_size, shuffle=True)
     batched_test_data =  torch.utils.data.DataLoader( test_data, batch_size = batch_size, shuffle=True)
 
     prior_mu           = 0.0
-    prior_sigma        = 1.0
+    prior_sigma        = 0.1
     posterior_mu_init  = 0.0
-    posterior_rho_init = -4.0
     posterior_rho_init = -3.0 # 0.006715348489117967 # 0.01814992791780978 # 0.04858735157374196
 
     # Model
@@ -95,15 +87,17 @@ def main():
     # Training the Model
     optimizer = optim.SGD(model.parameters(), lr=initial_lr)
 
-
-    nl_loss_ = []
-    kl_loss_ = []
+    nll_losses_ = []
+    kl_losses_ = []
+    errors_    = []
     for epoch in range(num_epochs):
+        nll_loss_sum = 0
+        kl_loss_sum  = 0
+        errors_sum   = 0
         # Training
         logging.info("----- ")
         logging.info("epoch: {}".format(epoch))
-        error = 0
-        total = 0
+        # Number of batches
         M     = len(batched_train_data)
         for batch_idx, (data, target, _a , _b) in enumerate(batched_train_data):
             # Step 1. Remember that Pytorch accumulates gradients.
@@ -115,22 +109,21 @@ def main():
                 target=target.to(device)
 
             # Step 2. Run our forward pass and compute the losses
-            pred, nl_loss, kl_loss = model(data, target, training=True, num_mc=num_mc)
+            pred, nll_loss, kl_loss = model(data, target, training=True, num_mc=num_mc)
+            loss   = nll_loss+ kl_loss/M
 
-            nl_loss_.append(nl_loss.detach().item())
-            kl_loss_.append(kl_loss.detach().item())
-
-            # TODO: Divide by the batch size
-            #pi     = (2.0**(M-batch_idx))/(2.0**M-1) #  Blundell?
-            loss   = nl_loss+ kl_loss
-            error += loss.detach().item()
-            total += len(target)
-
+            nll_loss_sum += nll_loss.detach().item()
+            kl_loss_sum += kl_loss.detach().item()/M
+            errors_sum  += loss.detach().item()
             # Step 3. Compute the gradients, and update the parameters by
             loss.backward()
             optimizer.step()
-        logging.info("Average training loss: {:.3e}".format(error/total))
-
+        logging.info("Average NLL loss: {:.3e}".format(nll_loss_sum/M))
+        logging.info("Average KL loss: {:.3e}".format(kl_loss_sum/M))
+        logging.info("Average training loss: {:.3e}".format(errors_sum/M))
+        nll_losses_.append(nll_loss_sum/M)
+        kl_losses_.append(kl_loss_sum/M)
+        errors_.append(errors_sum/M)
         # Validation
         error = 0
         total = 0
@@ -140,15 +133,14 @@ def main():
                 data_val  = data_val.to(device)
                 target_val=target_val.to(device)
             pred_val, nl_loss, kl_loss = model(data_val, target_val)
-            pi     = (2.0**(M-batch_idx))/(2.0**M-1) # From Blundell
-            loss   = nl_loss+ pi*kl_loss
+            loss   = nl_loss+ kl_loss/M
             error += loss.detach().item()
             total += len(target_val)
         logging.info("Average validation loss: {:.3e}".format(error/total))
 
 
-    plt.plot(nl_loss_,"--b", label="nl_loss")
-    plt.plot(kl_loss_,"--r", label="kl_loss")
+    plt.plot(nll_losses_,"--b", label="nl_loss")
+    plt.plot(kl_losses_,"--r", label="kl_loss")
     plt.title("Loss training")
     plt.xlabel("Iteration")
     plt.ylabel("loss")
@@ -159,7 +151,7 @@ def main():
     # In[ ]:
 
 
-    plt.plot(nl_loss_,"--b", label="nl_loss")
+    plt.plot(nll_losses_,"--b", label="nl_loss")
     plt.title("Loss training")
     plt.xlabel("Iteration")
     plt.ylabel("loss")
@@ -170,7 +162,7 @@ def main():
     # In[ ]:
 
 
-    plt.plot(kl_loss_,"--r", label="kl_loss")
+    plt.plot(kl_losses_,"--r", label="kl_loss")
     plt.title("Loss training")
     plt.xlabel("Iteration")
     plt.ylabel("loss")

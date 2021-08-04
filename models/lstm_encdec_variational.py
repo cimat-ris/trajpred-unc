@@ -56,8 +56,8 @@ class lstm_encdec_variational(nn.Module):
         #
         nbatches = len(X)
         # Last position in the trajectory
-        x_last = X[:,-1,:].view(nbatches, 1, -1)
-
+        x_last     = X[:,-1,:].view(nbatches, 1, -1)
+        obs_length = X.shape[1]
         # Monte Carlo iterations
         for mc_run in range(num_mc):
             kl_sum = 0
@@ -65,19 +65,22 @@ class lstm_encdec_variational(nn.Module):
             emb, kl = self.embedding(X) # encoder for batch
             kl_sum += kl
             lstm_out, (hn1, cn1), kl = self.lstm1(emb)
-            kl_sum += kl
+            kl_sum += kl/obs_length
 
             # Iterate for each time step
             pred = []
             for i, target in enumerate(y.permute(1,0,2)):
                 emb_last, kl = self.embedding(x_last) # encoder for last position
-                kl_sum += kl
+                if i==0:
+                    kl_sum += kl
                 lstm_out, (hn2, cn2), kl = self.lstm2(emb_last, (hn1[:,-1,:],cn1[:,-1,:]))
-                kl_sum += kl
+                if i==0:
+                    kl_sum += kl
 
                 # Decoder and Prediction
                 dec, kl = self.decoder(hn2)
-                kl_sum += kl
+                if i==0:
+                    kl_sum += kl
                 t_pred = dec + x_last
                 pred.append(t_pred)
 
@@ -95,10 +98,8 @@ class lstm_encdec_variational(nn.Module):
             # save to list
             output_.append(pred)
             kl_.append(kl_sum)
-
         pred    = torch.mean(torch.stack(output_), dim=0)
         kl_loss = torch.mean(torch.stack(kl_), dim=0)
-
         # Calculate of nl loss
         nll_loss = self.loss_fun(pred, y)
         # Concatenate the predictions and return
