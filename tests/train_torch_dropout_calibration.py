@@ -165,15 +165,8 @@ def train(model):
 # Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-# Seleccionamos de forma aleatorea las semillas
-seeds = np.random.choice(99999999, num_ensembles , replace=False)
-print("Semillas: ", seeds)
-
-
-# In[ ]:
-
-
 if band_train:
+    seed = 1
     # Entrenamos el modelo para cada semilla
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -183,14 +176,18 @@ if band_train:
     model.to(device)
 
     # Entremamos el modelo
-    print("\n*** Entrenando para seed: ", seed, "\t\t ", ind, "/",len(seeds))
+    print("\n*** Entrenando para seed: ", seed)
     train(model)
 
-    plt.savefig("images/loss_"+str(ind)+"_"+str(idTest)+".pdf")
+    plt.savefig("images/loss_"+str(idTest)+".pdf")
     plt.show()
 
     # Guardamos el Modelo
-    torch.save(model.state_dict(), "../training_checkpoints/model_dropout_"+str(ind)+"_"+str(idTest)+".pth")
+    #torch.save(model.state_dict(), "../training_checkpoints/model_dropout_"+str(idTest)+".pth")
+    
+if band_train:
+    # Guardamos el Modelo
+    torch.save(model.state_dict(), "../training_checkpoints/model_dropout_"+str(idTest)+".pth")
         
 
 
