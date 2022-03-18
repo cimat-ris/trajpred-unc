@@ -2,6 +2,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from bayesian_torch.layers import LinearReparameterization
+from bayesian_torch.layers import LSTMReparameterization
+
+import numpy as np
+
 def Gaussian2DLikelihood(outputs, targets, sigmas):
     '''
     Computes the likelihood of predicted locations under a bivariate Gaussian distribution
@@ -222,3 +227,152 @@ class lstm_encdec_MCDropout(nn.Module):
 
         # Concatenate the predictions and return
         return torch.cat(pred, dim=1).detach().cpu().numpy(), torch.cat(sigma, dim=1).detach().cpu().numpy()
+
+class lstm_encdec_variational(nn.Module):
+    def __init__(self, in_size,  embedding_dim, hidden_dim, output_size, prior_mu, prior_sigma, posterior_mu_init, posterior_rho_init):
+        super(lstm_encdec_variational, self).__init__()
+
+        # Linear layer
+        self.embedding = LinearReparameterization(
+            in_features = in_size,
+            out_features = embedding_dim, # 128
+            prior_mean = prior_mu,
+            prior_variance = prior_sigma,
+            posterior_mu_init = posterior_mu_init,
+            posterior_rho_init = posterior_rho_init,
+        )
+
+        # LSTM layer encoder
+        self.lstm1 = LSTMReparameterization(
+            in_features = embedding_dim,
+            out_features = hidden_dim, # 256
+            prior_mean = prior_mu,
+            prior_variance = prior_sigma,
+            posterior_mu_init = posterior_mu_init,
+            posterior_rho_init = posterior_rho_init,
+        )
+
+        # LSTM layer decoder
+        self.lstm2 = LSTMReparameterization(
+            in_features = embedding_dim,
+            out_features = hidden_dim, # 256
+            prior_mean = prior_mu,
+            prior_variance = prior_sigma,
+            posterior_mu_init = posterior_mu_init,
+            posterior_rho_init = posterior_rho_init,
+        )
+        # Linear layer
+        self.decoder = LinearReparameterization(
+            in_features = hidden_dim,
+            out_features = output_size + 3, # 5
+            prior_mean = prior_mu,
+            prior_variance = prior_sigma,
+            posterior_mu_init = posterior_mu_init,
+            posterior_rho_init = posterior_rho_init,
+        )
+        #self.loss_fun = nn.MSELoss()
+    #
+    def forward(self, X, y, data_abs , target_abs, training=False, num_mc=1):
+
+        nll_loss = 0
+        output_ = []
+        kl_     = []
+        #
+        nbatches = len(X)
+        # Last position in the trajectory
+        x_last     = X[:,-1,:].view(nbatches, 1, -1)
+        obs_length = X.shape[1]
+        # Monte Carlo iterations
+        for mc_run in range(num_mc):
+            kl_sum = 0
+            # Layers
+            emb, kl = self.embedding(X) # encoder for batch
+            kl_sum += kl
+            lstm_out, (hn1, cn1), kl = self.lstm1(emb)
+            kl_sum += kl/obs_length
+
+            # Iterate for each time step
+            loss = 0
+            pred = []
+            sigma = []
+            gt = []
+            for i, target in enumerate(y.permute(1,0,2)):
+                emb_last, kl = self.embedding(x_last) # encoder for last position
+                if i==0:
+                    kl_sum += kl
+                lstm_out, (hn2, cn2), kl = self.lstm2(emb_last, (hn1[:,-1,:],cn1[:,-1,:]))
+                if i==0:
+                    kl_sum += kl
+
+                # Decoder and Prediction
+                dec, kl = self.decoder(hn2)
+                if i==0:
+                    kl_sum += kl
+                t_pred = dec[:,:,:2] + x_last
+                pred.append(t_pred)
+                sigma.append(dec[:,:,2:])
+                gt.append(target.view(len(target), 1, -1))
+
+                # Update the last position
+                if training:
+                    x_last = target.view(len(target), 1, -1)
+                else:
+                    x_last = t_pred
+                hn1 = hn2
+                cn1 = cn2
+
+                # Utilizamos la nueva funcion loss
+                means = data_abs[:,-1,:] + torch.cat(pred, dim=1).sum(1)
+                loss += Gaussian2DLikelihood( means, target_abs[:,i,:], torch.cat(sigma, dim=1).sum(1))
+
+            # Concatenate the trajectories preds
+            pred = torch.cat(pred, dim=1)
+            nll_loss += loss/num_mc
+
+            # save to list
+            output_.append(pred)
+            kl_.append(kl_sum)
+        pred    = torch.mean(torch.stack(output_), dim=0)
+        kl_loss = torch.mean(torch.stack(kl_), dim=0)
+        # Calculate of nl loss
+        #nll_loss = self.loss_fun(pred, y)
+        # Concatenate the predictions and return
+        return pred, nll_loss, kl_loss
+
+    def predict(self, X, dim_pred= 1):
+
+      # Copy data
+      x = X
+      # Last position traj
+      x_last = X[:,-1,:].view(len(x), 1, -1)
+
+      kl_sum = 0
+      # Layers
+      emb, kl = self.embedding(X) # encoder for batch
+      kl_sum += kl
+      lstm_out, (hn1, cn1), kl = self.lstm1(emb)
+      kl_sum += kl
+
+      # Iterate for each time step
+      pred = []
+      sigma = []
+      for i in range(dim_pred):
+          emb_last, kl = self.embedding(x_last) # encoder for last position
+          kl_sum += kl
+          lstm_out, (hn2, cn2), kl = self.lstm2(emb_last, (hn1[:,-1,:],cn1[:,-1,:]))
+          kl_sum += kl
+
+          # Decoder and Prediction
+          dec, kl = self.decoder(hn2)
+          kl_sum += kl
+          t_pred = dec[:,:,:2] + x_last
+          pred.append(t_pred)
+          sigma.append(dec[:,:,2:])
+
+          # Update the last position
+          x_last = t_pred
+          hn1 = hn2
+          cn1 = cn2
+
+      # Concatenate the predictions and return
+      return torch.cat(pred, dim=1).detach().cpu().numpy(), kl_sum, torch.cat(sigma, dim=1).detach().cpu().numpy()
