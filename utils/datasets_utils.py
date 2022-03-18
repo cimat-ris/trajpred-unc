@@ -8,7 +8,29 @@ import tensorflow as tf
 import torch
 from torch.utils.data import Dataset
 
+from utils.process_file import prepare_data
+import logging
 
+# Parameters
+# The only datasets that can use add_kp are PETS2009-S2L1, TOWN-CENTRE
+class Experiment_Parameters:
+    def __init__(self,add_kp=False,obstacles=False):
+        # Maximum number of persons in a frame
+        self.person_max =70
+        # Observation length (trajlet size)
+        self.obs_len    = 8
+        # Prediction length
+        self.pred_len   = 12
+        # Number of key points
+        self.kp_num     = 18
+        # Key point flag
+        self.add_kp     = add_kp
+        # Obstacles flag
+        self.obstacles    = obstacles
+        self.intersection = False
+        self.delim        = ','
+        self.output_representation = 'dxdy' #
+        
 # Creamos la clase para el dataset
 class traj_dataset(Dataset):
 
@@ -49,55 +71,6 @@ def get_testing_batch_synthec(testing_data,testing_data_path):
     filtered_data  = filtered_data.batch(20)
     for element in filtered_data.as_numpy_iterator():
         return element
-
-
-def prepare_data(path, subset='/train/', sample=1.0, goals=True):
-    """ Prepares the train/val scenes and corresponding goals
-
-    Parameters
-    ----------
-    subset: String ['/train/', '/val/']
-        Determines the subset of data to be processed
-    sample: Float (0.0, 1.0]
-        Determines the ratio of data to be sampled
-    goals: Bool
-        If true, the goals of each track are extracted
-        The corresponding goal file must be present in the 'goal_files' folder
-        The name of the goal file must be the same as the name of the training file
-
-    Returns
-    -------
-    all_scenes: List
-        List of all processed scenes
-    all_goals: Dictionary
-        Dictionary of goals corresponding to each dataset file.
-        None if 'goals' argument is False.
-    """
-
-    ## read goal files
-    all_goals = {}
-    all_scenes = []
-
-    ## List file names
-    files = [f.split('.')[-2] for f in os.listdir(path + subset) if f.endswith('.ndjson')]
-    ## Iterate over file names
-    for file in files:
-        print("Reading file ",file," for ",subset)
-        reader = trajnetplusplustools.Reader(path + subset + file + '.ndjson', scene_type='paths')
-        ## Necessary modification of train scene to add filename
-        scene = [(file, s_id, s) for s_id, s in reader.scenes(sample=sample)]
-        print("")
-        print(scene[0])
-        if goals:
-            goal_dict = pickle.load(open('goal_files/' + subset + file +'.pkl', "rb"))
-            ## Get goals corresponding to train scene
-            all_goals[file] = {s_id: [goal_dict[path[0].pedestrian] for path in s] for _, s_id, s in scene}
-        all_scenes += scene
-
-    if goals:
-        return all_scenes, all_goals
-    return all_scenes, None
-
 
 def process_file(datasets_path, datasets_names, parameters, csv_file='mundo/mun_pos.csv'):
     datasets = range(len(datasets_names))
@@ -438,3 +411,92 @@ def setup_loo_experiment_synthec(experiment_name,ds_path,ds_names,leave_id,exper
     print("[INF] Validation data: "+ str(len(validation_data[list(validation_data.keys())[0]])))
 
     return training_data,validation_data,test_data
+    
+def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_parameters,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1):
+    # Dataset to be tested
+    testing_datasets_names  = [ds_names[leave_id]]
+    training_datasets_names = ds_names[:leave_id]+ds_names[leave_id+1:]
+    logging.info('Testing/validation dataset: {}'.format(testing_datasets_names))
+    logging.info('Training datasets: {}'.format(training_datasets_names))
+    if not use_pickled_data:
+        # Process data specified by the path to get the trajectories with
+        logging.info('Extracting data from the datasets')
+        test_data  = prepare_data(ds_path, testing_datasets_names, experiment_parameters)
+        train_data = prepare_data(ds_path, training_datasets_names, experiment_parameters)
+
+        # Count how many data we have (sub-sequences of length 8, in pred_traj)
+        n_test_data  = len(test_data[list(test_data.keys())[2]])
+        n_train_data = len(train_data[list(train_data.keys())[2]])
+        idx          = np.random.permutation(n_train_data)
+        # TODO: validation should be done from a similar distribution as test set!
+        validation_pc= validation_proportion
+        validation   = int(n_train_data*validation_pc)
+        training     = int(n_train_data-validation)
+
+        # Indices for training
+        idx_train = idx[0:training]
+        #  Indices for validation
+        idx_val   = idx[training:]
+        # Training set
+        training_data = {
+            "obs_traj":        train_data["obs_traj"][idx_train],
+            "obs_traj_rel":    train_data["obs_traj_rel"][idx_train],
+            "obs_traj_theta":  train_data["obs_traj_theta"][idx_train],
+            "pred_traj":       train_data["pred_traj"][idx_train],
+            "pred_traj_rel":   train_data["pred_traj_rel"][idx_train],
+            "frames_ids":      train_data["frames_ids"][idx_train],
+#            "obs_optical_flow":train_data["obs_optical_flow"][idx_train]
+        }
+        # Test set
+        testing_data = {
+            "obs_traj":      test_data["obs_traj"][:],
+            "obs_traj_rel":  test_data["obs_traj_rel"][:],
+            "obs_traj_theta":test_data["obs_traj_theta"][:],
+            "pred_traj":     test_data["pred_traj"][:],
+            "pred_traj_rel": test_data["pred_traj_rel"][:],
+            "frames_ids":    test_data["frames_ids"][:],
+#            "obs_optical_flow": test_data["obs_optical_flow"][:]
+        }
+        # Validation set
+        validation_data ={
+            "obs_traj":      train_data["obs_traj"][idx_val],
+            "obs_traj_rel":  train_data["obs_traj_rel"][idx_val],
+            "obs_traj_theta":train_data["obs_traj_theta"][idx_val],
+            "pred_traj":     train_data["pred_traj"][idx_val],
+            "pred_traj_rel": train_data["pred_traj_rel"][idx_val],
+            "frames_ids":    train_data["frames_ids"][idx_val],
+#            "obs_optical_flow": train_data["obs_optical_flow"][idx_val]
+        }
+        # Training dataset
+        pickle_out = open(pickle_dir+'/training_data_'+experiment_name+'.pickle',"wb")
+        pickle.dump(training_data, pickle_out, protocol=2)
+        pickle_out.close()
+
+        # Test dataset
+        pickle_out = open(pickle_dir+'/test_data_'+experiment_name+'.pickle',"wb")
+        pickle.dump(test_data, pickle_out, protocol=2)
+        pickle_out.close()
+
+        # Validation dataset
+        pickle_out = open(pickle_dir+'/validation_data_'+experiment_name+'.pickle',"wb")
+        pickle.dump(validation_data, pickle_out, protocol=2)
+        pickle_out.close()
+    else:
+        # Unpickle the ready-to-use datasets
+        logging.info("Unpickling...")
+        pickle_in = open(pickle_dir+'/training_data_'+experiment_name+'.pickle',"rb")
+        training_data = pickle.load(pickle_in)
+        pickle_in = open(pickle_dir+'/test_data_'+experiment_name+'.pickle',"rb")
+        test_data = pickle.load(pickle_in)
+        pickle_in = open(pickle_dir+'/validation_data_'+experiment_name+'.pickle',"rb")
+        validation_data = pickle.load(pickle_in)
+
+    logging.info("Training data: "+ str(len(training_data[list(training_data.keys())[0]])))
+    logging.info("Test data: "+ str(len(test_data[list(test_data.keys())[0]])))
+    logging.info("Validation data: "+ str(len(validation_data[list(validation_data.keys())[0]])))
+
+    # Load the homography corresponding to this dataset
+    homography_file = os.path.join(ds_path+testing_datasets_names[0]+'/H.txt')
+    test_homography = np.genfromtxt(homography_file)
+    return training_data,validation_data,test_data,test_homography
+
