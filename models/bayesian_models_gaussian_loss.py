@@ -127,3 +127,98 @@ class lstm_encdec(nn.Module):
 
         # Concatenate the predictions and return
         return torch.cat(pred, dim=1).detach().cpu().numpy(), torch.cat(sigma, dim=1).detach().cpu().numpy()
+
+class lstm_encdec_MCDropout(nn.Module):
+    def __init__(self, in_size, embedding_dim, hidden_dim, output_size, dropout_rate=0.0):
+        super(lstm_encdec_MCDropout, self).__init__()
+
+        self.dropout_rate = dropout_rate
+        
+        # Layers
+        self.embedding = nn.Linear(in_size, embedding_dim)
+        self.lstm1 = nn.LSTM(embedding_dim, hidden_dim, dropout=self.dropout_rate)
+        self.lstm2 = nn.LSTM(embedding_dim, hidden_dim, dropout=self.dropout_rate)
+        self.decoder = nn.Linear(hidden_dim, output_size+3)
+
+        #self.loss_fun = nn.CrossEntropyLoss()
+        #self.loss_fun = nn.MSELoss()
+
+    def forward(self, X, y, data_abs , target_abs, training=False):
+
+        # Copy data
+        x = X
+        # Last position traj
+        x_last = X[:,-1,:].view(len(x), 1, -1)
+
+        # Layers
+        emb = self.embedding(X) # encoder for batch
+        # Add dropout
+        emb = F.dropout(emb, p=self.dropout_rate, training=True)
+        lstm_out, (hn1, cn1) = self.lstm1(emb.permute(1,0,2)) # LSTM for batch [seq_len, batch, input_size]
+
+        loss = 0
+        pred = []
+        sigma = []
+        for i, target in enumerate(y.permute(1,0,2)):
+            emb_last = self.embedding(x_last) # encoder for last position
+            emb_last = F.dropout(emb_last, p=self.dropout_rate, training=True)
+            lstm_out, (hn2, cn2) = self.lstm2(emb_last.permute(1,0,2), (hn1,cn1)) # lstm for last position with hidden states from batch
+
+            # Decoder and Prediction
+            dec = self.decoder(hn2.permute(1,0,2))
+            t_pred = dec[:,:,:2] + x_last
+            pred.append(t_pred)
+            sigma.append(dec[:,:,2:])
+
+            # Calculate of loss
+            #loss += self.loss_fun(t_pred, target.view(len(target), 1, -1))
+
+            # Update the last position
+            if training:
+                x_last = target.view(len(target), 1, -1)
+            else:
+                x_last = t_pred
+            hn1 = hn2
+            cn1 = cn2
+
+            means = data_abs[:,-1,:] + torch.cat(pred, dim=1).sum(1)
+            loss += Gaussian2DLikelihood( means, target_abs[:,i,:], torch.cat(sigma, dim=1).sum(1))
+
+        # Concatenate the predictions and return
+        return loss
+
+    def predict(self, X, dim_pred= 1):
+
+        # Copy data
+        x = X
+        # Last position traj
+        x_last = X[:,-1,:].view(len(x), 1, -1)
+
+        # Layers
+        emb = self.embedding(X) # encoder for batch
+        # Add dropout
+        emb = F.dropout(emb, p=self.dropout_rate, training=True)
+        lstm_out, (hn1, cn1) = self.lstm1(emb.permute(1,0,2)) # LSTM for batch [seq_len, batch, input_size]
+
+        loss = 0
+        pred = []
+        sigma = []
+        for i in range(dim_pred):
+            emb_last = self.embedding(x_last) # encoder for last position
+            # Add dropout
+            emb_last = F.dropout(emb_last, p=self.dropout_rate, training=True)
+            lstm_out, (hn2, cn2) = self.lstm2(emb_last.permute(1,0,2), (hn1,cn1)) # lstm for last position with hidden states from batch
+
+            # Decoder and Prediction
+            dec = self.decoder(hn2.permute(1,0,2))
+            t_pred = dec[:,:,:2] + x_last
+            pred.append(t_pred)
+            sigma.append(dec[:,:,2:])
+
+            # Update the last position
+            x_last = t_pred
+            hn1 = hn2
+            cn1 = cn2
+
+        # Concatenate the predictions and return
+        return torch.cat(pred, dim=1).detach().cpu().numpy(), torch.cat(sigma, dim=1).detach().cpu().numpy()
