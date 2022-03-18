@@ -15,7 +15,6 @@ import sys,os,logging, argparse
 '''
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sys.path.append('../bayesian-torch')
-sys.path.append('../OF-PathPred')
 sys.path.append('..')
 
 import math,numpy as np
@@ -49,7 +48,7 @@ if torch.cuda.is_available():
 # Load the default parameters
 experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
 
-dataset_dir   = "../OF-PathPred/datasets/"
+dataset_dir   = "../datasets/"
 dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
 idTest        = 2
 pickle        = False
