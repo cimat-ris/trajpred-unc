@@ -2,21 +2,19 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# A simple encoder-decoder network for HTP
 class lstm_encdec(nn.Module):
     def __init__(self, in_size, embedding_dim, hidden_dim, output_size):
         super(lstm_encdec, self).__init__()
-
         # Layers
         self.embedding = nn.Linear(in_size, embedding_dim)
-        self.lstm1 = nn.LSTM(embedding_dim, hidden_dim)
-        self.lstm2 = nn.LSTM(embedding_dim, hidden_dim)
-        self.decoder = nn.Linear(hidden_dim, output_size)
-
-        #self.loss_fun = nn.CrossEntropyLoss()
-        self.loss_fun = nn.MSELoss()
+        self.lstm1     = nn.LSTM(embedding_dim, hidden_dim)
+        self.lstm2     = nn.LSTM(embedding_dim, hidden_dim)
+        self.decoder   = nn.Linear(hidden_dim, output_size)
+        # Loss function
+        self.loss_fun  = nn.MSELoss()
 
     def forward(self, X, y, training=False):
-
         # Copy data
         x = X
         # Last position traj
@@ -42,12 +40,12 @@ class lstm_encdec(nn.Module):
 
             # Update the last position
             if training:
+                # Use teacher forcing
                 x_last = target.view(len(target), 1, -1)
             else:
                 x_last = t_pred
             hn1 = hn2
             cn1 = cn2
-
         # Concatenate the predictions and return
         return torch.cat(pred, dim=1), loss
 
