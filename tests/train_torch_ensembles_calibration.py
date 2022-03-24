@@ -14,10 +14,12 @@ import sys,os,logging, argparse
 3 = INFO, WARNING, and ERROR messages are not printed
 '''
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-sys.path.append('../bayesian-torch')
-sys.path.append('..')
+sys.path.append('bayesian-torch')
+sys.path.append('.')
 
 import math,numpy as np
+import matplotlib as mpl
+mpl.use('TkAgg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -32,10 +34,6 @@ from utils.plot_utils import plot_traj
 from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 
-
-# In[2]:
-
-
 logging.basicConfig(format='%(levelname)s: %(message)s',level=20)
 # GPU
 if torch.cuda.is_available():
@@ -48,7 +46,7 @@ if torch.cuda.is_available():
 # Load the default parameters
 experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
 
-dataset_dir   = "../datasets/"
+dataset_dir   = "datasets/"
 dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
 idTest        = 2
 pickle        = False
@@ -57,58 +55,40 @@ pickle        = False
 num_epochs     = 20
 initial_lr     = 0.00003
 batch_size     = 64
-num_ensembles = 5
-band_train = True
-
-
-# In[4]:
-
+num_ensembles  = 5
+band_train     = False
 
 # Load the dataset and perform the split
-training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='../pickle',use_pickled_data=pickle)
+training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=pickle)
 
-
-# In[5]:
-
-
-# Creamos el dataset para torch
+# Torch dataset
 train_data = traj_dataset(training_data['obs_traj_rel'], training_data['pred_traj_rel'],training_data['obs_traj'], training_data['pred_traj'])
-val_data = traj_dataset(validation_data['obs_traj_rel'], validation_data['pred_traj_rel'],validation_data['obs_traj'], validation_data['pred_traj'])
-test_data = traj_dataset(test_data['obs_traj_rel'], test_data['pred_traj_rel'], test_data['obs_traj'], test_data['pred_traj'])
-
-
-# In[6]:
-
+val_data   = traj_dataset(validation_data['obs_traj_rel'], validation_data['pred_traj_rel'],validation_data['obs_traj'], validation_data['pred_traj'])
+test_data  = traj_dataset(test_data['obs_traj_rel'], test_data['pred_traj_rel'], test_data['obs_traj'], test_data['pred_traj'])
 
 # Form batches
 batched_train_data = torch.utils.data.DataLoader( train_data, batch_size = batch_size, shuffle=False)
-batched_val_data =  torch.utils.data.DataLoader( val_data, batch_size = batch_size, shuffle=False)
-batched_test_data =  torch.utils.data.DataLoader( test_data, batch_size = batch_size, shuffle=False)
-
-
-# ## Entrenamos el modelo
-
-# In[7]:
-
+batched_val_data   = torch.utils.data.DataLoader( val_data, batch_size = batch_size, shuffle=False)
+batched_test_data  = torch.utils.data.DataLoader( test_data, batch_size = batch_size, shuffle=False)
 
 import torch.optim as optim
 
-# Función para entrenar los modelos
+# Function to train the models
 def train(model):
-    # Training the Model
+    # Optimizer
     optimizer = optim.SGD(model.parameters(), lr=initial_lr)
 
     list_loss_train = []
-    list_loss_val = []
+    list_loss_val   = []
     for epoch in range(num_epochs):
         # Training
         print("----- ")
-        print("epoch: ", epoch)
+        print("Epoch: ", epoch)
         error = 0
         total = 0
         # Recorremos cada batch
         for batch_idx, (data, target, data_abs , target_abs) in enumerate(batched_train_data):
-            # Step 1. Remember that Pytorch accumulates gradients.
+            # Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
             if torch.cuda.is_available():
@@ -117,15 +97,15 @@ def train(model):
               data_abs  = data_abs.to(device)
               target_abs=target_abs.to(device)
 
-            # Step 2. Run our forward pass and compute the loss
-            loss = model(data, target, data_abs , target_abs)# , training=True)
+            # Run our forward pass and compute the loss
+            loss   = model(data, target, data_abs , target_abs)# , training=True)
             error += loss
             total += len(target)
 
             # Step 3. Compute the gradients, and update the parameters by
             loss.backward()
             optimizer.step()
-        print("training loss: ", error/total)
+        print("Trn loss: ", error/total)
         list_loss_train.append(error.detach().cpu().numpy()/total)
 
         # Validation
@@ -143,7 +123,7 @@ def train(model):
             error += loss_val
             total += len(target_val)
 
-        print("Validation loss: ", error/total)
+        print("Val loss: ", error/total)
         list_loss_val.append(error.detach().cpu().numpy()/total)
 
     # Visualizamos los errores
@@ -153,21 +133,14 @@ def train(model):
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
     plt.legend()
-    
-
-
-# In[8]:
-
 
 # Model
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Seleccionamos de forma aleatorea las semillas
 seeds = np.random.choice(99999999, num_ensembles , replace=False)
-print("Semillas: ", seeds)
+print("Seeds: ", seeds)
 
-
-# In[9]:
 
 
 if band_train:
@@ -177,25 +150,19 @@ if band_train:
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
 
-        # Instanciamos el modelo
+        # Instanciate the model
         model = lstm_encdec(2,128,256,2)
         model.to(device)
 
         # Entremamos el modelo
-        print("\n*** Entrenando para seed: ", seed, "\t\t ", ind, "/",len(seeds))
+        print("\n*** Training for seed: ", seed, "\t\t ", ind, "/",len(seeds))
         train(model)
 
         plt.savefig("images/loss_"+str(ind)+"_"+str(idTest)+".pdf")
         plt.show()
 
         # Guardamos el Modelo
-        torch.save(model.state_dict(), "../training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth")
-        
-
-
-# ## Visualizamos las predicciones
-
-# In[10]:
+        torch.save(model.state_dict(), "training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth")
 
 
 # Instanciamos el modelo
@@ -211,7 +178,7 @@ bck = plt.imread(os.path.join(dataset_dir,dataset_names[idTest],'reference.png')
 
 # Testing
 for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-    
+
     plt.figure(figsize=(12,12))
     plt.imshow(bck)
 
@@ -221,7 +188,7 @@ for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumera
     for ind in range(num_ensembles):
 
         # Cargamos el Modelo
-        model.load_state_dict(torch.load("../training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth"))
+        model.load_state_dict(torch.load("training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth"))
         model.eval()
 
         if torch.cuda.is_available():
@@ -248,14 +215,14 @@ draw_ellipse = True
 # Testing
 cont = 0
 for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-    
+
     tpred_samples = []
     sigmas_samples = []
     # Muestreamos con cada modelo
     for ind in range(num_ensembles):
 
         # Cargamos el Modelo
-        model.load_state_dict(torch.load("../training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth"))
+        model.load_state_dict(torch.load("training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth"))
         model.eval()
 
         if torch.cuda.is_available():
@@ -267,7 +234,7 @@ for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumera
         sigmas_samples.append(sigmas)
 
     plt.show()
-    
+
     tpred_samples = np.array(tpred_samples)
     sigmas_samples = np.array(sigmas_samples)
 
@@ -281,11 +248,8 @@ for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumera
 
 # ## Metrics Calibration
 
-# In[13]:
-
-
-ma1 = miscalibration_area(exp_proportions, obs_proportions_unc)
-mace1 = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
+ma1    = miscalibration_area(exp_proportions, obs_proportions_unc)
+mace1  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
 rmsce1 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc)
 
 print("Before Recalibration:  ", end="")
@@ -308,4 +272,3 @@ print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace2, rmsce2, ma2))
 
 df = pd.DataFrame([["","MACE","RMSCE","MA"],["Before Recalibration", mace1, rmsce1, ma1],["After Recalibration", mace2, rmsce2, ma2]])
 df.to_csv("images/metrics_calibration_"+str(idTest)+".csv")
-
