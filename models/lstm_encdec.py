@@ -14,67 +14,63 @@ class lstm_encdec(nn.Module):
         # Loss function
         self.loss_fun  = nn.MSELoss()
 
-    def forward(self, X, y, training=False):
-        # Copy data
-        x = X
+    # Encoding of the past trajectry
+    def encode(self, X):
         # Last position traj
-        x_last = X[:,-1,:].view(len(x), 1, -1)
+        x_last = X[:,-1,:].view(len(X), 1, -1)
+        # Embedding positions
+        emb = self.embedding(X)
+        # LSTM for batch [seq_len, batch, input_size]
+        lstm_out, hidden_state = self.lstm1(emb.permute(1,0,2))
+        return x_last,hidden_state
 
-        # Layers
-        emb = self.embedding(X) # encoder for batch
-        lstm_out, (hn1, cn1) = self.lstm1(emb.permute(1,0,2)) # LSTM for batch [seq_len, batch, input_size]
+    # Decoding the next future position
+    def decode(self, x_last, hidden_state):
+        # Embedding last position
+        emb_last = self.embedding(x_last)
+        # lstm for last position with hidden states from batch
+        lstm_out, hidden_state = self.lstm2(emb_last.permute(1,0,2), hidden_state)
+        # Decoder and Prediction
+        dec = self.decoder(hidden_state[0].permute(1,0,2))
+        t_pred = dec + x_last
+        return t_pred,hidden_state
+
+    def forward(self, X, y, training=False):
+        # Encode the past trajectory
+        last_pos,hidden_state = self.encode(X)
 
         loss = 0
-        pred = []
-        for i, target in enumerate(y.permute(1,0,2)):
-            emb_last = self.embedding(x_last) # encoder for last position
-            lstm_out, (hn2, cn2) = self.lstm2(emb_last.permute(1,0,2), (hn1,cn1)) # lstm for last position with hidden states from batch
-
-            # Decoder and Prediction
-            dec = self.decoder(hn2.permute(1,0,2))
-            t_pred = dec + x_last
-            pred.append(t_pred)
-
+        pred_traj = []
+        # Decode the future trajectory
+        for i, target_pos in enumerate(y.permute(1,0,2)):
+            # Decode last position and hidden state into new position
+            pred_pos, hidden_state = self.decode(last_pos,hidden_state)
+            # Keep new position
+            pred_traj.append(pred_pos)
             # Calculate of loss
-            loss += self.loss_fun(t_pred, target.view(len(target), 1, -1))
-
+            loss += self.loss_fun(pred_pos, target_pos.view(len(target_pos), 1, -1))
             # Update the last position
             if training:
                 # Use teacher forcing
-                x_last = target.view(len(target), 1, -1)
+                last_pos = target.view(len(target_pos), 1, -1)
             else:
-                x_last = t_pred
-            hn1 = hn2
-            cn1 = cn2
+                # In testing, we do not have the target
+                last_pos = pred_pos
         # Concatenate the predictions and return
-        return torch.cat(pred, dim=1), loss
+        return torch.cat(pred_traj, dim=1), loss
 
     def predict(self, X, dim_pred= 1):
+        # Encode the past trajectory
+        last_pos,hidden_state = self.encode(X)
 
-        # Copy data
-        x = X
-        # Last position traj
-        x_last = X[:,-1,:].view(len(x), 1, -1)
-
-        # Layers
-        emb = self.embedding(X) # encoder for batch
-        lstm_out, (hn1, cn1) = self.lstm1(emb.permute(1,0,2)) # LSTM for batch [seq_len, batch, input_size]
-
-        loss = 0
         pred = []
+        # Decode the future trajectory
         for i in range(dim_pred):
-            emb_last = self.embedding(x_last) # encoder for last position
-            lstm_out, (hn2, cn2) = self.lstm2(emb_last.permute(1,0,2), (hn1,cn1)) # lstm for last position with hidden states from batch
-
-            # Decoder and Prediction
-            dec = self.decoder(hn2.permute(1,0,2))
-            t_pred = dec + x_last
+            # Decode last position and hidden state into new position
+            t_pred, hidden_state = self.decode(x_last,hidden_state)
+            # Keep new position
             pred.append(t_pred)
-
             # Update the last position
             x_last = t_pred
-            hn1 = hn2
-            cn1 = cn2
-
         # Concatenate the predictions and return
         return torch.cat(pred, dim=1).detach().numpy()
