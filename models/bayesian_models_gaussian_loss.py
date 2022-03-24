@@ -7,7 +7,7 @@ from bayesian_torch.layers import LSTMReparameterization
 
 import numpy as np
 
-def Gaussian2DLikelihood(outputs, targets, sigmas):
+def Gaussian2DLikelihood(means, targets, sigmas):
     '''
     Computes the likelihood of predicted locations under a bivariate Gaussian distribution
     params:
@@ -17,7 +17,7 @@ def Gaussian2DLikelihood(outputs, targets, sigmas):
     '''
 
     # Extract mean, std devs and correlation
-    mux, muy, sx, sy, corr = outputs[:, 0], outputs[:, 1], sigmas[:, 0], sigmas[:, 1], sigmas[:, 2]
+    mux, muy, sx, sy, corr = means[:, 0], means[:, 1], sigmas[:, 0], sigmas[:, 1], sigmas[:, 2]
 
     # Exponential to get a positive value for std dev
     sx = torch.exp(sx)
@@ -48,8 +48,8 @@ def Gaussian2DLikelihood(outputs, targets, sigmas):
     loss = result.sum()/np.prod(result.shape)
 
     return(loss)
-    
-    
+
+# A simple encoder-decoder network for HTP
 class lstm_encdec(nn.Module):
     def __init__(self, in_size, embedding_dim, hidden_dim, output_size):
         super(lstm_encdec, self).__init__()
@@ -60,85 +60,79 @@ class lstm_encdec(nn.Module):
         self.lstm2 = nn.LSTM(embedding_dim, hidden_dim)
         self.decoder = nn.Linear(hidden_dim, output_size + 3) # Agregamos salidas para sigmaxx, sigmayy, sigma xy
 
-    def forward(self, X, y, data_abs , target_abs, training=False):
-
-        # Copy data
-        x = X
+    # Encoding of the past trajectry
+    def encode(self, X):
         # Last position traj
-        x_last = X[:,-1,:].view(len(x), 1, -1)
+        x_last = X[:,-1,:].view(len(X), 1, -1)
+        # Embedding positions
+        emb = self.embedding(X)
+        # LSTM for batch [seq_len, batch, input_size]
+        lstm_out, hidden_state = self.lstm1(emb.permute(1,0,2))
+        return x_last,hidden_state
 
-        # Layers
-        emb = self.embedding(X) # encoder for batch
-        lstm_out, (hn1, cn1) = self.lstm1(emb.permute(1,0,2)) # LSTM for batch [seq_len, batch, input_size]
+    # Decoding the next future position
+    def decode(self, last_pos, hidden_state):
+        # Embedding last position
+        emb_last = self.embedding(last_pos)
+        # lstm for last position with hidden states from batch
+        lstm_out, hidden_state = self.lstm2(emb_last.permute(1,0,2), hidden_state)
+        # Decoder and Prediction
+        dec      = self.decoder(hidden_state[0].permute(1,0,2))
+        pred_pos = dec[:,:,:2] + last_pos
+        sigma_pos= dec[:,:,2:]
+        return pred_pos,sigma_pos,hidden_state
 
-        loss = 0
-        pred = []
-        sigma = []
-        gt = []
-        # Recorremos el numero de trayectorias predichas
-        for i, target in enumerate(y.permute(1,0,2)):
-            emb_last = self.embedding(x_last) # encoder for last position
-            lstm_out, (hn2, cn2) = self.lstm2(emb_last.permute(1,0,2), (hn1,cn1)) # lstm for last position with hidden states from batch
+    def forward(self, X, y, data_abs , target_abs, training=False):
+        # Encode the past trajectory
+        last_pos,hidden_state = self.encode(X)
 
-            # Decoder and Prediction
-            dec = self.decoder(hn2.permute(1,0,2))
-            t_pred = dec[:,:,:2] + x_last
-            pred.append(t_pred)
-            sigma.append(dec[:,:,2:])
-            gt.append(target.view(len(target), 1, -1))
+        loss       = 0
+        pred_traj  = []
+        sigma_traj = []
+
+        # Decode de future trajectories
+        for i, target_pos in enumerate(y.permute(1,0,2)):
+            # Decode last position and hidden state into new position
+            pred_pos,sigma_pos,hidden_state = self.decode(last_pos,hidden_state)
+            # Keep new position and variance
+            pred_traj.append(pred_pos)
+            sigma_traj.append(sigma_pos)
 
             # Update the last position
             if training:
-                x_last = target.view(len(target), 1, -1)
+                last_pos = target.view(len(target_pos), 1, -1)
             else:
-                x_last = t_pred
-            hn1 = hn2
-            cn1 = cn2
-
-            means = data_abs[:,-1,:] + torch.cat(pred, dim=1).sum(1)
-            loss += Gaussian2DLikelihood( means, target_abs[:,i,:], torch.cat(sigma, dim=1).sum(1))
+                last_pos = pred_pos
+            means_traj = data_abs[:,-1,:] + torch.cat(pred_traj, dim=1).sum(1)
+            loss += Gaussian2DLikelihood(means_traj, target_abs[:,i,:], torch.cat(sigma_traj, dim=1).sum(1))
 
         # Concatenate the predictions and return
         return loss
 
     def predict(self, X, dim_pred= 1):
+        # Encode the past trajectory
+        last_pos,hidden_state = self.encode(X)
 
-        # Copy data
-        x = X
-        # Last position traj
-        x_last = X[:,-1,:].view(len(x), 1, -1)
+        pred_traj  = []
+        sigma_traj = []
 
-        # Layers
-        emb = self.embedding(X) # encoder for batch
-        lstm_out, (hn1, cn1) = self.lstm1(emb.permute(1,0,2)) # LSTM for batch [seq_len, batch, input_size]
-
-        loss = 0
-        pred = []
-        sigma = []
         for i in range(dim_pred):
-            emb_last = self.embedding(x_last) # encoder for last position
-            lstm_out, (hn2, cn2) = self.lstm2(emb_last.permute(1,0,2), (hn1,cn1)) # lstm for last position with hidden states from batch
-
-            # Decoder and Prediction
-            dec = self.decoder(hn2.permute(1,0,2))
-            t_pred = dec[:,:,:2] + x_last
-            pred.append(t_pred)
-            sigma.append(dec[:,:,2:])
-
+            # Decode last position and hidden state into new position
+            pred_pos,sigma_pos,hidden_state = self.decode(last_pos,hidden_state)
+            # Keep new position and variance
+            pred_traj.append(pred_pos)
+            sigma_traj.append(sigma_pos)
             # Update the last position
-            x_last = t_pred
-            hn1 = hn2
-            cn1 = cn2
-
+            last_pos = pred_pos
         # Concatenate the predictions and return
-        return torch.cat(pred, dim=1).detach().cpu().numpy(), torch.cat(sigma, dim=1).detach().cpu().numpy()
+        return torch.cat(pred_traj, dim=1).detach().cpu().numpy(), torch.cat(sigma_traj, dim=1).detach().cpu().numpy()
 
 class lstm_encdec_MCDropout(nn.Module):
     def __init__(self, in_size, embedding_dim, hidden_dim, output_size, dropout_rate=0.0):
         super(lstm_encdec_MCDropout, self).__init__()
 
         self.dropout_rate = dropout_rate
-        
+
         # Layers
         self.embedding = nn.Linear(in_size, embedding_dim)
         self.lstm1 = nn.LSTM(embedding_dim, hidden_dim, dropout=self.dropout_rate)
