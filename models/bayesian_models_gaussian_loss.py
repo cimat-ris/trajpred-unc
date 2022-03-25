@@ -28,7 +28,7 @@ def Gaussian2DLikelihood(means, targets, sigmas):
     # Compute factors
     normx = targets[:, 0] - mux
     normy = targets[:, 1] - muy
-    sxsy = sx * sy
+    sxsy  = sx * sy
     z = torch.pow((normx/sx), 2) + torch.pow((normy/sy), 2) - 2*((corr*normx*normy)/sxsy)
     negRho = 1 - torch.pow(corr, 2)
 
@@ -42,11 +42,10 @@ def Gaussian2DLikelihood(means, targets, sigmas):
 
     # Numerical stability
     epsilon = 1e-20
+    print(result.detach().cpu().numpy())
     result = -torch.log(torch.clamp(result, min=epsilon))
-
     # Compute the loss across all frames and all nodes
     loss = result.sum()/np.prod(result.shape)
-
     return(loss)
 
 # A simple encoder-decoder network for HTP
@@ -56,15 +55,16 @@ class lstm_encdec(nn.Module):
 
         # Layers
         self.embedding = nn.Linear(in_size, embedding_dim)
-        self.lstm1 = nn.LSTM(embedding_dim, hidden_dim)
-        self.lstm2 = nn.LSTM(embedding_dim, hidden_dim)
-        self.decoder = nn.Linear(hidden_dim, output_size + 3) # Agregamos salidas para sigmaxx, sigmayy, sigma xy
+        self.lstm1     = nn.LSTM(embedding_dim, hidden_dim)
+        self.lstm2     = nn.LSTM(embedding_dim, hidden_dim)
+        # Added outputs for  sigmaxx, sigmayy, sigma xy
+        self.decoder   = nn.Linear(hidden_dim, output_size + 3)
 
     # Encoding of the past trajectry
     def encode(self, X):
         # Last position traj
         x_last = X[:,-1,:].view(len(X), 1, -1)
-        # Embedding positions
+        # Embedding positions [batch, seq_len, input_size]
         emb = self.embedding(X)
         # LSTM for batch [seq_len, batch, input_size]
         lstm_out, hidden_state = self.lstm1(emb.permute(1,0,2))
@@ -105,8 +105,7 @@ class lstm_encdec(nn.Module):
                 last_pos = pred_pos
             means_traj = data_abs[:,-1,:] + torch.cat(pred_traj, dim=1).sum(1)
             loss += Gaussian2DLikelihood(means_traj, target_abs[:,i,:], torch.cat(sigma_traj, dim=1).sum(1))
-
-        # Concatenate the predictions and return
+        # Return total loss
         return loss
 
     def predict(self, X, dim_pred= 1):
