@@ -49,14 +49,14 @@ experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
 dataset_dir   = "datasets/"
 dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
 idTest        = 2
-pickle        = False
+pickle        = True
 
 # parameters models
-num_epochs     = 20
-initial_lr     = 0.00003
-batch_size     = 64
-num_ensembles  = 5
-band_train     = False
+num_epochs     = 200
+initial_lr     = 0.001
+batch_size     = 128
+num_ensembles  = 1
+band_train     = True
 
 # Load the dataset and perform the split
 training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=pickle)
@@ -76,8 +76,8 @@ import torch.optim as optim
 # Function to train the models
 def train(model):
     # Optimizer
-    optimizer = optim.SGD(model.parameters(), lr=initial_lr)
-
+    # optimizer = optim.SGD(model.parameters(), lr=initial_lr)
+    optimizer = optim.Adam(model.parameters(),lr=initial_lr, betas=(.5, .999),weight_decay=1e-1)
     list_loss_train = []
     list_loss_val   = []
     for epoch in range(num_epochs):
@@ -105,7 +105,7 @@ def train(model):
             # Step 3. Compute the gradients, and update the parameters by
             loss.backward()
             optimizer.step()
-        print("Trn loss: ", error/total)
+        print("Trn loss: ", error.detach().cpu().numpy()/total)
         list_loss_train.append(error.detach().cpu().numpy()/total)
 
         # Validation
@@ -123,7 +123,7 @@ def train(model):
             error += loss_val
             total += len(target_val)
 
-        print("Val loss: ", error/total)
+        print("Val loss: ", error.detach().cpu().numpy()/total)
         list_loss_val.append(error.detach().cpu().numpy()/total)
 
     # Visualizamos los errores
@@ -195,7 +195,7 @@ for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumera
               datarel_test  = datarel_test.to(device)
 
         pred, sigmas = model.predict(datarel_test, dim_pred=12)
-
+        print(sigmas)
         # ploting
         plot_traj(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], test_homography, bck)
     plt.legend()
