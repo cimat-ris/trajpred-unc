@@ -7,43 +7,47 @@ from bayesian_torch.layers import LSTMReparameterization
 
 import numpy as np
 
-def Gaussian2DLikelihood(means, targets, sigmas):
+def Gaussian2DLikelihood(targets, means, sigmas):
     '''
     Computes the likelihood of predicted locations under a bivariate Gaussian distribution
     params:
-    outputs: Torch variable containing tensor of shape [128, 12, 2]
-    targets: Torch variable containing tensor of shape [128, 12, 2]
-    sigmas:  Torch variable containing tensor of shape [128, 12, 3]
+    targets: Torch variable containing tensor of shape [nbatch, 12, 2]
+    means: Torch variable containing tensor of shape [nbatch, 12, 2]
+    sigmas:  Torch variable containing tensor of shape [nbatch, 12, 3]
     '''
-
     # Extract mean, std devs and correlation
-    mux, muy, sx, sy, corr = means[:, 0], means[:, 1], sigmas[:, 0], sigmas[:, 1], sigmas[:, 2]
-
-    # Exponential to get a positive value for std dev
-    sx = torch.exp(sx)
-    sy = torch.exp(sy)
+    mux, muy, sx, sy, corr = means[:, 0], means[:, 1], sigmas[:, :, 0], sigmas[:,:,1], sigmas[:,:,2]
+    # Exponential to get a positive value for std. deviations
+    sx   = torch.exp(sx)+1e-6
+    sy   = torch.exp(sy)+1e-6
     # tanh to get a value between [-1, 1] for correlation
-    corr = torch.tanh(corr)
+    # corr = torch.tanh(corr)
+    # Covariance
+    # cov  = sx*sy*corr
+    # Variances and covariances are summed along time.
+    sx   = sx.sum(1)
+    sy   = sy.sum(1)
 
+    # sxsy = torch.sqrt(sx*sy)
+    # cov  = cov.sum(1)
+    # corr = cov/sxsy
     # Compute factors
-    normx = targets[:, 0] - mux
-    normy = targets[:, 1] - muy
-    sxsy  = sx * sy
-    z = torch.pow((normx/sx), 2) + torch.pow((normy/sy), 2) - 2*((corr*normx*normy)/sxsy)
-    negRho = 1 - torch.pow(corr, 2)
+    normx= targets[:, 0] - mux
+    normy= targets[:, 1] - muy
+    z    = torch.pow(normx,2)/sx + torch.pow(normy,2)/sy
+    result = 0.5*(z+torch.log(sx)+torch.log(sy))
+    # - 2*((corr*normx*normy)/sxsy)
+    # negRho = 1 - torch.pow(corr,2)
 
     # Numerator
-    result = torch.exp(-z/(2*negRho))
+    # result = torch.exp(-z/2)
     # Normalization factor
-    denom = 2 * np.pi * (sxsy * torch.sqrt(negRho))
-
+    # denom = 2 * np.pi * (sxsy )
     # Final PDF calculation
-    result = result / denom
-
+    # result = result / denom
     # Numerical stability
-    epsilon = 1e-20
-    print(result.detach().cpu().numpy())
-    result = -torch.log(torch.clamp(result, min=epsilon))
+    # epsilon = 1e-20
+    # result = -torch.log(torch.clamp(result, min=epsilon))
     # Compute the loss across all frames and all nodes
     loss = result.sum()/np.prod(result.shape)
     return(loss)
@@ -97,14 +101,13 @@ class lstm_encdec(nn.Module):
             # Keep new position and variance
             pred_traj.append(pred_pos)
             sigma_traj.append(sigma_pos)
-
             # Update the last position
             if training:
                 last_pos = target.view(len(target_pos), 1, -1)
             else:
                 last_pos = pred_pos
             means_traj = data_abs[:,-1,:] + torch.cat(pred_traj, dim=1).sum(1)
-            loss += Gaussian2DLikelihood(means_traj, target_abs[:,i,:], torch.cat(sigma_traj, dim=1).sum(1))
+            loss += Gaussian2DLikelihood(target_abs[:,i,:], means_traj, torch.cat(sigma_traj, dim=1))
         # Return total loss
         return loss
 
@@ -180,7 +183,7 @@ class lstm_encdec_MCDropout(nn.Module):
             cn1 = cn2
 
             means = data_abs[:,-1,:] + torch.cat(pred, dim=1).sum(1)
-            loss += Gaussian2DLikelihood( means, target_abs[:,i,:], torch.cat(sigma, dim=1).sum(1))
+            loss += Gaussian2DLikelihood(target_abs[:,i,:], means, torch.cat(sigma, dim=1).sum(1))
 
         # Concatenate the predictions and return
         return loss
@@ -316,7 +319,7 @@ class lstm_encdec_variational(nn.Module):
 
                 # Utilizamos la nueva funcion loss
                 means = data_abs[:,-1,:] + torch.cat(pred, dim=1).sum(1)
-                loss += Gaussian2DLikelihood( means, target_abs[:,i,:], torch.cat(sigma, dim=1).sum(1))
+                loss += Gaussian2DLikelihood(target_abs[:,i,:], means, torch.cat(sigma, dim=1).sum(1))
 
             # Concatenate the trajectories preds
             pred = torch.cat(pred, dim=1)
