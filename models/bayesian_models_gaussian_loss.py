@@ -18,8 +18,8 @@ def Gaussian2DLikelihood(targets, means, sigmas):
     # Extract mean, std devs and correlation
     mux, muy, sx, sy, corr = means[:, 0], means[:, 1], sigmas[:, :, 0], sigmas[:,:,1], sigmas[:,:,2]
     # Exponential to get a positive value for std. deviations
-    sx   = torch.exp(sx)+1e-6
-    sy   = torch.exp(sy)+1e-6
+    sx   = torch.exp(sx)+1e-2
+    sy   = torch.exp(sy)+1e-2
     # tanh to get a value between [-1, 1] for correlation
     # corr = torch.tanh(corr)
     # Covariance
@@ -49,7 +49,7 @@ def Gaussian2DLikelihood(targets, means, sigmas):
     # epsilon = 1e-20
     # result = -torch.log(torch.clamp(result, min=epsilon))
     # Compute the loss across all frames and all nodes
-    loss = result.sum()/np.prod(result.shape)
+    loss = result.sum()
     return(loss)
 
 # A simple encoder-decoder network for HTP

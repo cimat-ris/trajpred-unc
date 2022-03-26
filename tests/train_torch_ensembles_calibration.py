@@ -52,9 +52,9 @@ idTest        = 2
 pickle        = True
 
 # parameters models
-num_epochs     = 200
-initial_lr     = 0.001
-batch_size     = 128
+num_epochs     = 250
+initial_lr     = 0.0004
+batch_size     = 512
 num_ensembles  = 1
 band_train     = True
 
@@ -74,12 +74,13 @@ batched_test_data  = torch.utils.data.DataLoader( test_data, batch_size = batch_
 import torch.optim as optim
 
 # Function to train the models
-def train(model):
+def train(model,ind,idTest):
     # Optimizer
     # optimizer = optim.SGD(model.parameters(), lr=initial_lr)
-    optimizer = optim.Adam(model.parameters(),lr=initial_lr, betas=(.5, .999),weight_decay=1e-1)
+    optimizer = optim.Adam(model.parameters(),lr=initial_lr, betas=(.5, .999),weight_decay=0.8)
     list_loss_train = []
     list_loss_val   = []
+    min_loss_val    = 1000.0
     for epoch in range(num_epochs):
         # Training
         print("----- ")
@@ -125,6 +126,11 @@ def train(model):
 
         print("Val loss: ", error.detach().cpu().numpy()/total)
         list_loss_val.append(error.detach().cpu().numpy()/total)
+        if error.detach().cpu().numpy()/total<min_loss_val:
+            min_loss_val = error.detach().cpu().numpy()/total
+            # Guardamos el Modelo
+            print("Saving model")
+            torch.save(model.state_dict(), "training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth")
 
     # Visualizamos los errores
     plt.figure(figsize=(12,12))
@@ -156,13 +162,10 @@ if band_train:
 
         # Entremamos el modelo
         print("\n*** Training for seed: ", seed, "\t\t ", ind, "/",len(seeds))
-        train(model)
+        train(model,ind,idTest)
 
         plt.savefig("images/loss_"+str(ind)+"_"+str(idTest)+".pdf")
         plt.show()
-
-        # Guardamos el Modelo
-        torch.save(model.state_dict(), "training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth")
 
 
 # Instanciamos el modelo
