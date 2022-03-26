@@ -123,9 +123,15 @@ class lstm_encdec(nn.Module):
             pred_pos,sigma_pos,hidden_state = self.decode(last_pos,hidden_state)
             # Keep new position and variance
             pred_traj.append(pred_pos)
+            # Convert sigma_pos into real variances
+            sigma_pos[:,:,0]   = torch.exp(sigma_pos[:,:,0])+1e-2
+            sigma_pos[:,:,1]   = torch.exp(sigma_pos[:,:,1])+1e-2
+            sigma_pos          = torch.cumsum(sigma_pos, dim=1)
+            print(sigma_pos)
             sigma_traj.append(sigma_pos)
             # Update the last position
             last_pos = pred_pos
+
         # Concatenate the predictions and return
         return torch.cat(pred_traj, dim=1).detach().cpu().numpy(), torch.cat(sigma_traj, dim=1).detach().cpu().numpy()
 
@@ -137,12 +143,9 @@ class lstm_encdec_MCDropout(nn.Module):
 
         # Layers
         self.embedding = nn.Linear(in_size, embedding_dim)
-        self.lstm1 = nn.LSTM(embedding_dim, hidden_dim, dropout=self.dropout_rate)
-        self.lstm2 = nn.LSTM(embedding_dim, hidden_dim, dropout=self.dropout_rate)
-        self.decoder = nn.Linear(hidden_dim, output_size+3)
-
-        #self.loss_fun = nn.CrossEntropyLoss()
-        #self.loss_fun = nn.MSELoss()
+        self.lstm1     = nn.LSTM(embedding_dim, hidden_dim, dropout=self.dropout_rate)
+        self.lstm2     = nn.LSTM(embedding_dim, hidden_dim, dropout=self.dropout_rate)
+        self.decoder   = nn.Linear(hidden_dim, output_size+3)
 
     def forward(self, X, y, data_abs , target_abs, training=False):
 
