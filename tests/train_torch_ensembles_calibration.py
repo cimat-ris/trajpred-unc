@@ -34,14 +34,33 @@ from utils.plot_utils import plot_traj
 from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 
-logging.basicConfig(format='%(levelname)s: %(message)s',level=20)
+# Parser arguments
+parser = argparse.ArgumentParser(description='')
+parser.add_argument('--batch-size', '--b',
+                    type=int, default=256, metavar='N',
+                    help='input batch size for training (default: 256)')
+parser.add_argument('--epochs', '--e',
+                    type=int, default=250, metavar='N',
+                    help='number of epochs to train (default: 2)')
+parser.add_argument('--learning-rate', '--lr',
+                    type=float, default=0.0004, metavar='N',
+                    help='learning rate of optimizer (default: 1E-3)')
+parser.add_argument('--no-retrain',
+                    action='store_true',
+                    help='do not retrain the model')
+parser.add_argument('--pickle',
+                    action='store_true',
+                    help='use previously made pickle files')
+parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
+parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
+args = parser.parse_args()
+
+
+
+logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
 # GPU
 if torch.cuda.is_available():
     logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
-
-
-# In[3]:
-
 
 # Load the default parameters
 experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
@@ -52,14 +71,10 @@ idTest        = 2
 pickle        = True
 
 # parameters models
-num_epochs     = 250
-initial_lr     = 0.0004
-batch_size     = 512
 num_ensembles  = 1
-band_train     = True
 
 # Load the dataset and perform the split
-training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=pickle)
+training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
 
 # Torch dataset
 train_data = traj_dataset(training_data['obs_traj_rel'], training_data['pred_traj_rel'],training_data['obs_traj'], training_data['pred_traj'])
@@ -67,9 +82,9 @@ val_data   = traj_dataset(validation_data['obs_traj_rel'], validation_data['pred
 test_data  = traj_dataset(test_data['obs_traj_rel'], test_data['pred_traj_rel'], test_data['obs_traj'], test_data['pred_traj'])
 
 # Form batches
-batched_train_data = torch.utils.data.DataLoader( train_data, batch_size = batch_size, shuffle=False)
-batched_val_data   = torch.utils.data.DataLoader( val_data, batch_size = batch_size, shuffle=False)
-batched_test_data  = torch.utils.data.DataLoader( test_data, batch_size = batch_size, shuffle=False)
+batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
+batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
+batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
 
 import torch.optim as optim
 
@@ -77,11 +92,11 @@ import torch.optim as optim
 def train(model,ind,idTest):
     # Optimizer
     # optimizer = optim.SGD(model.parameters(), lr=initial_lr)
-    optimizer = optim.Adam(model.parameters(),lr=initial_lr, betas=(.5, .999),weight_decay=0.8)
+    optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.8)
     list_loss_train = []
     list_loss_val   = []
-    min_loss_val    = 1000.0
-    for epoch in range(num_epochs):
+    min_val_error   = 1000.0
+    for epoch in range(args.epochs):
         # Training
         print("----- ")
         print("Epoch: ", epoch)
@@ -123,12 +138,12 @@ def train(model,ind,idTest):
             loss_val = model(data_val, target_val, data_abs , target_abs)
             error += loss_val
             total += len(target_val)
-
-        print("Val loss: ", error.detach().cpu().numpy()/total)
-        list_loss_val.append(error.detach().cpu().numpy()/total)
-        if error.detach().cpu().numpy()/total<min_loss_val:
-            min_loss_val = error.detach().cpu().numpy()/total
-            # Guardamos el Modelo
+        error = error.detach().cpu().numpy()/total
+        print("Val loss: ", error)
+        list_loss_val.append(error)
+        if error<min_val_error:
+            min_val_error = error
+            # Keep the model
             print("Saving model")
             torch.save(model.state_dict(), "training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth")
 
@@ -149,7 +164,7 @@ print("Seeds: ", seeds)
 
 
 
-if band_train:
+if args.no_retrain==False:
     # Entrenamos el modelo para cada semilla
     for ind, seed in enumerate(seeds):
         # Agregamos la semilla
