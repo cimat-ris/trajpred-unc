@@ -126,13 +126,14 @@ class lstm_encdec(nn.Module):
             # Convert sigma_pos into real variances
             sigma_pos[:,:,0]   = torch.exp(sigma_pos[:,:,0])+1e-2
             sigma_pos[:,:,1]   = torch.exp(sigma_pos[:,:,1])+1e-2
-            sigma_pos          = torch.cumsum(sigma_pos, dim=1)
             sigma_traj.append(sigma_pos)
             # Update the last position
             last_pos = pred_pos
 
         # Concatenate the predictions and return
-        return torch.cat(pred_traj, dim=1).detach().cpu().numpy(), torch.cat(sigma_traj, dim=1).detach().cpu().numpy()
+        pred_traj = torch.cumsum(torch.cat(pred_traj, dim=1), dim=1).detach().cpu().numpy()
+        sigma_traj= torch.cumsum(torch.cat(sigma_traj, dim=1), dim=1).detach().cpu().numpy()
+        return pred_traj,sigma_traj
 
 class lstm_encdec_MCDropout(nn.Module):
     def __init__(self, in_size, embedding_dim, hidden_dim, output_size, dropout_rate=0.0):

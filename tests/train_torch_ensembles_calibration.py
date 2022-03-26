@@ -30,9 +30,11 @@ import torch.optim as optim
 # Local models
 from models.bayesian_models_gaussian_loss import lstm_encdec
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
-from utils.plot_utils import plot_traj
+from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
+import torch.optim as optim
+
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -56,8 +58,6 @@ parser.add_argument('--log-file',default='',help='Log file (default: standard ou
 args = parser.parse_args()
 
 
-
-import torch.optim as optim
 
 # Function to train the models
 def train(model,device,ind,idTest,train_data,val_data):
@@ -190,21 +190,16 @@ def main():
     model.to(device)
 
 
-    ind_sample = 1
+    ind_sample = 3
     bck = plt.imread(os.path.join(dataset_dir,dataset_names[idTest],'reference.png'))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
+        fig, ax = plt.subplots(1,1,figsize=(12,12))
 
-        plt.figure(figsize=(12,12))
-        plt.imshow(bck)
-
-        param_gaussiana = []
-
-        # prediction
+        # For each element of the ensemble
         for ind in range(num_ensembles):
-
-            # Cargamos el Modelo
+            # Load the previously trained model
             model.load_state_dict(torch.load("training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth"))
             model.eval()
 
@@ -212,9 +207,11 @@ def main():
                   datarel_test  = datarel_test.to(device)
 
             pred, sigmas = model.predict(datarel_test, dim_pred=12)
-            print(sigmas)
-            # ploting
-            plot_traj(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], test_homography, bck)
+            # Plotting
+            # plot_traj_img(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], test_homography, bck, ax)
+            # Plotting
+            plot_traj_world(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],ax)
+            plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:],ax)
         plt.legend()
         plt.title('Trajectory samples')
         plt.show()

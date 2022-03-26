@@ -9,8 +9,8 @@ from sklearn.isotonic import IsotonicRegression
 from shapely.geometry import Polygon, LineString
 from shapely.ops import polygonize, unary_union
 
-from utils.plot_utils import plot_traj2
-    
+from utils.plot_utils import plot_traj_world
+
 def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, resample_size=0 , display=False, idTest=0):
 
     # Estimamos la gaussiana con los parametros que salen del modelo
@@ -41,7 +41,7 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
         if display:
             label4, = plt.plot(mean[0], mean[1], "*", color="red", label = "Means from Gaussian Mix")
             label1, label2, label3 = plot_traj2(pred[ind_ensemble,i,:,:], data_test[i,:,:], target_test[i,:,:])
-    
+
     param_gaussiana.append([mean,cov])
 
     # Construimos la gaussiana de la mezcla
@@ -89,13 +89,13 @@ def calibration(tpred_samples, data_test, target_test, sigmas_samples, position 
 
         # Evaluamos la muestra en la pdf
         sample_pdf = kde.pdf(sample_kde)
-        
+
         # Ordenamos de forma descendente las muestras de pdf
         sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
         orden = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
 
         #----------------------------------------------------------
-        
+
 
         # Evaluamos el Ground Truth (ultima posicion) en la distribucion
         f_pdf = kde.pdf(gt)
@@ -123,7 +123,7 @@ def calibration(tpred_samples, data_test, target_test, sigmas_samples, position 
 
     plt.savefig("images/plot_uncalibrate_"+str(idTest)+".pdf")
     plt.show()
-    
+
     #-----------------
 
     # fit the isotonic regression
@@ -169,7 +169,7 @@ def calibration(tpred_samples, data_test, target_test, sigmas_samples, position 
 
             # Evaluamos la muestra en la pdf
             sample_pdf = kde.pdf(sample_kde)
-            
+
             # Ordenamos de forma descendente las muestras de pdf
             sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
             orden = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
@@ -260,7 +260,7 @@ def miscalibration_area(
     miscalibration_area = np.asarray(polygon_area_list).sum()
 
     return miscalibration_area
-  
+
 def mean_absolute_calibration_error(
      exp_proportions: np.ndarray,
      obs_proportions: np.ndarray
@@ -276,7 +276,7 @@ def mean_absolute_calibration_error(
     mace = np.mean(abs_diff_proportions)
 
     return mace
-  
+
 def root_mean_squared_calibration_error(
      exp_proportions: np.ndarray,
      obs_proportions: np.ndarray
