@@ -40,7 +40,7 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
 
         if display:
             label4, = plt.plot(mean[0], mean[1], "*", color="red", label = "Means from Gaussian Mix")
-            label1, label2, label3 = plot_traj2(pred[ind_ensemble,i,:,:], data_test[i,:,:], target_test[i,:,:])
+            label1, label2, label3 = plot_traj_world(pred[ind_ensemble,i,:,:], data_test[i,:,:], target_test[i,:,:])
 
     param_gaussiana.append([mean,cov])
 

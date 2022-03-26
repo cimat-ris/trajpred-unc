@@ -71,7 +71,8 @@ def plot_cov_world(pred_traj,cov_traj,obs_traj_gt,ax=None):
     # Convert it to absolute (starting from the last observed position)
     this_pred_out_abs = pred_traj + np.array([obs_traj_gt[-1].numpy()])
     length            = this_pred_out_abs.shape[0]
-    for pos in range(0,length,2):
+    for pos in range(1,length,2):
+        ax.plot(this_pred_out_abs[pos,0],this_pred_out_abs[pos,1],'go')
         draw_covariance_ellipse(this_pred_out_abs[pos],cov_traj[pos], ax, "Green")
 
 # Plot trajectories in the image frame

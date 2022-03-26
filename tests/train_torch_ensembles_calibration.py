@@ -190,7 +190,7 @@ def main():
     model.to(device)
 
 
-    ind_sample = 3
+    ind_sample = np.random.randint(args.batch_size)
     bck = plt.imread(os.path.join(dataset_dir,dataset_names[idTest],'reference.png'))
 
     # Testing
