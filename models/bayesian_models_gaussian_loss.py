@@ -127,7 +127,6 @@ class lstm_encdec(nn.Module):
             sigma_pos[:,:,0]   = torch.exp(sigma_pos[:,:,0])+1e-2
             sigma_pos[:,:,1]   = torch.exp(sigma_pos[:,:,1])+1e-2
             sigma_pos          = torch.cumsum(sigma_pos, dim=1)
-            print(sigma_pos)
             sigma_traj.append(sigma_pos)
             # Update the last position
             last_pos = pred_pos
