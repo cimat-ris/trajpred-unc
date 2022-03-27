@@ -42,8 +42,11 @@ parser.add_argument('--batch-size', '--b',
                     type=int, default=256, metavar='N',
                     help='input batch size for training (default: 256)')
 parser.add_argument('--epochs', '--e',
-                    type=int, default=250, metavar='N',
-                    help='number of epochs to train (default: 2)')
+                    type=int, default=200, metavar='N',
+                    help='number of epochs to train (default: 200)')
+parser.add_argument('--num-ensembles',
+                    type=int, default=5, metavar='N',
+                    help='number of elements in the ensemble (default: 5)')
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
@@ -53,6 +56,9 @@ parser.add_argument('--no-retrain',
 parser.add_argument('--pickle',
                     action='store_true',
                     help='use previously made pickle files')
+parser.add_argument('--plot-losses',
+                    action='store_true',
+                    help='plot losses curves after training')
 parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
 args = parser.parse_args()
@@ -145,9 +151,6 @@ def main():
     idTest        = 2
     pickle        = True
 
-    # parameters models
-    num_ensembles  = 1
-
     # Load the dataset and perform the split
     training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
 
@@ -161,7 +164,7 @@ def main():
     batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
     # Seleccionamos de forma aleatorea las semillas
-    seeds = np.random.choice(99999999, num_ensembles , replace=False)
+    seeds = np.random.choice(99999999, args.num_ensembles , replace=False)
     print("Seeds: ", seeds)
 
 
@@ -180,10 +183,9 @@ def main():
             # Entremamos el modelo
             print("\n*** Training for seed: ", seed, "\t\t ", ind, "/",len(seeds))
             train(model,device,ind,idTest,batched_train_data,batched_val_data)
-
-            plt.savefig("images/loss_"+str(ind)+"_"+str(idTest)+".pdf")
-            plt.show()
-
+            if args.plot_losses:
+                plt.savefig("images/loss_"+str(ind)+"_"+str(idTest)+".pdf")
+                plt.show()
 
     # Instanciamos el modelo
     model = lstm_encdec(2,128,256,2)
@@ -198,7 +200,7 @@ def main():
         fig, ax = plt.subplots(1,1,figsize=(12,12))
 
         # For each element of the ensemble
-        for ind in range(num_ensembles):
+        for ind in range(args.num_ensembles):
             # Load the previously trained model
             model.load_state_dict(torch.load("training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth"))
             model.eval()
@@ -207,8 +209,6 @@ def main():
                   datarel_test  = datarel_test.to(device)
 
             pred, sigmas = model.predict(datarel_test, dim_pred=12)
-            # Plotting
-            # plot_traj_img(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], test_homography, bck, ax)
             # Plotting
             plot_traj_world(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],ax)
             plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:],ax)
