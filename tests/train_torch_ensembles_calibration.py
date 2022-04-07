@@ -229,7 +229,7 @@ def main():
         tpred_samples = []
         sigmas_samples = []
         # Muestreamos con cada modelo
-        for ind in range(num_ensembles):
+        for ind in range(args.num_ensembles):
 
             # Cargamos el Modelo
             model.load_state_dict(torch.load("training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth"))
