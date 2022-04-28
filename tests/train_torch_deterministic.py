@@ -30,7 +30,7 @@ import torch.optim as optim
 # Local models
 from models.lstm_encdec import lstm_encdec
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
-from utils.plot_utils import plot_traj
+from utils.plot_utils import plot_traj_img
 
 
 # In[2]:
@@ -216,7 +216,7 @@ for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumera
     # ploting
     plt.figure(figsize=(12,12))
     plt.imshow(bck)
-    plot_traj(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], test_homography, bck)
+    plot_traj_img(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], test_homography, bck)
     plt.legend()
     plt.title('Trajectory samples')
     plt.show()
