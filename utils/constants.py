@@ -10,4 +10,4 @@ TEST_DATA_STR  = '/test_data_'
 VAL_DATA_STR   = '/validation_data_'
 
 # Training checkpoints dir
-TRAINING_CKPT_DIR = '../training_checkpoints'
+TRAINING_CKPT_DIR = 'training_checkpoints'

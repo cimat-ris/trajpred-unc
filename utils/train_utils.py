@@ -6,7 +6,7 @@
 
 # Cargamos las librerias
 import time
-import sys,os,logging, argparse
+import sys,os,logging,argparse
 sys.path.append('.')
 import math,numpy as np
 import matplotlib as mpl
@@ -24,9 +24,11 @@ from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, tr
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 import torch.optim as optim
 
+# Local constants
+from utils.constants import TRAINING_CKPT_DIR
 
 # Function to train the models
-def train(model,device,ind,idTest,train_data,val_data,args):
+def train(model,device,ind,train_data,val_data,args,model_name):
     # Optimizer
     # optimizer = optim.SGD(model.parameters(), lr=initial_lr)
     optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.8)
@@ -82,12 +84,13 @@ def train(model,device,ind,idTest,train_data,val_data,args):
             min_val_error = error
             # Keep the model
             print("Saving model")
-            torch.save(model.state_dict(), "training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth")
+            torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth")
 
     # Visualizamos los errores
-    plt.figure(figsize=(12,12))
-    plt.plot(list_loss_train, label="loss train")
-    plt.plot(list_loss_val, label="loss val")
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-    plt.legend()
+    if args.plot_losses:
+        plt.figure(figsize=(12,12))
+        plt.plot(list_loss_train, label="loss train")
+        plt.plot(list_loss_val, label="loss val")
+        plt.xlabel("Epochs")
+        plt.ylabel("Loss")
+        plt.legend()
