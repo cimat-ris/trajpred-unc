@@ -52,7 +52,7 @@ class lstm_encdec(nn.Module):
             # Update the last position
             if training:
                 # Use teacher forcing
-                last_pos = target.view(len(target_pos), 1, -1)
+                last_pos = target_pos.view(len(target_pos), 1, -1)
             else:
                 # In testing, we do not have the target
                 last_pos = pred_pos
@@ -63,6 +63,7 @@ class lstm_encdec(nn.Module):
         # Encode the past trajectory
         last_pos,hidden_state = self.encode(X)
 
+        x_last = last_pos
         pred = []
         # Decode the future trajectory
         for i in range(dim_pred):

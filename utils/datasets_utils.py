@@ -7,6 +7,7 @@ import cv2
 import tensorflow as tf
 import torch
 from torch.utils.data import Dataset
+from utils.constants import TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR
 
 from utils.process_file import prepare_data
 import logging
@@ -382,28 +383,28 @@ def setup_loo_experiment_synthec(experiment_name,ds_path,ds_names,leave_id,exper
             validation_data["obs_optical_flow"]=train_data["obs_optical_flow"][idx_val]
 
         # Training dataset
-        pickle_out = open(pickle_dir+'/training_data_'+experiment_name+'.pickle',"wb")
+        pickle_out = open(pickle_dir+TRAIN_DATA_STR+experiment_name+'.pickle',"wb")
         pickle.dump(training_data, pickle_out, protocol=2)
         pickle_out.close()
 
         # Test dataset
-        pickle_out = open(pickle_dir+'/test_data_'+experiment_name+'.pickle',"wb")
+        pickle_out = open(pickle_dir+TEST_DATA_STR+experiment_name+'.pickle',"wb")
         pickle.dump(test_data, pickle_out, protocol=2)
         pickle_out.close()
 
         # Validation dataset
-        pickle_out = open(pickle_dir+'/validation_data_'+experiment_name+'.pickle',"wb")
+        pickle_out = open(pickle_dir+VAL_DATA_STR+experiment_name+'.pickle',"wb")
         pickle.dump(validation_data, pickle_out, protocol=2)
         pickle_out.close()
     else:
         print("dentro del else....")
         # Unpickle the ready-to-use datasets
         print("[INF] Unpickling...")
-        pickle_in = open(pickle_dir+'/training_data_'+experiment_name+'.pickle',"rb")
+        pickle_in = open(pickle_dir+TRAIN_DATA_STR+experiment_name+'.pickle',"rb")
         training_data = pickle.load(pickle_in)
-        pickle_in = open(pickle_dir+'/test_data_'+experiment_name+'.pickle',"rb")
+        pickle_in = open(pickle_dir+TEST_DATA_STR+experiment_name+'.pickle',"rb")
         test_data = pickle.load(pickle_in)
-        pickle_in = open(pickle_dir+'/validation_data_'+experiment_name+'.pickle',"rb")
+        pickle_in = open(pickle_dir+VAL_DATA_STR+experiment_name+'.pickle',"rb")
         validation_data = pickle.load(pickle_in)
 
     print("[INF] Training data: "+ str(len(training_data[list(training_data.keys())[0]])))
@@ -468,27 +469,27 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
 #            "obs_optical_flow": train_data["obs_optical_flow"][idx_val]
         }
         # Training dataset
-        pickle_out = open(pickle_dir+'/training_data_'+experiment_name+'.pickle',"wb")
+        pickle_out = open(pickle_dir+TRAIN_DATA_STR+experiment_name+'.pickle',"wb")
         pickle.dump(training_data, pickle_out, protocol=2)
         pickle_out.close()
 
         # Test dataset
-        pickle_out = open(pickle_dir+'/test_data_'+experiment_name+'.pickle',"wb")
+        pickle_out = open(pickle_dir+TEST_DATA_STR+experiment_name+'.pickle',"wb")
         pickle.dump(test_data, pickle_out, protocol=2)
         pickle_out.close()
 
         # Validation dataset
-        pickle_out = open(pickle_dir+'/validation_data_'+experiment_name+'.pickle',"wb")
+        pickle_out = open(pickle_dir+VAL_DATA_STR+experiment_name+'.pickle',"wb")
         pickle.dump(validation_data, pickle_out, protocol=2)
         pickle_out.close()
     else:
         # Unpickle the ready-to-use datasets
         logging.info("Unpickling...")
-        pickle_in = open(pickle_dir+'/training_data_'+experiment_name+'.pickle',"rb")
+        pickle_in = open(pickle_dir+TRAIN_DATA_STR+experiment_name+'.pickle',"rb")
         training_data = pickle.load(pickle_in)
-        pickle_in = open(pickle_dir+'/test_data_'+experiment_name+'.pickle',"rb")
+        pickle_in = open(pickle_dir+TEST_DATA_STR+experiment_name+'.pickle',"rb")
         test_data = pickle.load(pickle_in)
-        pickle_in = open(pickle_dir+'/validation_data_'+experiment_name+'.pickle',"rb")
+        pickle_in = open(pickle_dir+VAL_DATA_STR+experiment_name+'.pickle',"rb")
         validation_data = pickle.load(pickle_in)
 
     logging.info("Training data: "+ str(len(training_data[list(training_data.keys())[0]])))
