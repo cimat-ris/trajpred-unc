@@ -32,6 +32,9 @@ from models.lstm_encdec import lstm_encdec
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.plot_utils import plot_traj_img
 
+# Local constants
+from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR
+
 
 # In[2]:
 
@@ -59,6 +62,7 @@ initial_lr     = 0.0003
 batch_size     = 64
 
 band_train = True
+model_name = 'model_deterministic'
 
 
 # In[4]:
@@ -72,9 +76,9 @@ training_data, validation_data, test_data, test_homography = setup_loo_experimen
 
 
 # Creamos el dataset para torch
-train_data = traj_dataset(training_data['obs_traj_rel'], training_data['pred_traj_rel'],training_data['obs_traj'], training_data['pred_traj'])
-val_data = traj_dataset(validation_data['obs_traj_rel'], validation_data['pred_traj_rel'],validation_data['obs_traj'], validation_data['pred_traj'])
-test_data = traj_dataset(test_data['obs_traj_rel'], test_data['pred_traj_rel'], test_data['obs_traj'], test_data['pred_traj'])
+train_data = traj_dataset(training_data[OBS_TRAJ_REL ], training_data[PRED_TRAJ_REL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
+val_data = traj_dataset(validation_data[OBS_TRAJ_REL ], validation_data[PRED_TRAJ_REL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
+test_data = traj_dataset(test_data[OBS_TRAJ_REL ], test_data[PRED_TRAJ_REL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
 
 
 # In[6]:
@@ -182,7 +186,7 @@ if band_train:
     plt.show()
 
     # Guardamos el Modelo
-    torch.save(model.state_dict(), "../training_checkpoints/model_deterministic_"+str(idTest)+".pth")
+    torch.save(model.state_dict(), os.path.join(TRAINING_CKPT_DIR, model_name+"_"+str(idTest)+".pth"))
         
 
 
@@ -193,7 +197,7 @@ if band_train:
 
 # Instanciamos el modelo
 model = lstm_encdec(2,128,256,2)
-model.load_state_dict(torch.load("../training_checkpoints/model_deterministic_"+str(idTest)+".pth"))
+model.load_state_dict(torch.load(os.path.join(TRAINING_CKPT_DIR, model_name+"_"+str(idTest)+".pth")))
 model.to(device)
 model.eval()
 
