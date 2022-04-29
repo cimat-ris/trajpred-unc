@@ -61,9 +61,7 @@ class lstm_encdec(nn.Module):
 
     def predict(self, X, dim_pred= 1):
         # Encode the past trajectory
-        last_pos,hidden_state = self.encode(X)
-
-        x_last = last_pos
+        x_last,hidden_state = self.encode(X)
         pred = []
         # Decode the future trajectory
         for i in range(dim_pred):
@@ -74,4 +72,4 @@ class lstm_encdec(nn.Module):
             # Update the last position
             x_last = t_pred
         # Concatenate the predictions and return
-        return torch.cat(pred, dim=1).detach().numpy()
+        return torch.cat(pred, dim=1).detach().cpu().numpy()
