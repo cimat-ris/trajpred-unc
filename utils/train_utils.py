@@ -94,3 +94,5 @@ def train(model,device,ind,train_data,val_data,args,model_name):
         plt.xlabel("Epochs")
         plt.ylabel("Loss")
         plt.legend()
+        plt.savefig("images/loss_"+model_name+"/"+str(ind)+"_"+str(args.id_test)+".pdf")
+        plt.show()
