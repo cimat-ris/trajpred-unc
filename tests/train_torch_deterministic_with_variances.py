@@ -82,7 +82,6 @@ def main():
 
     dataset_dir   = "datasets/"
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
-    pickle        = False
     model_name    = "deterministic_variances"
     # Load the dataset and perform the split
     training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
@@ -109,14 +108,13 @@ def main():
         model.to(device)
 
         # Entremamos el modelo
-        print("\n*** Training for seed: ", seed, "\t\t ")
         train(model,device,0,batched_train_data,batched_val_data,args,model_name)
-        if args.plot_losses:
-            plt.savefig("images/loss_"+str(args.id_test)+".pdf")
-            plt.show()
 
     # Instanciamos el modelo
     model = lstm_encdec(2,128,256,2)
+    # Load the previously trained model
+    model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"))
+    model.eval()
     model.to(device)
 
 
@@ -126,10 +124,6 @@ def main():
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
         fig, ax = plt.subplots(1,1,figsize=(12,12))
-
-        # Load the previously trained model
-        model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"))
-        model.eval()
 
         if torch.cuda.is_available():
             datarel_test  = datarel_test.to(device)
