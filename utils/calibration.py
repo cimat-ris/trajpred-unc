@@ -30,16 +30,19 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
         # Exponential to get a positive value for std dev
         #sx = np.exp(sx)
         #sy = np.exp(sy)
-        sx   = np.exp(sx)+1e-2
-        sy   = np.exp(sy)+1e-2
-        sx   = np.cumsum(sx)[position]
-        sy   = np.cumsum(sy)[position]
+        #sx   = np.exp(sx)+1e-2
+        #sy   = np.exp(sy)+1e-2
+        #sx   = np.cumsum(sx)[position]
+        #sy   = np.cumsum(sy)[position]
+        sx   = sx[position]
+        sy   = sy[position]
         
         # tanh to get a value between [-1, 1] for correlation
         #cor = np.tanh(cor)
 
         # Coordenadas absolutas
-        displacement = np.cumsum(pred[ind_ensemble, i,:,:], axis=0)
+        #displacement = np.cumsum(pred[ind_ensemble, i,:,:], axis=0)
+        displacement = pred[ind_ensemble, i,:,:]
         this_pred_out_abs = displacement + np.array([data_test[i,:,:][-1].numpy()])
 
         mean = this_pred_out_abs[position, :]
