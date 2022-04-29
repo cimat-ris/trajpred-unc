@@ -252,7 +252,7 @@ def main():
             tpred_samples.append(pred)
             sigmas_samples.append(sigmas)
 
-        plt.show()
+        #plt.show()
         
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
