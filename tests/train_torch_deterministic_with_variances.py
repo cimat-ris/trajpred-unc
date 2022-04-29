@@ -35,6 +35,8 @@ from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 import torch.optim as optim
+# Local constants
+from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR
 
 
 # Parser arguments
@@ -45,6 +47,9 @@ parser.add_argument('--batch-size', '--b',
 parser.add_argument('--epochs', '--e',
                     type=int, default=200, metavar='N',
                     help='number of epochs to train (default: 200)')
+parser.add_argument('--id-test',
+                    type=int, default=2, metavar='N',
+                    help='id of the dataset to use as test in LOO (default: 2)')
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
@@ -77,11 +82,10 @@ def main():
 
     dataset_dir   = "datasets/"
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
-    idTest        = 2
     pickle        = False
-
+    model_name    = "deterministic_variances"
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
+    training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
 
     # Torch dataset
     train_data = traj_dataset(training_data['obs_traj_rel'], training_data['pred_traj_rel'],training_data['obs_traj'], training_data['pred_traj'])
@@ -106,9 +110,9 @@ def main():
 
         # Entremamos el modelo
         print("\n*** Training for seed: ", seed, "\t\t ")
-        train(model,device,0,idTest,batched_train_data,batched_val_data,args)
+        train(model,device,0,batched_train_data,batched_val_data,args,model_name)
         if args.plot_losses:
-            plt.savefig("images/loss_"+str(idTest)+".pdf")
+            plt.savefig("images/loss_"+str(args.id_test)+".pdf")
             plt.show()
 
     # Instanciamos el modelo
@@ -117,14 +121,14 @@ def main():
 
 
     ind_sample = np.random.randint(args.batch_size)
-    bck = plt.imread(os.path.join(dataset_dir,dataset_names[idTest],'reference.png'))
+    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test],'reference.png'))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
         fig, ax = plt.subplots(1,1,figsize=(12,12))
 
         # Load the previously trained model
-        model.load_state_dict(torch.load("training_checkpoints/model_deterministic_"+str(idTest)+".pth"))
+        model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"))
         model.eval()
 
         if torch.cuda.is_available():
