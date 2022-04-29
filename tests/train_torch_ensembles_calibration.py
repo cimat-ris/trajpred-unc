@@ -35,7 +35,8 @@ from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 import torch.optim as optim
-
+# Local constants
+from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -45,6 +46,9 @@ parser.add_argument('--batch-size', '--b',
 parser.add_argument('--epochs', '--e',
                     type=int, default=200, metavar='N',
                     help='number of epochs to train (default: 200)')
+parser.add_argument('--id-test',
+                    type=int, default=2, metavar='N',
+                    help='id of the dataset to use as test in LOO (default: 2)')
 parser.add_argument('--num-ensembles',
                     type=int, default=5, metavar='N',
                     help='number of elements in the ensemble (default: 5)')
@@ -80,11 +84,10 @@ def main():
 
     dataset_dir   = "datasets/"
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
-    idTest        = 2
-    pickle        = False
+    model_name    = "deterministic_variances_ens"
 
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
+    training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
 
     # Torch dataset
     train_data = traj_dataset(training_data['obs_traj_rel'], training_data['pred_traj_rel'],training_data['obs_traj'], training_data['pred_traj'])
@@ -99,8 +102,6 @@ def main():
     seeds = np.random.choice(99999999, args.num_ensembles , replace=False)
     print("Seeds: ", seeds)
 
-
-
     if args.no_retrain==False:
         # Entrenamos el modelo para cada semilla
         for ind, seed in enumerate(seeds):
@@ -114,10 +115,7 @@ def main():
 
             # Entremamos el modelo
             print("\n*** Training for seed: ", seed, "\t\t ", ind, "/",len(seeds))
-            train(model,device,ind,idTest,batched_train_data,batched_val_data,args)
-            if args.plot_losses:
-                plt.savefig("images/loss_"+str(ind)+"_"+str(idTest)+".pdf")
-                plt.show()
+            train(model,device,ind,batched_train_data,batched_val_data,args,model_name)
 
     # Instanciamos el modelo
     model = lstm_encdec(2,128,256,2)
@@ -125,7 +123,7 @@ def main():
 
 
     ind_sample = np.random.randint(args.batch_size)
-    bck = plt.imread(os.path.join(dataset_dir,dataset_names[idTest],'reference.png'))
+    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test],'reference.png'))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
@@ -134,7 +132,8 @@ def main():
         # For each element of the ensemble
         for ind in range(args.num_ensembles):
             # Load the previously trained model
-            model.load_state_dict(torch.load("training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth"))
+            model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth"))
+
             model.eval()
 
             if torch.cuda.is_available():
@@ -164,7 +163,7 @@ def main():
         for ind in range(args.num_ensembles):
 
             # Cargamos el Modelo
-            model.load_state_dict(torch.load("training_checkpoints/model_deterministic_"+str(ind)+"_"+str(idTest)+".pth"))
+            model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth"))
             model.eval()
 
             if torch.cuda.is_available():
@@ -181,7 +180,7 @@ def main():
         sigmas_samples = np.array(sigmas_samples)
 
         # HDR y Calibracion
-        auc_cal, auc_unc, exp_proportions, obs_proportions_unc, obs_proportions_cal = calibration(tpred_samples, data_test, target_test, sigmas_samples, position = 11, alpha = 0.05, idTest=idTest)
+        auc_cal, auc_unc, exp_proportions, obs_proportions_unc, obs_proportions_cal = calibration(tpred_samples, data_test, target_test, sigmas_samples, position = 11, alpha = 0.05, idTest=args.id_test)
         plt.show()
 
         # Solo se ejecuta para un batch
@@ -210,7 +209,7 @@ def main():
 
 
     df = pd.DataFrame([["","MACE","RMSCE","MA"],["Before Recalibration", mace1, rmsce1, ma1],["After Recalibration", mace2, rmsce2, ma2]])
-    df.to_csv("images/metrics_calibration_"+str(idTest)+".csv")
+    df.to_csv("images/metrics_calibration_"+str(args.id_test)+".csv")
 
 
 
