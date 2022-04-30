@@ -7,13 +7,6 @@
 # Cargamos las librerias
 import time
 import sys,os,logging, argparse
-''' TF_CPP_MIN_LOG_LEVEL
-0 = all messages are logged (default behavior)
-1 = INFO messages are not printed
-2 = INFO and WARNING messages are not printeds
-3 = INFO, WARNING, and ERROR messages are not printed
-'''
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sys.path.append('bayesian-torch')
 sys.path.append('.')
 
@@ -56,6 +49,9 @@ parser.add_argument('--learning-rate', '--lr',
 parser.add_argument('--no-retrain',
                     action='store_true',
                     help='do not retrain the model')
+parser.add_argument('--teacher-forcing',
+                    action='store_true',
+                    help='uses teacher forcing during training')
 parser.add_argument('--pickle',
                     action='store_true',
                     help='use previously made pickle files')
@@ -70,22 +66,22 @@ args = parser.parse_args()
 def main():
     # Printing parameters
     torch.set_printoptions(precision=2)
-
+    # Loggin format
+    logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
     # Device
     if torch.cuda.is_available():
         logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
     # Load the default parameters
     experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
 
     dataset_dir   = "datasets/"
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
     model_name    = "deterministic_variances"
+
     # Load the dataset and perform the split
     training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
-
     # Torch dataset
     train_data = traj_dataset(training_data['obs_traj_rel'], training_data['pred_traj_rel'],training_data['obs_traj'], training_data['pred_traj'])
     val_data   = traj_dataset(validation_data['obs_traj_rel'], validation_data['pred_traj_rel'],validation_data['obs_traj'], validation_data['pred_traj'])
@@ -95,8 +91,9 @@ def main():
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
     batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
-    # Seleccionamos de forma aleatorea las semillas
-    seed = np.random.choice(99999999, 1 , replace=False)
+
+    # Seed for RNG
+    seed = 1
 
     if args.no_retrain==False:
         # Agregamos la semilla
@@ -137,7 +134,6 @@ def main():
         plt.show()
         # Solo aplicamos a un elemento del batch
         break
-
 
 if __name__ == "__main__":
     main()
