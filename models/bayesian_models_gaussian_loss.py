@@ -86,53 +86,58 @@ class lstm_encdec(nn.Module):
         sigma_pos= dec[:,:,2:]
         return pred_pos,sigma_pos,hidden_state
 
-    def forward(self, X, y, data_abs , target_abs, training=False):
-        # Encode the past trajectory
-        last_pos,hidden_state = self.encode(X)
+    def forward(self,obs_displs,target_displs,obs_abs,target_abs,teacher_forcing=False):
+        # Encode the past trajectory (sequence of displacements)
+        last_displ,hidden_state = self.encode(obs_displs)
 
-        loss       = 0
-        pred_traj  = []
-        sigma_traj = []
+        loss        = 0
+        pred_displs = []
+        sigma_displs= []
 
-        # Decode de future trajectories
-        for i, target_pos in enumerate(y.permute(1,0,2)):
-            # Decode last position and hidden state into new position
-            pred_pos,sigma_pos,hidden_state = self.decode(last_pos,hidden_state)
-            # Keep new position and variance
-            pred_traj.append(pred_pos)
-            sigma_traj.append(sigma_pos)
+        # Decode the future trajectories
+        for i, target_displ in enumerate(target_displs.permute(1,0,2)):
+            # Decode last displacement and hidden state into new displacement
+            pred_displ,sigma_displ,hidden_state = self.decode(last_displ,hidden_state)
+            # Keep displacement and variance on displacement
+            pred_displs.append(pred_displ)
+            sigma_displs.append(sigma_displ)
             # Update the last position
-            if training:
-                last_pos = target.view(len(target_pos), 1, -1)
+            if teacher_forcing:
+                # With teacher forcing, use the GT displacement
+                last_displ = target_displ.view(len(target_displ), 1, -1)
             else:
-                last_pos = pred_pos
-            means_traj = data_abs[:,-1,:] + torch.cat(pred_traj, dim=1).sum(1)
-            loss += Gaussian2DLikelihood(target_abs[:,i,:], means_traj, torch.cat(sigma_traj, dim=1))
+                # Otherwise, use the predicted displacement we just did
+                last_displ = pred_displ
+            # Deduce absolute position by summing all our predicted displacements to
+            # the last absolute position
+            pred_abs = obs_abs[:,-1,:] + torch.cat(pred_displs, dim=1).sum(1)
+            # Evaluate likelihood
+            loss += Gaussian2DLikelihood(target_abs[:,i,:], pred_abs, torch.cat(sigma_displs, dim=1))
         # Return total loss
         return loss
 
-    def predict(self, X, dim_pred= 1):
+    def predict(self, obs_displs, dim_pred= 1):
         # Encode the past trajectory
-        last_pos,hidden_state = self.encode(X)
+        last_displ,hidden_state = self.encode(obs_displs)
 
-        pred_traj  = []
-        sigma_traj = []
+        pred_displs  = []
+        sigma_displs = []
 
         for i in range(dim_pred):
             # Decode last position and hidden state into new position
-            pred_pos,sigma_pos,hidden_state = self.decode(last_pos,hidden_state)
-            # Keep new position and variance
-            pred_traj.append(pred_pos)
-            # Convert sigma_pos into real variances
-            sigma_pos[:,:,0]   = torch.exp(sigma_pos[:,:,0])+1e-2
-            sigma_pos[:,:,1]   = torch.exp(sigma_pos[:,:,1])+1e-2
-            sigma_traj.append(sigma_pos)
-            # Update the last position
-            last_pos = pred_pos
+            pred_displ,sigma_displ,hidden_state = self.decode(last_displ,hidden_state)
+            # Keep new displacement and the corresponding variance
+            pred_displs.append(pred_displ)
+            # Convert sigma_displ into real variances
+            sigma_displ[:,:,0]   = torch.exp(sigma_displ[:,:,0])+1e-2
+            sigma_displ[:,:,1]   = torch.exp(sigma_displ[:,:,1])+1e-2
+            sigma_displs.append(sigma_displ)
+            # Update the last displacement
+            last_displ = pred_displ
 
-        # Concatenate the predictions and return
-        pred_traj = torch.cumsum(torch.cat(pred_traj, dim=1), dim=1).detach().cpu().numpy()
-        sigma_traj= torch.cumsum(torch.cat(sigma_traj, dim=1), dim=1).detach().cpu().numpy()
+        # Sum the displacements and the variances to get the relative trajectory
+        pred_traj = torch.cumsum(torch.cat(pred_displs, dim=1), dim=1).detach().cpu().numpy()
+        sigma_traj= torch.cumsum(torch.cat(sigma_displs, dim=1), dim=1).detach().cpu().numpy()
         return pred_traj,sigma_traj
 
 class lstm_encdec_MCDropout(nn.Module):
@@ -222,7 +227,7 @@ class lstm_encdec_MCDropout(nn.Module):
         pred_traj = torch.cumsum(torch.cat(pred_traj, dim=1), dim=1).detach().cpu().numpy()
         sigma_traj= torch.cumsum(torch.cat(sigma_traj, dim=1), dim=1).detach().cpu().numpy()
         return pred_traj,sigma_traj
-        
+
 # Bayes By Backprop (BBB)
 class lstm_encdec_variational(nn.Module):
     def __init__(self, in_size,  embedding_dim, hidden_dim, output_size, prior_mu, prior_sigma, posterior_mu_init, posterior_rho_init):
@@ -268,7 +273,7 @@ class lstm_encdec_variational(nn.Module):
             posterior_rho_init = posterior_rho_init,
         )
         #self.loss_fun = nn.MSELoss()
-    
+
     # Encoding of the past trajectry
     def encode(self, X):
         kl_sum = 0
@@ -298,9 +303,9 @@ class lstm_encdec_variational(nn.Module):
         pred_pos = dec[:,:,:2] + last_pos
         sigma_pos= dec[:,:,2:]
         return pred_pos, sigma_pos, hidden_state, kl_sum
-        
+
     def forward(self, X, y, data_abs , target_abs, training=False, num_mc=1):
-        
+
         nll_loss = 0
         output_ = []
         kl_     = []
