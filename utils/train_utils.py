@@ -19,7 +19,6 @@ from torchvision import transforms
 import torch.optim as optim
 
 # Local models
-from models.bayesian_models_gaussian_loss import lstm_encdec
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 import torch.optim as optim
@@ -37,30 +36,30 @@ def train(model,device,ind,train_data,val_data,args,model_name):
     min_val_error   = 1000.0
     for epoch in range(args.epochs):
         # Training
-        print("----- ")
-        print("Epoch: ", epoch)
+        logging.info("----- ")
+        logging.info("Epoch: {}".format(epoch))
         error = 0
         total = 0
         # Recorremos cada batch
-        for batch_idx, (data, target, data_abs , target_abs) in enumerate(train_data):
+        for batch_idx, (observations_rel, target_rel, observations_abs , target_abs) in enumerate(train_data):
             # Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
             if torch.cuda.is_available():
-              data  = data.to(device)
-              target=target.to(device)
-              data_abs  = data_abs.to(device)
-              target_abs=target_abs.to(device)
+              observations_rel = observations_rel.to(device)
+              target_rel       = target_rel.to(device)
+              observations_abs = observations_abs.to(device)
+              target_abs       = target_abs.to(device)
 
             # Run our forward pass and compute the loss
-            loss   = model(data, target, data_abs , target_abs)# , training=True)
+            loss   = model(observations_rel, target_rel, observations_abs , target_abs, teacher_forcing=args.teacher_forcing)
             error += loss
-            total += len(target)
+            total += len(target_rel)
 
             # Step 3. Compute the gradients, and update the parameters by
             loss.backward()
             optimizer.step()
-        print("Trn loss: ", error.detach().cpu().numpy()/total)
+        logging.info("Trn loss: {}".format(error.detach().cpu().numpy()/total))
         list_loss_train.append(error.detach().cpu().numpy()/total)
 
         # Validation
@@ -78,12 +77,12 @@ def train(model,device,ind,train_data,val_data,args,model_name):
             error += loss_val
             total += len(target_val)
         error = error.detach().cpu().numpy()/total
-        print("Val loss: ", error)
+        logging.info("Val loss: {} ".format(error))
         list_loss_val.append(error)
         if error<min_val_error:
             min_val_error = error
             # Keep the model
-            print("Saving model")
+            logging.info("Saving model")
             torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth")
 
     # Visualizamos los errores
