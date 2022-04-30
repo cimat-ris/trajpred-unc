@@ -7,13 +7,6 @@
 # Cargamos las librerias
 import time
 import sys,os,logging, argparse
-''' TF_CPP_MIN_LOG_LEVEL
-0 = all messages are logged (default behavior)
-1 = INFO messages are not printed
-2 = INFO and WARNING messages are not printeds
-3 = INFO, WARNING, and ERROR messages are not printed
-'''
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sys.path.append('bayesian-torch')
 sys.path.append('.')
 
@@ -58,6 +51,9 @@ parser.add_argument('--learning-rate', '--lr',
 parser.add_argument('--no-retrain',
                     action='store_true',
                     help='do not retrain the model')
+parser.add_argument('--teacher-forcing',
+                    action='store_true',
+                    help='uses teacher forcing during training')
 parser.add_argument('--pickle',
                     action='store_true',
                     help='use previously made pickle files')
@@ -72,13 +68,12 @@ args = parser.parse_args()
 def main():
     # Printing parameters
     torch.set_printoptions(precision=2)
-
+    logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
     # Device
     if torch.cuda.is_available():
         logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
     # Load the default parameters
     experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
 
