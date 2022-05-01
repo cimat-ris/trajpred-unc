@@ -35,42 +35,48 @@ class lstm_encdec(nn.Module):
         t_pred = dec + x_last
         return t_pred,hidden_state
 
-    def forward(self, X, y, training=False):
-        # Encode the past trajectory
-        last_pos,hidden_state = self.encode(X)
+    def forward(self,obs_displs,target_displs,obs_abs,target_abs,teacher_forcing=False):
+        # Encode the past trajectory (sequence of displacements)
+        last_displ,hidden_state = self.encode(obs_displs)
 
-        loss = 0
-        pred_traj = []
-        # Decode the future trajectory
-        for i, target_pos in enumerate(y.permute(1,0,2)):
-            # Decode last position and hidden state into new position
-            pred_pos, hidden_state = self.decode(last_pos,hidden_state)
-            # Keep new position
-            pred_traj.append(pred_pos)
-            # Calculate of loss
-            loss += self.loss_fun(pred_pos, target_pos.view(len(target_pos), 1, -1))
+        loss        = 0
+        pred_displs = []
+
+        # Decode the future trajectories
+        for i, target_displ in enumerate(target_displs.permute(1,0,2)):
+            # Decode last displacement and hidden state into new displacement
+            pred_displ,hidden_state = self.decode(last_displ,hidden_state)
+            # Keep displacement and variance on displacement
+            pred_displs.append(pred_displ)
             # Update the last position
-            if training:
-                # Use teacher forcing
-                last_pos = target.view(len(target_pos), 1, -1)
+            if teacher_forcing:
+                # With teacher forcing, use the GT displacement
+                last_displ = target_displ.view(len(target_displ), 1, -1)
             else:
-                # In testing, we do not have the target
-                last_pos = pred_pos
-        # Concatenate the predictions and return
-        return torch.cat(pred_traj, dim=1), loss
+                # Otherwise, use the predicted displacement we just did
+                last_displ = pred_displ
+            # Deduce absolute position by summing all our predicted displacements to
+            # the last absolute position
+            pred_abs = obs_abs[:,-1,:] + torch.cat(pred_displs, dim=1).sum(1)
+            # Evaluate likelihood
+            loss += self.loss_fun(target_abs[:,i,:],pred_abs)
+        # Return total loss
+        return loss
 
-    def predict(self, X, dim_pred= 1):
+    def predict(self, obs_displs, dim_pred= 1):
         # Encode the past trajectory
-        last_pos,hidden_state = self.encode(X)
+        last_displ,hidden_state = self.encode(obs_displs)
 
-        pred = []
-        # Decode the future trajectory
+        pred_displs  = []
+
         for i in range(dim_pred):
             # Decode last position and hidden state into new position
-            t_pred, hidden_state = self.decode(x_last,hidden_state)
-            # Keep new position
-            pred.append(t_pred)
-            # Update the last position
-            x_last = t_pred
-        # Concatenate the predictions and return
-        return torch.cat(pred, dim=1).detach().numpy()
+            pred_displ,hidden_state = self.decode(last_displ,hidden_state)
+            # Keep new displacement and the corresponding variance
+            pred_displs.append(pred_displ)
+            # Update the last displacement
+            last_displ = pred_displ
+
+        # Sum the displacements and the variances to get the relative trajectory
+        pred_traj = torch.cumsum(torch.cat(pred_displs, dim=1), dim=1).detach().cpu().numpy()
+        return pred_traj
