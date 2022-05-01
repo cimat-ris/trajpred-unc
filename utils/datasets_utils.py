@@ -30,7 +30,7 @@ class Experiment_Parameters:
         self.intersection = False
         self.delim        = ','
         self.output_representation = 'dxdy' #
-        
+
 # Creamos la clase para el dataset
 class traj_dataset(Dataset):
 
@@ -83,7 +83,7 @@ def process_file(datasets_path, datasets_names, parameters, csv_file='mundo/mun_
     obs_len  = parameters.obs_len
     pred_len = parameters.pred_len
     seq_len  = obs_len + pred_len
-    print("[INF] Sequence length (observation+prediction):", seq_len)
+    logging.info("Sequence length (observation+prediction): {} frames".format(seq_len))
 
     # Lists that will hold the data
     num_person_starting_at_frame = []
@@ -105,10 +105,10 @@ def process_file(datasets_path, datasets_names, parameters, csv_file='mundo/mun_
             traj_data_path       = os.path.join(datasets_path+directory, csv_file)
         else:
             traj_data_path       = datasets_path+directory
-        print("[INF] Reading "+traj_data_path)
+        logging.info("Reading "+traj_data_path)
         # Read obstacles files
         if parameters.obstacles:
-            print("[INF] Reading obstacle files")
+            logging.info("Reading obstacle files")
             t = directory.split('/')
             data_paths = t[0]+'/'+t[1]+'/'
             dataset_name = t[2]
@@ -189,6 +189,7 @@ def process_file(datasets_path, datasets_names, parameters, csv_file='mundo/mun_
                     if((ped_seq_data[n,2]==ped_seq_data[n+1,2]) and (ped_seq_data[n,3]==ped_seq_data[n+1,3])):
                         equal_consecutive +=1
                 if(equal_consecutive==obs_len-1):
+                    print("Discarding static pedestrian")
                     continue
 
                 # To keep neighbors data for the person ped_id
@@ -411,7 +412,7 @@ def setup_loo_experiment_synthec(experiment_name,ds_path,ds_names,leave_id,exper
     print("[INF] Validation data: "+ str(len(validation_data[list(validation_data.keys())[0]])))
 
     return training_data,validation_data,test_data
-    
+
 def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_parameters,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1):
     # Dataset to be tested
     testing_datasets_names  = [ds_names[leave_id]]
@@ -499,4 +500,3 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
     homography_file = os.path.join(ds_path+testing_datasets_names[0]+'/H.txt')
     test_homography = np.genfromtxt(homography_file)
     return training_data,validation_data,test_data,test_homography
-
