@@ -33,12 +33,13 @@ def prepare_data(datasets_path, datasets_names, parameters):
         logging.info("Reading "+traj_data_path)
         obstacles_world = None
 
-        # Raw trayectory coordinates
+        # Raw trajectory coordinates
         raw_traj_data = np.genfromtxt(traj_data_path, delimiter= parameters.delim)
 
         # We suppose that the frame ids are in ascending order
         frame_ids = np.unique(raw_traj_data[:, 0]).tolist()
         logging.info("Total number of frames: {}".format(len(frame_ids)))
+        logging.info("Total number of agents: {}".format(len(np.unique(raw_traj_data[:, 1]).tolist())))
 
         raw_traj_data_per_frame = [] # people in frame
         # Group the spatial pedestrian data frame by frame
@@ -46,7 +47,7 @@ def prepare_data(datasets_path, datasets_names, parameters):
         # Data: id_frame, id_person, x, y
         for frame in frame_ids:
             raw_traj_data_per_frame.append(raw_traj_data[raw_traj_data[:, 0]==frame, :])
-
+        counter = 0
         # Iterate over the frames
         for idx, frame in enumerate(frame_ids):
             # Consider frame sequences of size seq_len = obs+pred
@@ -105,6 +106,7 @@ def prepare_data(datasets_path, datasets_names, parameters):
                     if((ped_seq_data[n,2]==ped_seq_data[n+1,2]) and (ped_seq_data[n,3]==ped_seq_data[n+1,3])):
                         equal_consecutive +=1
                 if(equal_consecutive==obs_len-1):
+                    counter = counter +1
                     continue
 
                 # To keep neighbors data for the person ped_id
@@ -172,7 +174,7 @@ def prepare_data(datasets_path, datasets_names, parameters):
         obs_neighbors         = seq_neighbors_dataset[:,:obs_len,:,:]
         seq_pos_dataset = np.concatenate(seq_pos_dataset,axis=0)
         obs_traj        = seq_pos_dataset[:, :obs_len, :]
-        logging.info("Total number of trajectories in this dataset: ".format(obs_traj.shape[0]))
+        logging.info("Total number of trajlets in this dataset: {}".format(obs_traj.shape[0]))
     # Upper level (all datasets)
     # Concatenate all the content of the lists (pos/relative pos/frame ranges)
     seq_pos_all   = np.concatenate(seq_pos_all, axis=0)
@@ -180,7 +182,7 @@ def prepare_data(datasets_path, datasets_names, parameters):
     seq_theta_all = np.concatenate(seq_theta_all, axis=0)
     seq_frames_all= np.concatenate(seq_frames_all, axis=0)
     seq_neighbors_all = np.concatenate(seq_neighbors_all, axis=0)
-    logging.info("Total number of sample sequences: ".format(len(seq_pos_all)))
+    logging.info("Total number of sample sequences: {}".format(len(seq_pos_all)))
 
     # We get the obs traj and pred_traj
     # [total, obs_len, 2]
