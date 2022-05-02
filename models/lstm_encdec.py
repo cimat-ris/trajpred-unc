@@ -3,6 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
+def convertToCov(sx,sy,corr):
+    # Exponential to get a positive value for variances
+    sx   = torch.exp(sx)+1e-2
+    sy   = torch.exp(sy)+1e-2
+    sxsy = torch.sqrt(sx*sy)
+    # tanh to get a value between [-1, 1] for correlation
+    corr = torch.tanh(corr)
+    # Covariance
+    cov  = sxsy*corr
+    return sx,sy,cov
+
 def Gaussian2DLikelihood(targets, means, sigmas):
     '''
     Computes the likelihood of predicted locations under a bivariate Gaussian distribution
@@ -13,14 +24,7 @@ def Gaussian2DLikelihood(targets, means, sigmas):
     '''
     # Extract mean, std devs and correlation
     mux, muy, sx, sy, corr = means[:, 0], means[:, 1], sigmas[:, :, 0], sigmas[:,:,1], sigmas[:,:,2]
-    # Exponential to get a positive value for variances
-    sx   = torch.exp(sx)+1e-2
-    sy   = torch.exp(sy)+1e-2
-    sxsy = torch.sqrt(sx*sy)
-    # tanh to get a value between [-1, 1] for correlation
-    corr = torch.tanh(corr)
-    # Covariance
-    cov  = sxsy*corr
+    sx,sy,cov = convertToCov(sx, sy, corr)
     # Variances and covariances are summed along time.
     sx   = sx.sum(1)
     sy   = sy.sum(1)
@@ -112,10 +116,7 @@ class lstm_encdec_gaussian(nn.Module):
             # Keep new displacement and the corresponding variance
             pred_displs.append(pred_displ)
             # Convert sigma_displ into real variances
-            sigma_displ[:,:,0]   = torch.exp(sigma_displ[:,:,0])+1e-2
-            sigma_displ[:,:,1]   = torch.exp(sigma_displ[:,:,1])+1e-2
-            # Covariances
-            sigma_displ[:,:,2]   = torch.sqrt(sigma_displ[:,:,0]*sigma_displ[:,:,1])*torch.tanh(sigma_displ[:,:,2])
+            sigma_displ[:,:,0],sigma_displ[:,:,1],sigma_displ[:,:,2] = convertToCov(sigma_displ[:,:,0], sigma_displ[:,:,1], sigma_displ[:,:,2])
             sigma_displs.append(sigma_displ)
             # Update the last displacement
             last_displ = pred_displ
