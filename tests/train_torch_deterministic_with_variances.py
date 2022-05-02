@@ -98,7 +98,7 @@ def main():
     seed = 1
 
     if args.no_retrain==False:
-        # Agregamos la semilla
+        # Choose seed
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
 
@@ -106,7 +106,7 @@ def main():
         model = lstm_encdec_gaussian(2,128,256,2)
         model.to(device)
 
-        # Entremamos el modelo
+        # Train the model
         train(model,device,0,batched_train_data,batched_val_data,args,model_name)
 
     # Model instantiation
@@ -135,7 +135,7 @@ def main():
         plt.legend()
         plt.title('Trajectory samples')
         plt.show()
-        # Solo aplicamos a un elemento del batch
+        # Not display more than args.examples
         if batch_idx==args.examples-1:
             break
 
