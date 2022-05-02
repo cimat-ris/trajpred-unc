@@ -1,5 +1,7 @@
 # trajpred-bdl
 
+## Training
+
 To train the deterministic model:
 
 ```
@@ -16,4 +18,10 @@ To train the ensemble model and calibrate the uncertainties:
 
 ```
 python tests/train_torch_ensembles_calibration.py
+```
+
+## Testing
+
+```
+python3 tests/train_torch_deterministic_with_variances.py  --no-retrain --pickle  --examples 10
 ```
