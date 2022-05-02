@@ -1,16 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# # Inicio de Código
-
-# In[1]:
-
-
 # Imports
 import time
 import sys,os,logging, argparse
-sys.path.append('../bayesian-torch')
-sys.path.append('..')
+sys.path.append('.')
 
 import math,numpy as np
 import matplotlib.pyplot as plt
