@@ -39,6 +39,9 @@ parser.add_argument('--batch-size', '--b',
 parser.add_argument('--epochs', '--e',
                     type=int, default=200, metavar='N',
                     help='number of epochs to train (default: 200)')
+parser.add_argument('--examples',
+                    type=int, default=1, metavar='N',
+                    help='number of examples to exhibit (default: 1)')
 parser.add_argument('--id-test',
                     type=int, default=2, metavar='N',
                     help='id of the dataset to use as test in LOO (default: 2)')
@@ -106,7 +109,7 @@ def main():
         # Entremamos el modelo
         train(model,device,0,batched_train_data,batched_val_data,args,model_name)
 
-    # Instanciamos el modelo
+    # Model instantiation
     model = lstm_encdec_gaussian(2,128,256,2)
     # Load the previously trained model
     model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"))
@@ -126,13 +129,15 @@ def main():
 
         pred, sigmas = model.predict(datarel_test, dim_pred=12)
         # Plotting
-        plot_traj_world(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],ax)
-        plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:],ax)
+        ind = np.minimum(ind_sample,pred.shape[0]-1)
+        plot_traj_world(pred[ind,:,:],data_test[ind,:,:],target_test[ind,:,:],ax)
+        plot_cov_world(pred[ind,:,:],sigmas[ind,:,:],data_test[ind,:,:],ax)
         plt.legend()
         plt.title('Trajectory samples')
         plt.show()
         # Solo aplicamos a un elemento del batch
-        break
+        if batch_idx==args.examples-1:
+            break
 
 if __name__ == "__main__":
     main()

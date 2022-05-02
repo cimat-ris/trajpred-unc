@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import numpy as np
 
 def Gaussian2DLikelihood(targets, means, sigmas):
     '''
@@ -13,37 +13,24 @@ def Gaussian2DLikelihood(targets, means, sigmas):
     '''
     # Extract mean, std devs and correlation
     mux, muy, sx, sy, corr = means[:, 0], means[:, 1], sigmas[:, :, 0], sigmas[:,:,1], sigmas[:,:,2]
-    # Exponential to get a positive value for std. deviations
+    # Exponential to get a positive value for variances
     sx   = torch.exp(sx)+1e-2
     sy   = torch.exp(sy)+1e-2
+    sxsy = torch.sqrt(sx*sy)
     # tanh to get a value between [-1, 1] for correlation
-    # corr = torch.tanh(corr)
+    corr = torch.tanh(corr)
     # Covariance
-    # cov  = sx*sy*corr
+    cov  = sxsy*corr
     # Variances and covariances are summed along time.
     sx   = sx.sum(1)
     sy   = sy.sum(1)
-
-    # sxsy = torch.sqrt(sx*sy)
-    # cov  = cov.sum(1)
-    # corr = cov/sxsy
+    cov  = cov.sum(1)
     # Compute factors
     normx= targets[:, 0] - mux
     normy= targets[:, 1] - muy
-    z    = torch.pow(normx,2)/sx + torch.pow(normy,2)/sy
-    result = 0.5*(z+torch.log(sx)+torch.log(sy))
-    # - 2*((corr*normx*normy)/sxsy)
-    # negRho = 1 - torch.pow(corr,2)
-
-    # Numerator
-    # result = torch.exp(-z/2)
-    # Normalization factor
-    # denom = 2 * np.pi * (sxsy )
-    # Final PDF calculation
-    # result = result / denom
-    # Numerical stability
-    # epsilon = 1e-20
-    # result = -torch.log(torch.clamp(result, min=epsilon))
+    det  = sx*sy-cov*cov
+    z    = torch.pow(normx,2)*sy/det + torch.pow(normy,2)*sx/det - 2*cov*normx*normy/det
+    result = 0.5*(z+torch.log(det))
     # Compute the loss across all frames and all nodes
     loss = result.sum()
     return(loss)
@@ -127,6 +114,8 @@ class lstm_encdec_gaussian(nn.Module):
             # Convert sigma_displ into real variances
             sigma_displ[:,:,0]   = torch.exp(sigma_displ[:,:,0])+1e-2
             sigma_displ[:,:,1]   = torch.exp(sigma_displ[:,:,1])+1e-2
+            # Covariances
+            sigma_displ[:,:,2]   = torch.sqrt(sigma_displ[:,:,0]*sigma_displ[:,:,1])*torch.tanh(sigma_displ[:,:,2])
             sigma_displs.append(sigma_displ)
             # Update the last displacement
             last_displ = pred_displ
