@@ -7,7 +7,6 @@
 # Cargamos las librerias
 import time
 import sys,os,logging, argparse
-sys.path.append('bayesian-torch')
 sys.path.append('.')
 
 import math,numpy as np
@@ -21,7 +20,7 @@ from torchvision import transforms
 import torch.optim as optim
 
 # Local models
-from models.bayesian_models_gaussian_loss import lstm_encdec
+from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
@@ -101,14 +100,14 @@ def main():
         torch.cuda.manual_seed(seed)
 
         # Instanciate the model
-        model = lstm_encdec(2,128,256,2)
+        model = lstm_encdec_gaussian(2,128,256,2)
         model.to(device)
 
         # Entremamos el modelo
         train(model,device,0,batched_train_data,batched_val_data,args,model_name)
 
     # Instanciamos el modelo
-    model = lstm_encdec(2,128,256,2)
+    model = lstm_encdec_gaussian(2,128,256,2)
     # Load the previously trained model
     model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"))
     model.eval()
