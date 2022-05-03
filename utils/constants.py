@@ -11,3 +11,6 @@ VAL_DATA_STR   = '/validation_data_'
 
 # Training checkpoints dir
 TRAINING_CKPT_DIR = 'training_checkpoints'
+
+# Images dir
+IMAGES_DIR = 'images'
