@@ -21,7 +21,7 @@ from torchvision import transforms
 import torch.optim as optim
 
 # Local models
-from models.bayesian_models_gaussian_loss import lstm_encdec
+from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
@@ -105,7 +105,7 @@ def main():
             torch.cuda.manual_seed(seed)
 
             # Instanciate the model
-            model = lstm_encdec(2,128,256,2)
+            model = lstm_encdec_gaussian(2,128,256,2)
             model.to(device)
 
             # Entremamos el modelo
@@ -113,7 +113,7 @@ def main():
             train(model,device,ind,batched_train_data,batched_val_data,args,model_name)
 
     # Instanciamos el modelo
-    model = lstm_encdec(2,128,256,2)
+    model = lstm_encdec_gaussian(2,128,256,2)
     model.to(device)
 
 
