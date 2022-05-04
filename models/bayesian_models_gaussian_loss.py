@@ -151,7 +151,7 @@ class lstm_encdec_variational(nn.Module):
         emb, kl = self.embedding(X)
         kl_sum += kl
         # LSTM for batch [seq_len, batch, input_size]
-        lstm_out, hidden_state, kl = self.lstm1(emb.permute(1,0,2))
+        lstm_out, hidden_state, kl = self.lstm1(emb)
         kl_sum += kl/obs_length
         return x_last, hidden_state, kl_sum
 
@@ -162,10 +162,10 @@ class lstm_encdec_variational(nn.Module):
         emb_last, kl = self.embedding(last_pos)
         kl_sum += kl
         # lstm for last position with hidden states from batch
-        lstm_out, hidden_state, kl = self.lstm2(emb_last.permute(1,0,2), hidden_state)
+        lstm_out, hidden_state, kl = self.lstm2(emb_last, (hidden_state[0][:,-1,:],hidden_state[1][:,-1,:]))
         kl_sum += kl
         # Decoder and Prediction
-        dec, kl  = self.decoder(hidden_state[0].permute(1,0,2))
+        dec, kl  = self.decoder(hidden_state[0])
         kl_sum += kl
         pred_pos = dec[:,:,:2] + last_pos
         sigma_pos= dec[:,:,2:]
@@ -223,7 +223,6 @@ class lstm_encdec_variational(nn.Module):
 
     def predict(self, X, dim_pred= 1):
         kl_sum = 0
-        kl_sum += kl
         # Encode the past trajectory
         last_pos, hidden_state, kl = self.encode(X)
         kl_sum += kl
