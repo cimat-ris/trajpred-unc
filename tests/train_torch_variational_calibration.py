@@ -195,6 +195,9 @@ def main():
             model.to(device)
             # Entremamos el modelo
             train(model,device,idTest,batched_train_data,batched_val_data)
+            if args.plot_losses:
+                plt.savefig("images/loss_"+str(idTest)+".pdf")
+                plt.show()
 
 
     # Instanciamos el modelo
