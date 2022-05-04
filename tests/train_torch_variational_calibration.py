@@ -14,12 +14,12 @@ import sys,os,logging, argparse
 3 = INFO, WARNING, and ERROR messages are not printed
 '''
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-sys.path.append('../bayesian-torch')
-sys.path.append('..')
+sys.path.append('bayesian-torch')
+sys.path.append('.')
 
 import math,numpy as np
 import matplotlib as mpl
-mpl.use('TkAgg')  # or whatever other backend that you want
+#mpl.use('TkAgg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -30,7 +30,7 @@ import torch.optim as optim
 # Local models
 from models.bayesian_models_gaussian_loss import lstm_encdec_variational
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
-from utils.plot_utils import plot_traj
+from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
 from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 
@@ -84,8 +84,8 @@ def train(model,device,idTest,train_data,val_data):
         print("epoch: ", epoch)
         error = 0
         total = 0
-        M     = len(batched_train_data)
-        for batch_idx, (data, target, data_abs, target_abs) in enumerate(batched_train_data):
+        M     = len(train_data)
+        for batch_idx, (data, target, data_abs, target_abs) in enumerate(train_data):
             # Step 1. Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
@@ -113,8 +113,8 @@ def train(model,device,idTest,train_data,val_data):
         # Validation
         error = 0
         total = 0
-        M     = len(batched_val_data)
-        for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(batched_val_data):
+        M     = len(val_data)
+        for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
             if torch.cuda.is_available():
                 data_val  = data_val.to(device)
                 target_val=target_val.to(device)
@@ -133,7 +133,7 @@ def train(model,device,idTest,train_data,val_data):
             min_val_error = error/total
             # Keep the model
             print("Saving model")
-            torch.save(model.state_dict(), "../training_checkpoints/model_variational_"+str(idTest)+".pth")
+            torch.save(model.state_dict(), "training_checkpoints/model_variational_"+str(idTest)+".pth")
 
     
     # Visualizamos los errores
@@ -158,13 +158,13 @@ def main():
     # Load the default parameters
     experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
 
-    dataset_dir   = "../datasets/"
+    dataset_dir   = "datasets/"
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
     idTest        = 2
     pickle        = False
 
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='../pickle',use_pickled_data=pickle)
+    training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=pickle)
 
     # Torch dataset
     train_data = traj_dataset(training_data['obs_traj_rel'], training_data['pred_traj_rel'],training_data['obs_traj'], training_data['pred_traj'])
@@ -202,7 +202,7 @@ def main():
     model.to(device)
 
     # Cargamos el modelo
-    model.load_state_dict(torch.load("../training_checkpoints/model_variational_"+str(idTest)+".pth"))
+    model.load_state_dict(torch.load("training_checkpoints/model_variational_"+str(idTest)+".pth"))
     model.eval()
 
 
@@ -211,11 +211,9 @@ def main():
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-        
-        plt.figure(figsize=(12,12))
-        plt.imshow(bck)
+        fig, ax = plt.subplots(1,1,figsize=(12,12))
 
-        # prediction
+        # For each element of the ensemble
         for ind in range(args.num_mctest):
             
             if torch.cuda.is_available():
@@ -224,7 +222,8 @@ def main():
             pred, kl, sigmas = model.predict(datarel_test, dim_pred=12)
 
             # ploting
-            plot_traj(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], test_homography, bck)
+            plot_traj_world(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], ax)
+            plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:], ax)
         plt.legend()
         plt.title('Trajectory samples')
         plt.show()
