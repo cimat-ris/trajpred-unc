@@ -11,3 +11,7 @@ VAL_DATA_STR   = '/validation_data_'
 
 # Training checkpoints dir
 TRAINING_CKPT_DIR = 'training_checkpoints'
+
+# Images and data helpers
+REFERENCE_IMG = 'reference.png'
+MUN_POS_CSV   = 'mundo/mun_pos.csv'

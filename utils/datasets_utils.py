@@ -7,7 +7,7 @@ import cv2
 import tensorflow as tf
 import torch
 from torch.utils.data import Dataset
-from utils.constants import TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR
+from utils.constants import TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, MUN_POS_CSV
 
 from utils.process_file import prepare_data
 import logging
@@ -73,7 +73,7 @@ def get_testing_batch_synthec(testing_data,testing_data_path):
     for element in filtered_data.as_numpy_iterator():
         return element
 
-def process_file(datasets_path, datasets_names, parameters, csv_file='mundo/mun_pos.csv'):
+def process_file(datasets_path, datasets_names, parameters, csv_file=MUN_POS_CSV):
     datasets = range(len(datasets_names))
     datasets = list(datasets)
 
