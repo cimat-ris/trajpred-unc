@@ -2,6 +2,9 @@ import os, glob, sys, logging
 from tqdm import tqdm
 import numpy as np
 
+# Local constants
+from utils.constants import MUN_POS_CSV
+
 def prepare_data(datasets_path, datasets_names, parameters):
     datasets = range(len(datasets_names))
     datasets = list(datasets)
@@ -28,8 +31,7 @@ def prepare_data(datasets_path, datasets_names, parameters):
     for idx,dataset_name in enumerate(datasets_names):
         seq_neighbors_dataset= []
         seq_pos_dataset      = []
-        #TODO: avoid having the csv name here
-        traj_data_path       = os.path.join(datasets_path+dataset_name, 'mundo/mun_pos.csv')
+        traj_data_path       = os.path.join(datasets_path+dataset_name, MUN_POS_CSV)
         logging.info("Reading "+traj_data_path)
         obstacles_world = None
 
