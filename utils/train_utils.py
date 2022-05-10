@@ -21,10 +21,11 @@ import torch.optim as optim
 # Local models
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
+from utils.directory_utils import mkdir_p
 import torch.optim as optim
 
 # Local constants
-from utils.constants import TRAINING_CKPT_DIR
+from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR
 
 # Function to train the models
 def train(model,device,ind,train_data,val_data,args,model_name):
@@ -85,13 +86,17 @@ def train(model,device,ind,train_data,val_data,args,model_name):
             logging.info("Saving model")
             torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth")
 
-    # Visualizamos los errores
+    # Error visualization
     if args.plot_losses:
+        # Create new directory
+        output_dir = os.path.join(IMAGES_DIR, "loss_" + model_name)
+        mkdir_p(output_dir)
+
         plt.figure(figsize=(12,12))
         plt.plot(list_loss_train, label="loss train")
         plt.plot(list_loss_val, label="loss val")
         plt.xlabel("Epochs")
         plt.ylabel("Loss")
         plt.legend()
-        plt.savefig("images/loss_"+model_name+"/"+str(ind)+"_"+str(args.id_test)+".pdf")
+        plt.savefig(os.path.join(output_dir , str(ind)+"_"+str(args.id_test)+".pdf"))
         plt.show()
