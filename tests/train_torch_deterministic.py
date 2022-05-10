@@ -21,7 +21,7 @@ from utils.plot_utils import plot_traj_img
 from utils.train_utils import train
 
 # Local constants
-from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR, REFERENCE_IMG
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -94,21 +94,21 @@ def main():
         torch.cuda.manual_seed(seed)
 
         # Instanciate the model
-        model = lstm_encdec(2,128,256,2)
+        model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
         model.to(device)
 
         # Train the model
         train(model,device,0,batched_train_data,batched_val_data,args,model_name)
 
     # Model instantiation
-    model = lstm_encdec(2,128,256,2)
+    model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
     # Load the previously trained model
     model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"))
     model.to(device)
     model.eval()
 
     ind_sample = 1
-    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test],'reference.png'))
+    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test],REFERENCE_IMG))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in    enumerate(batched_test_data):
@@ -124,7 +124,7 @@ def main():
         plt.imshow(bck)
         plot_traj_img(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], test_homography, bck)
         plt.legend()
-        plt.title('Trajectory samples')
+        plt.title('Trajectory samples {}'.format(batch_idx))
         plt.show()
         # Not display more than args.examples
         if batch_idx==args.examples-1:
