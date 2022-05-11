@@ -1,8 +1,12 @@
 # Dataset keys
-OBS_TRAJ_REL  = 'obs_traj_rel'
-PRED_TRAJ_REL = 'pred_traj_rel'
-OBS_TRAJ      = 'obs_traj'
-PRED_TRAJ     = 'pred_traj'
+OBS_TRAJ       = 'obs_traj'
+OBS_TRAJ_REL   = 'obs_traj_rel'
+OBS_TRAJ_THETA = 'obs_traj_theta'
+OBS_NEIGHBORS  = 'obs_neighbors'
+PRED_TRAJ      = 'pred_traj'
+PRED_TRAJ_REL  = 'pred_traj_rel'
+FRAMES_IDS     = 'frames_ids'
+KEY_IDX        = 'key_idx'
 
 # Strings used in dataset filenames
 TRAIN_DATA_STR = '/training_data_'
