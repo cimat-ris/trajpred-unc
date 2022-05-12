@@ -3,7 +3,9 @@ from tqdm import tqdm
 import numpy as np
 
 # Local constants
-from utils.constants import MUN_POS_CSV
+from utils.constants import (
+    FRAMES_IDS, MUN_POS_CSV, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_REL, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_REL
+)
 
 def prepare_data(datasets_path, datasets_names, parameters):
     datasets = range(len(datasets_names))
@@ -198,12 +200,12 @@ def prepare_data(datasets_path, datasets_names, parameters):
     neighbors_obs= seq_neighbors_all[:, :obs_len, :]
     # Save all these data as a dictionary
     data = {
-        "obs_traj": obs_traj,
-        "obs_traj_rel": obs_traj_rel,
-        "obs_traj_theta":obs_traj_theta,
-        "pred_traj": pred_traj,
-        "pred_traj_rel": pred_traj_rel,
-        "frames_ids": frame_obs,
-        "obs_neighbors": neighbors_obs
+        OBS_TRAJ:       obs_traj,
+        OBS_TRAJ_REL:   obs_traj_rel,
+        OBS_TRAJ_THETA: obs_traj_theta,
+        PRED_TRAJ:      pred_traj,
+        PRED_TRAJ_REL:  pred_traj_rel,
+        FRAMES_IDS:     frame_obs,
+        OBS_NEIGHBORS:  neighbors_obs
     }
     return data

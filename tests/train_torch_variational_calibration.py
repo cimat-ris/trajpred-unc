@@ -34,6 +34,9 @@ from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
 from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 
+# Local constants
+from utils.constants import OBS_TRAJ, OBS_TRAJ_REL, PRED_TRAJ, PRED_TRAJ_REL
+
 # parameters models
 #initial_lr     = 0.000002
 
@@ -167,9 +170,9 @@ def main():
     training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=pickle)
 
     # Torch dataset
-    train_data = traj_dataset(training_data['obs_traj_rel'], training_data['pred_traj_rel'],training_data['obs_traj'], training_data['pred_traj'])
-    val_data = traj_dataset(validation_data['obs_traj_rel'], validation_data['pred_traj_rel'],validation_data['obs_traj'], validation_data['pred_traj'])
-    test_data = traj_dataset(test_data['obs_traj_rel'], test_data['pred_traj_rel'], test_data['obs_traj'], test_data['pred_traj'])
+    train_data = traj_dataset(training_data[OBS_TRAJ_REL], training_data[PRED_TRAJ_REL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
+    val_data = traj_dataset(validation_data[OBS_TRAJ_REL], validation_data[PRED_TRAJ_REL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
+    test_data = traj_dataset(test_data[OBS_TRAJ_REL], test_data[PRED_TRAJ_REL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
 
     # Form batches
     batched_train_data = torch.utils.data.DataLoader( train_data, batch_size = batch_size, shuffle=False)
@@ -185,19 +188,19 @@ def main():
     posterior_rho_init = -4
 
 
-        if args.no_retrain==False:
-            # Agregamos la semilla
-            torch.manual_seed(seed)
-            torch.cuda.manual_seed(seed)
-            
-            # Instanciate the model
-            model = lstm_encdec_variational(2,128,256,2,prior_mu,prior_sigma,posterior_mu_init,posterior_rho_init)
-            model.to(device)
-            # Entremamos el modelo
-            train(model,device,idTest,batched_train_data,batched_val_data)
-            if args.plot_losses:
-                plt.savefig("images/loss_"+str(idTest)+".pdf")
-                plt.show()
+    if args.no_retrain==False:
+        # Agregamos la semilla
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        
+        # Instanciate the model
+        model = lstm_encdec_variational(2,128,256,2,prior_mu,prior_sigma,posterior_mu_init,posterior_rho_init)
+        model.to(device)
+        # Entremamos el modelo
+        train(model,device,idTest,batched_train_data,batched_val_data)
+        if args.plot_losses:
+            plt.savefig("images/loss_"+str(idTest)+".pdf")
+            plt.show()
 
 
     # Instanciamos el modelo

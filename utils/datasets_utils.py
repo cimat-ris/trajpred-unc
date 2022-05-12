@@ -7,7 +7,10 @@ import cv2
 import tensorflow as tf
 import torch
 from torch.utils.data import Dataset
-from utils.constants import TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, MUN_POS_CSV
+from utils.constants import (
+    FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_REL, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_REL,
+    TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, MUN_POS_CSV
+)
 
 from utils.process_file import prepare_data
 import logging
@@ -66,9 +69,9 @@ def get_testing_batch_synthec(testing_data,testing_data_path):
     # A trajectory id
     testing_data_arr = list(testing_data.as_numpy_iterator())
     randomtrajId     = np.random.randint(len(testing_data_arr),size=1)[0]
-    frame_id         = testing_data_arr[randomtrajId]["frames_ids"][0]
+    frame_id         = testing_data_arr[randomtrajId][FRAMES_IDS][0]
     # Form the batch
-    filtered_data  = testing_data.filter(lambda x: x["frames_ids"][0]==frame_id)
+    filtered_data  = testing_data.filter(lambda x: x[FRAMES_IDS][0]==frame_id)
     filtered_data  = filtered_data.batch(20)
     for element in filtered_data.as_numpy_iterator():
         return element
@@ -261,9 +264,9 @@ def process_file(datasets_path, datasets_names, parameters, csv_file=MUN_POS_CSV
         seq_pos_dataset = np.concatenate(seq_pos_dataset,axis=0)
         obs_traj        = seq_pos_dataset[:, :obs_len, :]
         vec = {
-            "obs_neighbors": obs_neighbors,
-            "key_idx": np.array(seq_ids_dataset),
-            "obs_traj":  obs_traj
+            OBS_NEIGHBORS: obs_neighbors,
+            KEY_IDX:  np.array(seq_ids_dataset),
+            OBS_TRAJ: obs_traj
         }
         print("[INF] Total number of trajectories in this dataset: ",obs_traj.shape[0])
         # At the dataset level
@@ -271,10 +274,10 @@ def process_file(datasets_path, datasets_names, parameters, csv_file=MUN_POS_CSV
             print("[INF] Add social interaction data (optical flow)")
             if parameters.obstacles:
                 of_sim = OpticalFlowSimulator()
-                flow,vis_neigh,vis_obst = of_sim.compute_opticalflow_batch(vec['obs_neighbors'], vec['key_idx'], vec['obs_traj'],parameters.obs_len,obstacles_world)
+                flow,vis_neigh,vis_obst = of_sim.compute_opticalflow_batch(vec[OBS_NEIGHBORS], vec[KEY_IDX], vec[OBS_TRAJ],parameters.obs_len,obstacles_world)
             else:
                 of_sim = OpticalFlowSimulator()
-                flow,vis_neigh,vis_obst = of_sim.compute_opticalflow_batch(vec['obs_neighbors'], vec['key_idx'], vec['obs_traj'],parameters.obs_len,None)
+                flow,vis_neigh,vis_obst = of_sim.compute_opticalflow_batch(vec[OBS_NEIGHBORS], vec[KEY_IDX], vec[OBS_TRAJ],parameters.obs_len,None)
             all_flow.append(flow)
             all_vis_neigh.append(vis_neigh)
             all_vis_obst.append(vis_obst)
@@ -299,13 +302,13 @@ def process_file(datasets_path, datasets_names, parameters, csv_file=MUN_POS_CSV
     neighbors_obs= seq_neighbors_all[:, :obs_len, :]
     # Save all these data as a dictionary
     data = {
-        "obs_traj": obs_traj,
-        "obs_traj_rel": obs_traj_rel,
-        "obs_traj_theta":obs_traj_theta,
-        "pred_traj": pred_traj,
-        "pred_traj_rel": pred_traj_rel,
-        "frames_ids": frame_obs,
-        "obs_neighbors": neighbors_obs
+        OBS_TRAJ:       obs_traj,
+        OBS_TRAJ_REL:   obs_traj_rel,
+        OBS_TRAJ_THETA: obs_traj_theta,
+        PRED_TRAJ:      pred_traj,
+        PRED_TRAJ_REL:  pred_traj_rel,
+        FRAMES_IDS:     frame_obs,
+        OBS_NEIGHBORS:  neighbors_obs
     }
 
     # Optical flow
@@ -351,34 +354,34 @@ def setup_loo_experiment_synthec(experiment_name,ds_path,ds_names,leave_id,exper
         idx_val   = idx[training:]
         # Training set
         training_data = {
-            "obs_traj":      train_data["obs_traj"][idx_train],
-            "obs_traj_rel":  train_data["obs_traj_rel"][idx_train],
-            "obs_traj_theta":train_data["obs_traj_theta"][idx_train],
-            "pred_traj":     train_data["pred_traj"][idx_train],
-            "pred_traj_rel": train_data["pred_traj_rel"][idx_train],
-            "frames_ids":    train_data["frames_ids"][idx_train]
+            OBS_TRAJ:       train_data[OBS_TRAJ][idx_train],
+            OBS_TRAJ_REL:   train_data[OBS_TRAJ_REL][idx_train],
+            OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_train],
+            PRED_TRAJ:      train_data[PRED_TRAJ][idx_train],
+            PRED_TRAJ_REL:  train_data[PRED_TRAJ_REL][idx_train],
+            FRAMES_IDS:     train_data[FRAMES_IDS][idx_train]
         }
         if experiment_parameters.add_social:
             training_data["obs_optical_flow"]=train_data["obs_optical_flow"][idx_train]
         # Test set
         testing_data = {
-            "obs_traj":      test_data["obs_traj"][:],
-            "obs_traj_rel":  test_data["obs_traj_rel"][:],
-            "obs_traj_theta":test_data["obs_traj_theta"][:],
-            "pred_traj":     test_data["pred_traj"][:],
-            "pred_traj_rel": test_data["pred_traj_rel"][:],
-            "frames_ids":    test_data["frames_ids"][:]
+            OBS_TRAJ:       test_data[OBS_TRAJ][:],
+            OBS_TRAJ_REL:   test_data[OBS_TRAJ_REL][:],
+            OBS_TRAJ_THETA: test_data[OBS_TRAJ_THETA][:],
+            PRED_TRAJ:      test_data[PRED_TRAJ][:],
+            PRED_TRAJ_REL:  test_data[PRED_TRAJ_REL][:],
+            FRAMES_IDS:     test_data[FRAMES_IDS][:]
         }
         if experiment_parameters.add_social:
             testing_data["obs_optical_flow"]=test_data["obs_optical_flow"][:]
         # Validation set
         validation_data ={
-            "obs_traj":      train_data["obs_traj"][idx_val],
-            "obs_traj_rel":  train_data["obs_traj_rel"][idx_val],
-            "obs_traj_theta":train_data["obs_traj_theta"][idx_val],
-            "pred_traj":     train_data["pred_traj"][idx_val],
-            "pred_traj_rel": train_data["pred_traj_rel"][idx_val],
-            "frames_ids":    train_data["frames_ids"][idx_val]
+            OBS_TRAJ:       train_data[OBS_TRAJ][idx_val],
+            OBS_TRAJ_REL:   train_data[OBS_TRAJ_REL][idx_val],
+            OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_val],
+            PRED_TRAJ:      train_data[PRED_TRAJ][idx_val],
+            PRED_TRAJ_REL:  train_data[PRED_TRAJ_REL][idx_val],
+            FRAMES_IDS:     train_data[FRAMES_IDS][idx_val]
         }
         if experiment_parameters.add_social:
             validation_data["obs_optical_flow"]=train_data["obs_optical_flow"][idx_val]
@@ -398,7 +401,6 @@ def setup_loo_experiment_synthec(experiment_name,ds_path,ds_names,leave_id,exper
         pickle.dump(validation_data, pickle_out, protocol=2)
         pickle_out.close()
     else:
-        print("dentro del else....")
         # Unpickle the ready-to-use datasets
         print("[INF] Unpickling...")
         pickle_in = open(pickle_dir+TRAIN_DATA_STR+experiment_name+'.pickle',"rb")
@@ -441,32 +443,32 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
         idx_val   = idx[training:]
         # Training set
         training_data = {
-            "obs_traj":        train_data["obs_traj"][idx_train],
-            "obs_traj_rel":    train_data["obs_traj_rel"][idx_train],
-            "obs_traj_theta":  train_data["obs_traj_theta"][idx_train],
-            "pred_traj":       train_data["pred_traj"][idx_train],
-            "pred_traj_rel":   train_data["pred_traj_rel"][idx_train],
-            "frames_ids":      train_data["frames_ids"][idx_train],
+            OBS_TRAJ:       train_data[OBS_TRAJ][idx_train],
+            OBS_TRAJ_REL:   train_data[OBS_TRAJ_REL][idx_train],
+            OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_train],
+            PRED_TRAJ:      train_data[PRED_TRAJ][idx_train],
+            PRED_TRAJ_REL:  train_data[PRED_TRAJ_REL][idx_train],
+            FRAMES_IDS:     train_data[FRAMES_IDS][idx_train],
 #            "obs_optical_flow":train_data["obs_optical_flow"][idx_train]
         }
         # Test set
         testing_data = {
-            "obs_traj":      test_data["obs_traj"][:],
-            "obs_traj_rel":  test_data["obs_traj_rel"][:],
-            "obs_traj_theta":test_data["obs_traj_theta"][:],
-            "pred_traj":     test_data["pred_traj"][:],
-            "pred_traj_rel": test_data["pred_traj_rel"][:],
-            "frames_ids":    test_data["frames_ids"][:],
+            OBS_TRAJ:       test_data[OBS_TRAJ][:],
+            OBS_TRAJ_REL:   test_data[OBS_TRAJ_REL][:],
+            OBS_TRAJ_THETA: test_data[OBS_TRAJ_THETA][:],
+            PRED_TRAJ:      test_data[PRED_TRAJ][:],
+            PRED_TRAJ_REL:  test_data[PRED_TRAJ_REL][:],
+            FRAMES_IDS:     test_data[FRAMES_IDS][:],
 #            "obs_optical_flow": test_data["obs_optical_flow"][:]
         }
         # Validation set
         validation_data ={
-            "obs_traj":      train_data["obs_traj"][idx_val],
-            "obs_traj_rel":  train_data["obs_traj_rel"][idx_val],
-            "obs_traj_theta":train_data["obs_traj_theta"][idx_val],
-            "pred_traj":     train_data["pred_traj"][idx_val],
-            "pred_traj_rel": train_data["pred_traj_rel"][idx_val],
-            "frames_ids":    train_data["frames_ids"][idx_val],
+            OBS_TRAJ:       train_data[OBS_TRAJ][idx_val],
+            OBS_TRAJ_REL:   train_data[OBS_TRAJ_REL][idx_val],
+            OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_val],
+            PRED_TRAJ:      train_data[PRED_TRAJ][idx_val],
+            PRED_TRAJ_REL:  train_data[PRED_TRAJ_REL][idx_val],
+            FRAMES_IDS:     train_data[FRAMES_IDS][idx_val],
 #            "obs_optical_flow": train_data["obs_optical_flow"][idx_val]
         }
         # Training dataset
