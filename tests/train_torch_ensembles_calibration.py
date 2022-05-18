@@ -4,7 +4,7 @@
 # Centro de Investigación en Matemáticas, A.C.
 # mario.canche@cimat.mx
 
-# Cargamos las librerias
+# Imports
 import time
 import sys,os,logging, argparse
 sys.path.append('bayesian-torch')
@@ -29,7 +29,7 @@ from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 import torch.optim as optim
 # Local constants
-from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -93,32 +93,32 @@ def main():
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
     batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
-    # Seleccionamos de forma aleatorea las semillas
+    # Select random seeds
     seeds = np.random.choice(99999999, args.num_ensembles , replace=False)
     print("Seeds: ", seeds)
 
     if args.no_retrain==False:
-        # Entrenamos el modelo para cada semilla
+        # Train model for each seed
         for ind, seed in enumerate(seeds):
-            # Agregamos la semilla
+            # Seed added
             torch.manual_seed(seed)
             torch.cuda.manual_seed(seed)
 
             # Instanciate the model
-            model = lstm_encdec_gaussian(2,128,256,2)
+            model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
             model.to(device)
 
-            # Entremamos el modelo
+            # Train the model
             print("\n*** Training for seed: ", seed, "\t\t ", ind, "/",len(seeds))
             train(model,device,ind,batched_train_data,batched_val_data,args,model_name)
 
-    # Instanciamos el modelo
-    model = lstm_encdec_gaussian(2,128,256,2)
+    # Instanciate the model
+    model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
     model.to(device)
 
 
     ind_sample = np.random.randint(args.batch_size)
-    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test],'reference.png'))
+    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test], REFERENCE_IMG))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
@@ -139,7 +139,7 @@ def main():
             plot_traj_world(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],ax)
             plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:],ax)
         plt.legend()
-        plt.title('Trajectory samples')
+        plt.title('Trajectory samples {}'.format(batch_idx))
         plt.show()
         # Solo aplicamos a un elemento del batch
         break

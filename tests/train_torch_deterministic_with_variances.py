@@ -4,7 +4,7 @@
 # Centro de Investigación en Matemáticas, A.C.
 # mario.canche@cimat.mx
 
-# Cargamos las librerias
+# Imports
 import time
 import sys,os,logging, argparse
 sys.path.append('.')
@@ -28,7 +28,7 @@ from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 import torch.optim as optim
 # Local constants
-from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR
 
 
 # Parser arguments
@@ -103,14 +103,14 @@ def main():
         torch.cuda.manual_seed(seed)
 
         # Instanciate the model
-        model = lstm_encdec_gaussian(2,128,256,2)
+        model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
         model.to(device)
 
         # Train the model
         train(model,device,0,batched_train_data,batched_val_data,args,model_name)
 
     # Model instantiation
-    model = lstm_encdec_gaussian(2,128,256,2)
+    model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
     # Load the previously trained model
     model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"))
     model.eval()
@@ -118,7 +118,7 @@ def main():
 
 
     ind_sample = np.random.randint(args.batch_size)
-    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test],'reference.png'))
+    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test], REFERENCE_IMG))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
@@ -133,7 +133,7 @@ def main():
         plot_traj_world(pred[ind,:,:],data_test[ind,:,:],target_test[ind,:,:],ax)
         plot_cov_world(pred[ind,:,:],sigmas[ind,:,:],data_test[ind,:,:],ax)
         plt.legend()
-        plt.title('Trajectory samples')
+        plt.title('Trajectory samples {}'.format(batch_idx))
         plt.show()
         # Not display more than args.examples
         if batch_idx==args.examples-1:
