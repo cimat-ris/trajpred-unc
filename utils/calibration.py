@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import os
 from matplotlib import pyplot as plt
 
 from scipy.stats import multivariate_normal
@@ -10,6 +11,10 @@ from shapely.geometry import Polygon, LineString
 from shapely.ops import polygonize, unary_union
 
 from utils.plot_utils import plot_traj_world
+# Local utils helpers
+from utils.directory_utils import mkdir_p
+# Local constants
+from utils.constants import IMAGES_DIR
 
 def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, resample_size=0 , display=False, idTest=0):
 
@@ -76,11 +81,15 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
 
 
     sample_pdf = np.random.multivariate_normal(mean_mix, cov_mix, resample_size)
+    # Create directory if does not exists
+    output_dir = os.path.join(IMAGES_DIR, "trajectories")
+    mkdir_p(output_dir)
+
     if display:
         label5, = plt.plot(sample_pdf[:,0], sample_pdf[:,1], ".", color="blue", alpha=0.2, label = "Gaussian Mix Samples")
         plt.title("Trajectory Plot")
         plt.legend(handles=[label1, label2, label3, label4, label5 ])
-        plt.savefig("images/trajectories/traj_samples_cov_"+str(idTest)+"_"+str(i)+".pdf")
+        plt.savefig(os.path.join(output_dir , "traj_samples_cov_"+str(idTest)+"_"+str(i)+".pdf"))
         #plt.show()
         plt.close()
 
