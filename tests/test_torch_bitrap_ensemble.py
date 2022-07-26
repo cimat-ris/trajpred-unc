@@ -67,7 +67,7 @@ if __name__ == '__main__':
     train_data = traj_dataset(training_data[OBS_TRAJ_REL ], training_data[PRED_TRAJ_REL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
     val_data = traj_dataset(validation_data[OBS_TRAJ_REL ], validation_data[PRED_TRAJ_REL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
     test_data = traj_dataset(test_data[OBS_TRAJ_REL ], test_data[PRED_TRAJ_REL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
-
+    print(training_data.keys())
     # Form batches
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
     batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
