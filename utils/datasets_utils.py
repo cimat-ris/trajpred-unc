@@ -26,6 +26,8 @@ class Experiment_Parameters:
         # Delimiter
         self.delim        = ','
 
+        self.dt = 0.4
+
 # Creamos la clase para el dataset
 class traj_dataset(Dataset):
 
@@ -89,8 +91,6 @@ def prepare_data(datasets_path, datasets_names, parameters):
 
     # Scan all the datasets
     for idx,dataset_name in enumerate(datasets_names):
-        seq_neighbors_dataset= []
-        seq_pos_dataset      = []
         traj_data_path       = os.path.join(datasets_path+dataset_name, MUN_POS_CSV)
         logging.info("Reading "+traj_data_path)
 
@@ -214,18 +214,8 @@ def prepare_data(datasets_path, datasets_names, parameters):
             seq_theta_all.append(theta_seq_data[:ped_count])
             # Append all the frame ranges (frame_ids_seq_data) starting at this frame
             seq_frames_all.append(frame_ids_seq_data[:ped_count])
-            # Information used locally for this dataset
-            seq_pos_dataset.append(pos_seq_data[:ped_count])
             # Neighbours
             seq_neighbors_all.append(neighbors_data[:ped_count])
-            # Append all the neighbor data (neighbors_data) starting at this frame
-            seq_neighbors_dataset.append(neighbors_data[:ped_count])
-
-        # Neighbors information
-        seq_neighbors_dataset = np.concatenate(seq_neighbors_dataset, axis = 0)
-        obs_neighbors         = seq_neighbors_dataset[:,:obs_len,:,:]
-        seq_pos_dataset       = np.concatenate(seq_pos_dataset,axis=0)
-        logging.info("Total number of trajlets in this dataset: {}".format(seq_pos_dataset.shape[0]))
 
     # Upper level (all datasets)
     # Concatenate all the content of the lists (pos/relative pos/frame ranges)
@@ -289,28 +279,28 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
         # Training set
         training_data = {
             OBS_TRAJ:       train_data[OBS_TRAJ][idx_train],
-            OBS_TRAJ_REL:   train_data[OBS_TRAJ_REL][idx_train],
+            OBS_TRAJ_VEL:   train_data[OBS_TRAJ_VEL][idx_train],
             OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_train],
             PRED_TRAJ:      train_data[PRED_TRAJ][idx_train],
-            PRED_TRAJ_REL:  train_data[PRED_TRAJ_REL][idx_train],
+            PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_train],
             FRAMES_IDS:     train_data[FRAMES_IDS][idx_train],
         }
         # Test set
         testing_data = {
             OBS_TRAJ:       test_data[OBS_TRAJ][:],
-            OBS_TRAJ_REL:   test_data[OBS_TRAJ_REL][:],
+            OBS_TRAJ_VEL:   test_data[OBS_TRAJ_VEL][:],
             OBS_TRAJ_THETA: test_data[OBS_TRAJ_THETA][:],
             PRED_TRAJ:      test_data[PRED_TRAJ][:],
-            PRED_TRAJ_REL:  test_data[PRED_TRAJ_REL][:],
+            PRED_TRAJ_VEL:  test_data[PRED_TRAJ_VEL][:],
             FRAMES_IDS:     test_data[FRAMES_IDS][:],
         }
         # Validation set
         validation_data ={
             OBS_TRAJ:       train_data[OBS_TRAJ][idx_val],
-            OBS_TRAJ_REL:   train_data[OBS_TRAJ_REL][idx_val],
+            OBS_TRAJ_VEL:   train_data[OBS_TRAJ_VEL][idx_val],
             OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_val],
             PRED_TRAJ:      train_data[PRED_TRAJ][idx_val],
-            PRED_TRAJ_REL:  train_data[PRED_TRAJ_REL][idx_val],
+            PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_val],
             FRAMES_IDS:     train_data[FRAMES_IDS][idx_val],
         }
         # Training dataset
