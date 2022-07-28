@@ -42,20 +42,20 @@ def train(model,device,ind,train_data,val_data,args,model_name):
         error = 0
         total = 0
         # Recorremos cada batch
-        for batch_idx, (observations_rel, target_rel, observations_abs , target_abs) in enumerate(train_data):
+        for batch_idx, (observations_vel, target_vel, observations_abs , target_abs) in enumerate(train_data):
             # Remember that Pytorch accumulates gradients.
             # We need to clear them out before each instance
             model.zero_grad()
             if torch.cuda.is_available():
-              observations_rel = observations_rel.to(device)
-              target_rel       = target_rel.to(device)
+              observations_vel = observations_vel.to(device)
+              target_vel       = target_vel.to(device)
               observations_abs = observations_abs.to(device)
               target_abs       = target_abs.to(device)
 
             # Run our forward pass and compute the loss
-            loss   = model(observations_rel, target_rel, observations_abs , target_abs, teacher_forcing=args.teacher_forcing)
+            loss   = model(observations_vel, target_vel, observations_abs , target_abs, teacher_forcing=args.teacher_forcing)
             error += loss
-            total += len(target_rel)
+            total += len(target_vel)
 
             # Step 3. Compute the gradients, and update the parameters by
             loss.backward()
