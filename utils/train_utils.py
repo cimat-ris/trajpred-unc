@@ -60,12 +60,14 @@ def train(model,device,ind,train_data,val_data,args,model_name):
             # Step 3. Compute the gradients, and update the parameters by
             loss.backward()
             optimizer.step()
-        logging.info("Trn loss: {}".format(error.detach().cpu().numpy()/total))
+        logging.info("Trn loss: {:.4f}".format(error.detach().cpu().numpy()/total))
         list_loss_train.append(error.detach().cpu().numpy()/total)
 
         # Validation
         error = 0
         total = 0
+        ade   = 0
+        fde   = 0
         for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
 
             if torch.cuda.is_available():
@@ -77,8 +79,18 @@ def train(model,device,ind,train_data,val_data,args,model_name):
             loss_val = model(data_val, target_val, data_abs , target_abs)
             error += loss_val
             total += len(target_val)
+            # prediction
+            init_pos  = np.expand_dims(data_abs.cpu().numpy()[:,-1,:],axis=1)
+            pred_val  = model.predict(data_val, dim_pred=12) + init_pos
+            ade    = ade + np.sum(np.average(np.sqrt(np.square(target_abs.cpu().numpy()-pred_val).sum(2)),axis=1))
+            fde    = fde + np.sum(np.sqrt(np.square(target_abs.cpu().numpy()[:,-1,:]-pred_val[:,-1,:]).sum(1)))
+
         error = error.detach().cpu().numpy()/total
-        logging.info("Val loss: {} ".format(error))
+        ade   = ade/total
+        fde   = fde/total
+        logging.info("Val loss: {:.4f} ".format(error))
+        logging.info("Val ade : {:.4f} ".format(ade))
+        logging.info("Val fde : {:.4f} ".format(fde))
         list_loss_val.append(error)
         if error<min_val_error:
             min_val_error = error
