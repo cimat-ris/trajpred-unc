@@ -132,75 +132,75 @@ class lstm_encdec(nn.Module):
         super(lstm_encdec, self).__init__()
         # Layers
         self.embedding = nn.Linear(in_size, embedding_dim)
+        self.drop1     = nn.Dropout(p=0.4)
         self.lstm1     = nn.LSTM(embedding_dim, hidden_dim)
         self.lstm2     = nn.LSTM(embedding_dim, hidden_dim)
+        self.drop2     = nn.Dropout(p=0.4)
         self.decoder   = nn.Linear(hidden_dim, output_size)
         # Loss function
         self.loss_fun  = nn.MSELoss()
+        self.dt        = 0.4
 
-    # Encoding of the past trajectry
-    def encode(self, X):
-        # Last position traj
-        x_last = X[:,-1,:].view(len(X), 1, -1)
-        # Embedding positions
-        emb = self.embedding(X)
+    # Encoding of the past trajectory data
+    def encode(self, V):
+        # Last spatial data
+        v_last = V[:,-1,:].view(len(V), 1, -1)
+        # Embedding spatial data
+        emb = self.drop1(self.embedding(V))
         # LSTM for batch [seq_len, batch, input_size]
         lstm_out, hidden_state = self.lstm1(emb.permute(1,0,2))
-        return x_last,hidden_state
+        return v_last,hidden_state
 
-    # Decoding the next future position
-    def decode(self, x_last, hidden_state):
-        # Embedding last position
-        emb_last = self.embedding(x_last)
-        # lstm for last position with hidden states from batch
+    # Decoding the next future displacements
+    def decode(self, v_last, hidden_state):
+        # Embedding last spatial data
+        emb_last = self.embedding(v_last)
+        # lstm for last spatial data with hidden states from batch
         lstm_out, hidden_state = self.lstm2(emb_last.permute(1,0,2), hidden_state)
         # Decoder and Prediction
-        dec = self.decoder(hidden_state[0].permute(1,0,2))
-        t_pred = dec + x_last
+        dec = self.decoder(self.drop2(hidden_state[0].permute(1,0,2)))
+        # Model evaluates deviation to the linear model
+        t_pred = dec + v_last
         return t_pred,hidden_state
 
-    def forward(self,obs_displs,target_displs,obs_abs,target_abs,teacher_forcing=False):
-        # Encode the past trajectory (sequence of displacements)
-        last_displ,hidden_state = self.encode(obs_displs)
-
+    def forward(self,obs_vels,target_vels,obs_abs,target_abs,teacher_forcing=False):
+        # Encode the past trajectory (sequence of velocities)
+        last_vel,hidden_state = self.encode(obs_vels)
         loss        = 0
-        pred_displs = []
-
+        pred_vels = []
         # Decode the future trajectories
-        for i, target_displ in enumerate(target_displs.permute(1,0,2)):
+        for i, target_vel in enumerate(target_vels.permute(1,0,2)):
             # Decode last displacement and hidden state into new displacement
-            pred_displ,hidden_state = self.decode(last_displ,hidden_state)
+            pred_vel,hidden_state = self.decode(last_vel,hidden_state)
             # Keep displacement and variance on displacement
-            pred_displs.append(pred_displ)
+            pred_vels.append(pred_vel)
             # Update the last position
             if teacher_forcing:
                 # With teacher forcing, use the GT displacement
-                last_displ = target_displ.view(len(target_displ), 1, -1)
+                last_vel = target_vel.view(len(target_vel), 1, -1)
             else:
                 # Otherwise, use the predicted displacement we just did
-                last_displ = pred_displ
+                last_vel = pred_vel
             # Deduce absolute position by summing all our predicted displacements to
             # the last absolute position
-            pred_abs = obs_abs[:,-1,:] + torch.cat(pred_displs, dim=1).sum(1)
+            pred_abs = obs_abs[:,-1,:] + torch.mul(torch.cat(pred_vels, dim=1).sum(1),self.dt)
             # Evaluate likelihood
             loss += self.loss_fun(target_abs[:,i,:],pred_abs)
         # Return total loss
         return loss
 
-    def predict(self, obs_displs, dim_pred= 1):
-        # Encode the past trajectory
-        last_displ,hidden_state = self.encode(obs_displs)
-
-        pred_displs  = []
+    def predict(self, obs_vels, dim_pred= 1):
+        # Encode the past trajectory (sequence of velocities)
+        last_vel,hidden_state = self.encode(obs_vels)
+        pred_vels  = []
 
         for i in range(dim_pred):
-            # Decode last position and hidden state into new position
-            pred_displ,hidden_state = self.decode(last_displ,hidden_state)
-            # Keep new displacement and the corresponding variance
-            pred_displs.append(pred_displ)
-            # Update the last displacement
-            last_displ = pred_displ
+            # Decode last velocity and hidden state into new position
+            pred_vel,hidden_state = self.decode(last_vel,hidden_state)
+            # Keep new velocity
+            pred_vels.append(pred_vel)
+            # Update the last velocity
+            last_vel = pred_vel
 
-        # Sum the displacements and the variances to get the relative trajectory
-        pred_traj = torch.cumsum(torch.cat(pred_displs, dim=1), dim=1).detach().cpu().numpy()
-        return pred_traj
+        # Sum the displacements to get the relative trajectory
+        return self.dt*torch.cumsum(torch.cat(pred_vels, dim=1), dim=1).detach().cpu().numpy()
