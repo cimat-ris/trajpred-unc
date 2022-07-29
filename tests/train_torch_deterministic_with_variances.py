@@ -37,7 +37,7 @@ parser.add_argument('--batch-size', '--b',
                     type=int, default=256, metavar='N',
                     help='input batch size for training (default: 256)')
 parser.add_argument('--epochs', '--e',
-                    type=int, default=200, metavar='N',
+                    type=int, default=80, metavar='N',
                     help='number of epochs to train (default: 200)')
 parser.add_argument('--examples',
                     type=int, default=1, metavar='N',
@@ -95,12 +95,13 @@ def main():
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
 
     # Seed for RNG
-    seed = 1
+    seed = 17
 
     if args.no_retrain==False:
         # Choose seed
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
+        np.random.seed(seed)
 
         # Instanciate the model
         model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
@@ -120,7 +121,7 @@ def main():
     ind_sample = np.random.randint(args.batch_size)
     bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test], REFERENCE_IMG))
 
-    # Testing
+    # Testing: Qualitative
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
         fig, ax = plt.subplots(1,1,figsize=(12,12))
 
@@ -138,6 +139,22 @@ def main():
         # Not display more than args.examples
         if batch_idx==args.examples-1:
             break
+
+    # Testing: Quantitative
+    ade  = 0
+    fde  = 0
+    total= 0
+    for batch_idx, (datavel_test, targetvel_test, data_test, target_test) in    enumerate(batched_test_data):
+        if torch.cuda.is_available():
+            datavel_test  = datavel_test.to(device)
+        total += len(datavel_test)
+        # prediction
+        init_pos  = np.expand_dims(data_test[:,-1,:],axis=1)
+        pred_test = model.predict(datavel_test, dim_pred=12)[0] + init_pos
+        ade    += np.average(np.sqrt(np.square(target_test-pred_test).sum(2)),axis=1).sum()
+        fde    += (np.sqrt(np.square(target_test[:,-1,:]-pred_test[:,-1,:]).sum(1))).sum()
+    logging.info("Test ade : {:.4f} ".format(ade/total))
+    logging.info("Test fde : {:.4f} ".format(fde/total))
 
 if __name__ == "__main__":
     main()
