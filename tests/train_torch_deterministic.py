@@ -9,6 +9,7 @@ sys.path.append('.')
 import math,numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from datetime import datetime
 
 import torch
 from torchvision import transforms
@@ -21,7 +22,7 @@ from utils.plot_utils import plot_traj_img
 from utils.train_utils import train
 
 # Local constants
-from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR, REFERENCE_IMG
+from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR, REFERENCE_IMG
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -29,8 +30,8 @@ parser.add_argument('--batch-size', '--b',
                     type=int, default=256, metavar='N',
                     help='input batch size for training (default: 256)')
 parser.add_argument('--epochs', '--e',
-                    type=int, default=200, metavar='N',
-                    help='number of epochs to train (default: 200)')
+                    type=int, default=100, metavar='N',
+                    help='number of epochs to train (default: 100)')
 parser.add_argument('--examples',
                     type=int, default=1, metavar='N',
                     help='number of examples to exhibit (default: 1)')
@@ -38,7 +39,7 @@ parser.add_argument('--id-test',
                     type=int, default=2, metavar='N',
                     help='id of the dataset to use as test in LOO (default: 2)')
 parser.add_argument('--learning-rate', '--lr',
-                    type=float, default=0.0003, metavar='N',
+                    type=float, default=0.0002, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
 parser.add_argument('--no-retrain',
                     action='store_true',
@@ -67,7 +68,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default parameters
-    experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
+    experiment_parameters = Experiment_Parameters()
 
     dataset_dir   = "datasets/"
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
@@ -76,34 +77,36 @@ def main():
     # Load the dataset and perform the split
     training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
     # Torch dataset
-    train_data = traj_dataset(training_data[OBS_TRAJ_REL ], training_data[PRED_TRAJ_REL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
-    val_data = traj_dataset(validation_data[OBS_TRAJ_REL ], validation_data[PRED_TRAJ_REL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
-    test_data = traj_dataset(test_data[OBS_TRAJ_REL ], test_data[PRED_TRAJ_REL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
+    train_data = traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
+    val_data = traj_dataset(validation_data[OBS_TRAJ_VEL ], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
+    test_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
 
     # Form batches
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
     batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
-    batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
+    batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=True)
 
     # Seed for RNG
-    seed = 1
-
+    seed = 17
     if args.no_retrain==False:
         # Choose seed
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
+        np.random.seed(seed)
 
         # Instanciate the model
-        model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
+        model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=128, output_size=2)
         model.to(device)
 
         # Train the model
         train(model,device,0,batched_train_data,batched_val_data,args,model_name)
 
     # Model instantiation
-    model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
+    model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=128, output_size=2)
     # Load the previously trained model
-    model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"))
+    model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"
+    logging.info("Loading {}".format(model_filename))
+    model.load_state_dict(torch.load(model_filename))
     model.to(device)
     model.eval()
 
@@ -129,6 +132,20 @@ def main():
         # Not display more than args.examples
         if batch_idx==args.examples-1:
             break
-
+    # Testing: Quantitative
+    ade  = 0
+    fde  = 0
+    total= 0
+    for batch_idx, (datavel_test, targetvel_test, data_test, target_test) in    enumerate(batched_test_data):
+        if torch.cuda.is_available():
+            datavel_test  = datavel_test.to(device)
+        total += len(datavel_test)
+        # prediction
+        init_pos  = np.expand_dims(data_test[:,-1,:],axis=1)
+        pred_test = model.predict(datavel_test, dim_pred=12) + init_pos
+        ade    += np.average(np.sqrt(np.square(target_test-pred_test).sum(2)),axis=1).sum()
+        fde    += (np.sqrt(np.square(target_test[:,-1,:]-pred_test[:,-1,:]).sum(1))).sum()
+    logging.info("Test ade : {:.4f} ".format(ade/total))
+    logging.info("Test fde : {:.4f} ".format(fde/total))
 if __name__ == "__main__":
     main()
