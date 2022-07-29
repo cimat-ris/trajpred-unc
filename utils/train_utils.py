@@ -77,11 +77,14 @@ def train(model,device,ind,train_data,val_data,args,model_name):
               target_abs = target_abs.to(device)
 
             loss_val = model(data_val, target_val, data_abs , target_abs)
-            error += loss_val
-            total += len(target_val)
+            error   += loss_val
+            total   += len(target_val)
             # prediction
             init_pos  = np.expand_dims(data_abs.cpu().numpy()[:,-1,:],axis=1)
-            pred_val  = model.predict(data_val, dim_pred=12) + init_pos
+            pred_val  = model.predict(data_val, dim_pred=12)
+            if len(pred_val)==2:
+                pred_val = pred_val[0]
+            pred_val += init_pos
             ade    = ade + np.sum(np.average(np.sqrt(np.square(target_abs.cpu().numpy()-pred_val).sum(2)),axis=1))
             fde    = fde + np.sum(np.sqrt(np.square(target_abs.cpu().numpy()[:,-1,:]-pred_val[:,-1,:]).sum(1)))
 
