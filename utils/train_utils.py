@@ -31,7 +31,7 @@ from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR
 def train(model,device,ind,train_data,val_data,args,model_name):
     # Optimizer
     # optimizer = optim.SGD(model.parameters(), lr=initial_lr)
-    optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.8)
+    optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.003)
     list_loss_train = []
     list_loss_val   = []
     min_val_error   = 1000.0
