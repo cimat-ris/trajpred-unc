@@ -28,14 +28,15 @@ class Experiment_Parameters:
 
         self.dt = 0.4
 
-# Creamos la clase para el dataset
+#  Trajectory dataset
 class traj_dataset(Dataset):
 
-    def __init__(self, Xrel_Train, Yrel_Train, X_Train, Y_Train, transform=None):
-        self.Xrel_Train = Xrel_Train
-        self.Yrel_Train = Yrel_Train
-        self.X_Train = X_Train
-        self.Y_Train = Y_Train
+    def __init__(self, Xrel_Train, Yrel_Train, X_Train, Y_Train, Frame_Ids=None,transform=None):
+        self.Xrel_Train= Xrel_Train
+        self.Yrel_Train= Yrel_Train
+        self.X_Train   = X_Train
+        self.Y_Train   = Y_Train
+        self.Frame_Ids = Frame_Ids
         self.transform = transform
 
     def __len__(self):
@@ -44,18 +45,17 @@ class traj_dataset(Dataset):
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
-
+        # Access to elements
         xrel = self.Xrel_Train[idx]
         yrel = self.Yrel_Train[idx]
-        x = self.X_Train[idx]
-        y = self.Y_Train[idx]
+        x    = self.X_Train[idx]
+        y    = self.Y_Train[idx]
 
         if self.transform:
             x = self.transform(x)
             y = self.transform(y)
             xrel = self.transform(xrel)
             yrel = self.transform(yrel)
-
         return xrel, yrel, x, y
 
 def get_testing_batch_synthec(testing_data,testing_data_path):
@@ -280,6 +280,7 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
         training_data = {
             OBS_TRAJ:       train_data[OBS_TRAJ][idx_train],
             OBS_TRAJ_VEL:   train_data[OBS_TRAJ_VEL][idx_train],
+            OBS_TRAJ_ACC:   train_data[OBS_TRAJ_ACC][idx_train],
             OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_train],
             PRED_TRAJ:      train_data[PRED_TRAJ][idx_train],
             PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_train],
@@ -289,6 +290,7 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
         testing_data = {
             OBS_TRAJ:       test_data[OBS_TRAJ][:],
             OBS_TRAJ_VEL:   test_data[OBS_TRAJ_VEL][:],
+            OBS_TRAJ_ACC:   test_data[OBS_TRAJ_ACC][:],
             OBS_TRAJ_THETA: test_data[OBS_TRAJ_THETA][:],
             PRED_TRAJ:      test_data[PRED_TRAJ][:],
             PRED_TRAJ_VEL:  test_data[PRED_TRAJ_VEL][:],
@@ -298,6 +300,7 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
         validation_data ={
             OBS_TRAJ:       train_data[OBS_TRAJ][idx_val],
             OBS_TRAJ_VEL:   train_data[OBS_TRAJ_VEL][idx_val],
+            OBS_TRAJ_ACC:   train_data[OBS_TRAJ_ACC][:],
             OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_val],
             PRED_TRAJ:      train_data[PRED_TRAJ][idx_val],
             PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_val],
