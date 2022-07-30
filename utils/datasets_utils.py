@@ -58,6 +58,26 @@ class traj_dataset(Dataset):
             yrel = self.transform(yrel)
         return xrel, yrel, x, y
 
+#  Trajectory dataset
+class traj_dataset_bitrap(Dataset):
+
+    def __init__(self, X_global, Y_global, Frame_Ids=None):
+        self.X_global  = Xrel_Train
+        self.Y_global  = Yrel_Train
+        self.Frame_Ids = Frame_Ids
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.X_global)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        # Access to elements
+        x = self.X_global[idx]
+        y = self.Y_global[idx]
+        return x, y
+
 def get_testing_batch_synthec(testing_data,testing_data_path):
     # A trajectory id
     testing_data_arr = list(testing_data.as_numpy_iterator())
