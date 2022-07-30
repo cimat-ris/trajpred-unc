@@ -79,8 +79,8 @@ if __name__ == '__main__':
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
     batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
-    for (datarel_test, targetrel_test, data_test, target_test) in batched_test_data:
-        print(datarel_test.shape)
+    #for (datarel_test, targetrel_test, data_test, target_test) in batched_test_data:
+    #    print(datarel_test.shape)
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
     cfg.BATCH_SIZE = 1
@@ -105,11 +105,6 @@ if __name__ == '__main__':
         model.K = 1
         ensemble.append(model)
 
-
-    #train_env = dill.load(f, encoding='latin1')
-    #node_type=train_env.NodeType[0]
-    #train_env.attention_radius[(node_type, node_type)] = 3.0 #10.0
-
     # Generate all paths
     all_X_globals    = []
     all_pred_trajs   = []
@@ -118,14 +113,13 @@ if __name__ == '__main__':
     with torch.set_grad_enabled(False):
         for iters, batch in enumerate(test_dataloader, start=1):
 
-            print(batch['input_x'].shape)
             # Input: n_batchesx8x6 (un-normalized)
             X_global     = batch['input_x'].to(cfg.DEVICE)
             # This is the GT: n_batchesx12x2 (un-normalized)
             y_global     = batch['target_y']
             # Input: n_batchesx8x6 (normalized)
-            input_x      = batch['input_x_st'].to(cfg.DEVICE)
-            print(batch['input_x'][0])
+            # input_x      = batch['input_x_st'].to(cfg.DEVICE)
+            #print(batch['input_x'][0])
             node_type=env.NodeType[0]
             state = {'PEDESTRIAN':{'position':['x','y'], 'velocity':['x','y'], 'acceleration':['x','y']}}
             pred_state = {'PEDESTRIAN':{'position':['x','y']}}
@@ -134,25 +128,41 @@ if __name__ == '__main__':
             rel_state      = np.zeros_like(batch['input_x'][:,0])
             rel_state[:,0:2] = np.array(batch['input_x'])[:,-1, 0:2]
             rel_state=np.expand_dims(rel_state,axis=1)
-            x_st = env.standardize(batch['input_x'], state[node_type], node_type, mean=rel_state, std=std)
+            my_x_st = env.standardize(batch['input_x'], state[node_type], node_type, mean=rel_state, std=std)
+            my_input_x      = torch.tensor(my_x_st,dtype=torch.float).to(cfg.DEVICE)
+
             #y_st = env.standardize(y, pred_state[node.type], node.type, mean=rel_state[0:2])
-            print(x_st)
-            print(batch['input_x_st'][0])
+            #print(x_st)
+            #print(batch['input_x_st'][0])
+            # Dictionary with keys pairs node_type x node_type
             neighbors_st = restore(batch['neighbors_x_st'])
             neighbors_un = restore(batch['neighbors_x'])
             key          =  list(neighbors_st.keys())[0]
+            print(neighbors_un[(node_type,node_type)])
+            neighbors_my_st = {}
+            neighbors_my_st[(node_type,node_type)] = [[]]
+            for (n,n_st) in zip(neighbors_un[(node_type,node_type)][0],neighbors_st[(node_type,node_type)][0]):
+                neighbor_st = env.standardize(n, state[node_type], node_type, mean=rel_state, std=std)
+                print(neighbor_st)
+                print(n_st)
+            n_neighbors = len(neighbors_un[(node_type,node_type)][0])
+
             # Should be a list of x tensors 8x6
             neighbors    = neighbors_st[key][0]
-            # List of edge values
+            print(type(neighbors_st[key][0][0]),n_neighbors)
+            # Dictionary with keys pairs node_type x node_type
             adjacency    = restore(batch['neighbors_adjacency'])
+            print(adjacency)
+            my_adjacency = {}
+            my_adjacency[(node_type,node_type)] = [torch.tensor(np.ones(n_neighbors))]
+            print(my_adjacency)
             first_history_indices = torch.tensor([0],dtype=np.int)
             pred_traj    = np.zeros((1,12,nsamples,2))
-            print('Zou')
             for k in range(nsamples):
                 id = random.randint(0,4)
-                pred_goal_, pred_traj_, _, dist_goal_, dist_traj_ = ensemble[id](input_x,
+                pred_goal_, pred_traj_, _, dist_goal_, dist_traj_ = ensemble[id](my_input_x,
                                                                 neighbors_st=neighbors_st,
-                                                                adjacency=adjacency,
+                                                                adjacency=my_adjacency,
                                                                 z_mode=False,
                                                                 cur_pos=X_global[:, -1, :cfg.MODEL.DEC_OUTPUT_DIM],
                                                                 first_history_indices=first_history_indices)
