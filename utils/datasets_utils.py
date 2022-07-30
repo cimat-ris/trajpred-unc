@@ -61,11 +61,11 @@ class traj_dataset(Dataset):
 #  Trajectory dataset
 class traj_dataset_bitrap(Dataset):
 
-    def __init__(self, X_global, Y_global, Frame_Ids=None):
-        self.X_global  = Xrel_Train
-        self.Y_global  = Yrel_Train
+    def __init__(self, X_global, Neighbors, Y_global, Frame_Ids=None):
+        self.X_global  = X_global
+        self.Y_global  = Y_global
+        self.neighbors = Neighbors
         self.Frame_Ids = Frame_Ids
-        self.transform = transform
 
     def __len__(self):
         return len(self.X_global)
@@ -75,8 +75,9 @@ class traj_dataset_bitrap(Dataset):
             idx = idx.tolist()
         # Access to elements
         x = self.X_global[idx]
+        n = self.neighbors[idx]
         y = self.Y_global[idx]
-        return x, y
+        return x, n, y
 
 def get_testing_batch_synthec(testing_data,testing_data_path):
     # A trajectory id
@@ -271,7 +272,7 @@ def prepare_data(datasets_path, datasets_names, parameters):
     }
     return data
 
-def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_parameters,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1):
+def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_parameters,use_neighbors=False,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1):
     # Dataset to be tested
     testing_datasets_names  = [ds_names[leave_id]]
     training_datasets_names = ds_names[:leave_id]+ds_names[leave_id+1:]
@@ -304,7 +305,7 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
             OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_train],
             PRED_TRAJ:      train_data[PRED_TRAJ][idx_train],
             PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_train],
-            FRAMES_IDS:     train_data[FRAMES_IDS][idx_train],
+            FRAMES_IDS:     train_data[FRAMES_IDS][idx_train]
         }
         # Test set
         testing_data = {
@@ -314,7 +315,7 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
             OBS_TRAJ_THETA: test_data[OBS_TRAJ_THETA][:],
             PRED_TRAJ:      test_data[PRED_TRAJ][:],
             PRED_TRAJ_VEL:  test_data[PRED_TRAJ_VEL][:],
-            FRAMES_IDS:     test_data[FRAMES_IDS][:],
+            FRAMES_IDS:     test_data[FRAMES_IDS][:]
         }
         # Validation set
         validation_data ={
@@ -324,8 +325,12 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
             OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_val],
             PRED_TRAJ:      train_data[PRED_TRAJ][idx_val],
             PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_val],
-            FRAMES_IDS:     train_data[FRAMES_IDS][idx_val],
+            FRAMES_IDS:     train_data[FRAMES_IDS][idx_val]
         }
+        if use_neighbors:
+            training_data[OBS_NEIGHBORS]   = train_data[OBS_NEIGHBORS][idx_train]
+            testing_data[OBS_NEIGHBORS]    = test_data[OBS_NEIGHBORS][:]
+            validation_data[OBS_NEIGHBORS] = train_data[OBS_NEIGHBORS][idx_val],
         # Training dataset
         pickle_out = open(pickle_dir+TRAIN_DATA_STR+experiment_name+'.pickle',"wb")
         pickle.dump(training_data, pickle_out, protocol=2)
