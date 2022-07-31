@@ -148,7 +148,7 @@ def prepare_data(datasets_path, datasets_names, parameters):
                 pv = np.concatenate([t,np.expand_dims(px,axis=1),np.expand_dims(py,axis=1),vx,vy,ax,ay],axis=1)
                 raw_traj_data_per_ped[ped]=pv
         counter = 0
-        # Iterate over the frames
+        # Iterate over the frames to define sequences
         for idx, frame in enumerate(frame_ids):
             if idx+seq_len>=len(frame_ids):
                 break
@@ -174,11 +174,9 @@ def prepare_data(datasets_path, datasets_names, parameters):
             # Is the array that have the sequence of Id_person of all people that there are in frame sequence
             frame_ids_seq_data = np.zeros((num_peds_in_seq, seq_len), dtype="int32")
 
-            # Tensor for holding nighbor data
-            neighbors_data = np.zeros((num_peds_in_seq, seq_len, parameters.person_max, 3),dtype="float32")
-            neighbors_data[:] = np.NaN
-
             ped_count = 0
+            # Tensor for holding neighbor data, for each sequence. List of 8x6 tensors
+            neighbors_data = []
             # For all the persons appearing in this sequence
             # We will make one entry in the sequences list
             for ped_id in peds_in_seq:
@@ -194,22 +192,23 @@ def prepare_data(datasets_path, datasets_names, parameters):
                     continue
 
                 # To keep neighbors data for the person ped_id
-                neighbors_ped_seq = np.zeros((seq_len, parameters.person_max, 3),dtype="float32")
-                # Scan all the frames of the sequence
-                for frame_idx,frame_id in enumerate(np.unique(raw_seq_data[:,0]).tolist()):
-                    # Information of frame "frame_id"
-                    frame_data = raw_seq_data[raw_seq_data[:,0]==frame_id,:]
-                    # Id, x, y of the pedestrians of frame "frame_id"
-                    frame_data = frame_data[:,1:4]
-                    # For all the persons in the sequence
-                    for neighbor_ped_idx,neighbor_ped_id in enumerate(peds_in_seq):
-                        # Get the data of this specific person
-                        neighbor_data = frame_data[frame_data[:, 0]==neighbor_ped_id,:]
-                        # If we have information for this pedestrian, add it to the neighbors struture
-                        if neighbor_data.size != 0:
-                            neighbors_ped_seq[frame_idx,neighbor_ped_idx,:] = neighbor_data
-                # Contains the neighbor data for ped_count
-                neighbors_data[ped_count,:,:,:] = neighbors_ped_seq
+                neighbors_ped_seq = []
+                # For all the persons in the sequence
+                for neighbor_ped_idx,neighbor_ped_id in enumerate(peds_in_seq):
+                    # Get
+                    if (not (neighbor_ped_id in raw_traj_data_per_ped.keys())):
+                        continue
+                    if (neighbor_ped_id==ped_id):
+                        continue
+                    neighbor_seq_data_full = raw_traj_data_per_ped[neighbor_ped_id]
+                    neighbor_seq_data_mod  = neighbor_seq_data_full[(neighbor_seq_data_full[:,0]>=frame) & (neighbor_seq_data_full[:,0]<frame_max)]
+                    neighbor_data          = np.zeros((1, seq_len, 6), dtype="float32")
+                    for (n_idx,frame_id) in enumerate(np.unique(neighbor_seq_data_mod[:,0]).tolist()):
+                        idx             = np.where(ped_seq_data_mod[:,0]==frame_id)
+                        neighbor_data[0,idx,:] = neighbor_seq_data_mod[n_idx,1:]
+                    neighbors_ped_seq.append(neighbor_data)
+                # Contains the neighbor data per sequence
+                neighbors_data.append(neighbors_ped_seq)
 
                 # Absolute x,y and velocities for all person_id
                 pos_seq_data[ped_count, :, :] = ped_seq_data_mod[:,1:3]
@@ -235,19 +234,19 @@ def prepare_data(datasets_path, datasets_names, parameters):
             seq_theta_all.append(theta_seq_data[:ped_count])
             # Append all the frame ranges (frame_ids_seq_data) starting at this frame
             seq_frames_all.append(frame_ids_seq_data[:ped_count])
-            # Neighbours
-            seq_neighbors_all.append(neighbors_data[:ped_count])
-
+            # Sets of neighbours for each sequence
+            seq_neighbors_all.extend(neighbors_data)
     # Upper level (all datasets)
     # Concatenate all the content of the lists (pos/relative pos/frame ranges)
-    seq_pos_all   = np.concatenate(seq_pos_all, axis=0)
-    seq_vel_all   = np.concatenate(seq_vel_all, axis=0)
-    seq_acc_all   = np.concatenate(seq_acc_all, axis=0)
-    seq_theta_all = np.concatenate(seq_theta_all, axis=0)
-    seq_frames_all= np.concatenate(seq_frames_all, axis=0)
-    seq_neighbors_all = np.concatenate(seq_neighbors_all, axis=0)
+    seq_pos_all      = np.concatenate(seq_pos_all, axis=0)
+    seq_vel_all      = np.concatenate(seq_vel_all, axis=0)
+    seq_acc_all      = np.concatenate(seq_acc_all, axis=0)
+    seq_theta_all    = np.concatenate(seq_theta_all, axis=0)
+    seq_frames_all   = np.concatenate(seq_frames_all, axis=0)
+    #seq_neighbors_all= np.concatenate(seq_neighbors_all, axis=0)
     logging.info("Total number of sample sequences: {}".format(len(seq_pos_all)))
-
+    print(len(seq_neighbors_all))
+    print(len(seq_vel_all))
     # We split into the obs traj and pred_traj
     # [total, obs_len, 2] and  [total, pred_len, 2]
     obs_traj      = seq_pos_all[:, :obs_len, :]
@@ -258,7 +257,8 @@ def prepare_data(datasets_path, datasets_names, parameters):
     pred_traj_vel = seq_vel_all[:, obs_len:, :]
     obs_traj_acc  = seq_acc_all[:, :obs_len, :]
     pred_traj_acc = seq_acc_all[:, obs_len:, :]
-    neighbors_obs= seq_neighbors_all[:, :obs_len, :]
+    # neighbors_obs = seq_neighbors_all[:, :obs_len, :]
+    neighbors_obs = seq_neighbors_all
     # Save all these data as a dictionary
     data = {
         OBS_TRAJ:       obs_traj,
@@ -292,7 +292,6 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
         validation_pc= validation_proportion
         validation   = int(n_train_data*validation_pc)
         training     = int(n_train_data-validation)
-
         # Indices for training
         idx_train = idx[0:training]
         #  Indices for validation
@@ -328,9 +327,9 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
             FRAMES_IDS:     train_data[FRAMES_IDS][idx_val]
         }
         if use_neighbors:
-            training_data[OBS_NEIGHBORS]   = train_data[OBS_NEIGHBORS][idx_train]
+            training_data[OBS_NEIGHBORS]   = [train_data[OBS_NEIGHBORS][i] for i in idx_train]
             testing_data[OBS_NEIGHBORS]    = test_data[OBS_NEIGHBORS][:]
-            validation_data[OBS_NEIGHBORS] = train_data[OBS_NEIGHBORS][idx_val],
+            validation_data[OBS_NEIGHBORS] = [train_data[OBS_NEIGHBORS][i] for i in idx_val]
         # Training dataset
         pickle_out = open(pickle_dir+TRAIN_DATA_STR+experiment_name+'.pickle',"wb")
         pickle.dump(training_data, pickle_out, protocol=2)
