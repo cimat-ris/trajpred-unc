@@ -202,10 +202,11 @@ def prepare_data(datasets_path, datasets_names, parameters):
                         continue
                     neighbor_seq_data_full = raw_traj_data_per_ped[neighbor_ped_id]
                     neighbor_seq_data_mod  = neighbor_seq_data_full[(neighbor_seq_data_full[:,0]>=frame) & (neighbor_seq_data_full[:,0]<frame_max)]
-                    neighbor_data          = np.zeros((1, seq_len, 6), dtype="float32")
+                    neighbor_data          = np.zeros((obs_len, 6), dtype="float32")
                     for (n_idx,frame_id) in enumerate(np.unique(neighbor_seq_data_mod[:,0]).tolist()):
-                        idx             = np.where(ped_seq_data_mod[:,0]==frame_id)
-                        neighbor_data[0,idx,:] = neighbor_seq_data_mod[n_idx,1:]
+                        idx             = np.where(ped_seq_data_mod[:,0]==frame_id)[0][0]
+                        if idx<obs_len:
+                            neighbor_data[idx,:] = neighbor_seq_data_mod[n_idx,1:]
                     neighbors_ped_seq.append(neighbor_data)
                 # Contains the neighbor data per sequence
                 neighbors_data.append(neighbors_ped_seq)
@@ -245,8 +246,6 @@ def prepare_data(datasets_path, datasets_names, parameters):
     seq_frames_all   = np.concatenate(seq_frames_all, axis=0)
     #seq_neighbors_all= np.concatenate(seq_neighbors_all, axis=0)
     logging.info("Total number of sample sequences: {}".format(len(seq_pos_all)))
-    print(len(seq_neighbors_all))
-    print(len(seq_vel_all))
     # We split into the obs traj and pred_traj
     # [total, obs_len, 2] and  [total, pred_len, 2]
     obs_traj      = seq_pos_all[:, :obs_len, :]

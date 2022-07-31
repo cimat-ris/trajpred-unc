@@ -65,14 +65,6 @@ if __name__ == '__main__':
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
     model_name = 'model_deterministic'
 
-    # Load the dataset and perform the split
-    training_data, validation_data, testing_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False,use_neighbors=True)
-    # Torch dataset
-    X_test            = np.concatenate([testing_data[OBS_TRAJ],testing_data[OBS_TRAJ],testing_data[OBS_TRAJ]],axis=2)
-    test_data         = traj_dataset_bitrap(X_test,testing_data[OBS_NEIGHBORS],testing_data[PRED_TRAJ])
-    # Form batches
-    batched_test_data = torch.utils.data.DataLoader(test_data,batch_size=1,shuffle=False)
-
     #### Data: BitTrap way
     cfg.merge_from_file(args.config_file)
     cfg.merge_from_list(args.opts)
@@ -99,6 +91,7 @@ if __name__ == '__main__':
         model.K = 1
         ensemble.append(model)
 
+    ##################################################################
     # With BiTrap data (to show how to use normalization)
     with torch.set_grad_enabled(False):
         for iters, batch in enumerate(test_dataloader, start=1):
@@ -140,7 +133,7 @@ if __name__ == '__main__':
                 pred_goal_, pred_traj_, _, dist_goal_, dist_traj_ = ensemble[id](my_input_x,neighbors_st=my_neighbors_st,adjacency=my_adjacency,
                              z_mode=False,cur_pos=X_global[:, -1, :cfg.MODEL.DEC_OUTPUT_DIM],
                              first_history_indices=torch.tensor([0],dtype=np.int))
-                # transfer back to global coordinates
+                # Transfer back to global coordinates
                 ret = post_process(cfg, X_global, y_global, pred_traj_, pred_goal=pred_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
                 X_global_, y_global_, pred_goal_, pred_traj_, dist_traj_, dist_goal_ = ret
                 pred_traj[0,:,k,:] = pred_traj_[0,:,0,:]
@@ -149,35 +142,88 @@ if __name__ == '__main__':
             neighbors = neighbors_un[key][0]
             # Visualize
             plt.figure()
+            # Observations
             plt.plot(X_global_[0,:,0],X_global_[0,:,1],'red')
+            # Neighbors
             for neighbor in neighbors:
                 plt.plot(neighbor[:,0],neighbor[:,1],'blue')
+            # The samples produced by BitTrap
             for sample in range(pred_traj[0].shape[1]):
                 plt.plot([X_global_[0,-1,0],pred_traj[0,0,sample,0]],
                          [X_global_[0,-1,1],pred_traj[0,0,sample,1],],'green')
                 plt.plot(pred_traj[0,:,sample,0],pred_traj[0,:,sample,1],'green')
+            # The ground truth
+            plt.plot(y_global[0,:,0],y_global[0,:,1],'blue')
             plt.axis('equal')
             plt.show()
             break
 
-
+    ##################################################################
     # With our data (to show how to use BitTrap normalization)
+    # Load the dataset and perform the split
+    training_data, validation_data, testing_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False,use_neighbors=True)
+    # Torch dataset
+    X_test            = np.concatenate([testing_data[OBS_TRAJ],testing_data[OBS_TRAJ_VEL],testing_data[OBS_TRAJ_ACC]],axis=2)
+    test_data         = traj_dataset_bitrap(X_test,testing_data[OBS_NEIGHBORS],testing_data[PRED_TRAJ])
+    # Form batches
+    batched_test_data = torch.utils.data.DataLoader(test_data,batch_size=1,shuffle=False)
+
     with torch.set_grad_enabled(False):
         for (data_test, neighbors_test, target_test) in batched_test_data:
-            # Input: n_batchesx8x6 (un-normalized)
+            # Input: batch_sizex8x6 (un-normalized)
             X_global     = torch.Tensor(data_test).to(cfg.DEVICE)
-            # This is the GT: n_batchesx12x2 (un-normalized)
+            # This is the GT: batch_sizex12x2 (un-normalized)
             y_global     = torch.Tensor(target_test)
-
-            # Input: n_batchesx8x6 (**normalized**)
+            # Input: batch_sizex8x6 (**normalized**)
             node_type = env.NodeType[0]
             state     = {'position':['x','y'], 'velocity':['x','y'], 'acceleration':['x','y']}
             _, std    = env.get_standardize_params(state, node_type)
             std[0:2]  = env.attention_radius[(node_type, node_type)]
-            # Reference point: the last observed positio, batch_size x 6
+            # Reference point: the last observed position, batch_size x 6
             rel_state        = np.zeros_like(data_test[:,0])
             rel_state[:,0:2] = np.array(data_test)[:,-1, 0:2]
             rel_state        = np.expand_dims(rel_state,axis=1)
             my_x_st          = env.standardize(data_test,state,node_type,mean=rel_state,std=std)
             my_input_x       = torch.tensor(my_x_st,dtype=torch.float).to(cfg.DEVICE)
-            print(neighbors_test)
+            my_neighbors_st = {}
+            my_neighbors_st[(node_type,node_type)] = [[]]
+            n_neighbors = len(neighbors_test)
+            for n in neighbors_test:
+                n_st = env.standardize(n, state, node_type, mean=rel_state, std=std)
+                my_neighbors_st[(node_type,node_type)][0].append(n_st)
+            # Should be a list of x tensors 8x6
+            # Dictionary with keys pairs node_type x node_type
+            my_adjacency = {}
+            my_adjacency[(node_type,node_type)] = [torch.tensor(np.ones(n_neighbors))]
+            pred_traj    = np.zeros((1,12,nsamples,2))
+            for k in range(nsamples):
+                # Select one model randomly
+                id = random.randint(0,4)
+                # Sample a trajectory
+                pred_goal_, pred_traj_, _, dist_goal_, dist_traj_ = ensemble[id](my_input_x,neighbors_st=my_neighbors_st,adjacency=my_adjacency,
+                             z_mode=False,cur_pos=X_global[:,-1,:2],
+                             first_history_indices=torch.tensor([0],dtype=np.int))
+                # Transfer back to global coordinates
+                ret = post_process(cfg, X_global, y_global, pred_traj_, pred_goal=pred_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
+                X_global_, y_global_, pred_goal_, pred_traj_, dist_traj_, dist_goal_ = ret
+                pred_traj[0,:,k,:] = pred_traj_[0,:,0,:]
+
+            # Visualize
+            plt.figure()
+            # Observations
+            plt.plot(X_global_[0,:,0],X_global_[0,:,1],'red')
+            # Neighbors. When x and y are zero, this means the data is missing, so we should not plot it
+            for neighbor in neighbors_test:
+                nx       = neighbor[0,:,0]
+                ny       = neighbor[0,:,1]
+                valid_positions = np.where((nx!=0)|(ny!=0))
+                plt.plot(nx[valid_positions],ny[valid_positions],'purple')
+            # The samples produced by BitTrap
+            for sample in range(pred_traj[0].shape[1]):
+                plt.plot([X_global_[0,-1,0],pred_traj[0,0,sample,0]],
+                         [X_global_[0,-1,1],pred_traj[0,0,sample,1],],'green')
+                plt.plot(pred_traj[0,:,sample,0],pred_traj[0,:,sample,1],'green')
+            # The ground truth
+            plt.plot(y_global[0,:,0],y_global[0,:,1],'blue')
+            plt.axis('equal')
+            plt.show()
