@@ -25,8 +25,8 @@ from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import calibration
-from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
+from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_one_batch_test_ensembles
+from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
 import torch.optim as optim
 # Local constants
 from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR
@@ -148,6 +148,10 @@ def main():
     # ## Calibramos la incertidumbre
     draw_ellipse = True
 
+    #------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
+    datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test_ensembles(batched_test_data, model, args.num_ensembles, TRAINING_CKPT_DIR, model_name, id_test=args.id_test, device=device)  
+    #---------------------------------------------------------------------------------------------------------------
+    
     # Testing
     cont = 0
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
@@ -169,43 +173,41 @@ def main():
             tpred_samples.append(pred)
             sigmas_samples.append(sigmas)
 
-        #plt.show()
-
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
+        
+        
+        # ---------------------------------- Calibration HDR cap libro -------------------------------------------------
+        print("**********************************************")
+        print("***** Calibracion con Isotonic Regresion *****")
+        print("**********************************************")
 
-        # HDR y Calibracion
-        auc_cal, auc_unc, exp_proportions, obs_proportions_unc, obs_proportions_cal = calibration(tpred_samples, data_test, target_test, sigmas_samples, position = 11, alpha = 0.05, idTest=args.id_test)
-        plt.show()
-
-        # Solo se ejecuta para un batch
+        #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=False)
+        print("probamos con test...")
+        
+        #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
+        
+        #--------------------------------------------------------------------------------------------------
+        
+        
+        # ---------------------------------- Calibration Conformal  -------------------------------------------------
+        print("**********************************************")
+        print("********    Calibration Conformal    *********")
+        print("**********************************************")
+        
+        # Generar KDE sobre Imagen
+        pos = 10 # borrar despues de probar
+        id_batch = 25 # borrar despues de probar
+        gt = np.cumsum(targetrel_test, axis=1)
+        generate_newKDE(tpred_samples, data_test, gt, target_test, id_batch=id_batch, position = pos, method=2, test_homography=test_homography, bck=bck)
+        
+        #--------------------- Calculamos las metricas de calibracion ---------------------------------
+        #generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, args.id_test)
+        ##generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
+        #--------------------------------------------------------------------------------------------------
+        
+        # Solo se ejecuta para un batch y es usado como dataset de calibración
         break
-
-
-    # ## Metrics Calibration
-
-    ma1    = miscalibration_area(exp_proportions, obs_proportions_unc)
-    mace1  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
-    rmsce1 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc)
-
-    print("Before Recalibration:  ", end="")
-    print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace1, rmsce1, ma1))
-
-
-    # In[14]:
-
-
-    ma2 = miscalibration_area(exp_proportions, obs_proportions_cal)
-    mace2 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal)
-    rmsce2 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal)
-
-    print("After Recalibration:  ", end="")
-    print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace2, rmsce2, ma2))
-
-
-    df = pd.DataFrame([["","MACE","RMSCE","MA"],["Before Recalibration", mace1, rmsce1, ma1],["After Recalibration", mace2, rmsce2, ma2]])
-    df.to_csv("images/metrics_calibration_"+str(args.id_test)+".csv")
-
 
 
 if __name__ == "__main__":
