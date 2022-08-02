@@ -29,7 +29,7 @@ from utils.calibration import generate_metrics_calibration_IsotonicReg, generate
 from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
 import torch.optim as optim
 # Local constants
-from utils.constants import OBS_TRAJ_REL, PRED_TRAJ_REL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -75,7 +75,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default parameters
-    experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
+    experiment_parameters = Experiment_Parameters()
 
     dataset_dir   = "datasets/"
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
@@ -85,9 +85,9 @@ def main():
     training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
 
     # Torch dataset
-    train_data = traj_dataset(training_data[OBS_TRAJ_REL], training_data[PRED_TRAJ_REL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
-    val_data   = traj_dataset(validation_data[OBS_TRAJ_REL], validation_data[PRED_TRAJ_REL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
-    test_data  = traj_dataset(test_data[OBS_TRAJ_REL], test_data[PRED_TRAJ_REL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
+    train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
+    val_data   = traj_dataset(validation_data[OBS_TRAJ_VEL], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
+    test_data  = traj_dataset(test_data[OBS_TRAJ_VEL], test_data[PRED_TRAJ_REL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
 
     # Form batches
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
@@ -95,7 +95,7 @@ def main():
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
     # Select random seeds
     seeds = np.random.choice(99999999, args.num_ensembles , replace=False)
-    print("Seeds: ", seeds)
+    logging.info("Seeds: ", seeds)
 
     if args.no_retrain==False:
         # Train model for each seed
@@ -149,9 +149,9 @@ def main():
     draw_ellipse = True
 
     #------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-    datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test_ensembles(batched_test_data, model, args.num_ensembles, TRAINING_CKPT_DIR, model_name, id_test=args.id_test, device=device)  
+    datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test_ensembles(batched_test_data, model, args.num_ensembles, TRAINING_CKPT_DIR, model_name, id_test=args.id_test, device=device)
     #---------------------------------------------------------------------------------------------------------------
-    
+
     # Testing
     cont = 0
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
@@ -175,8 +175,8 @@ def main():
 
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
-        
-        
+
+
         # ---------------------------------- Calibration HDR cap libro -------------------------------------------------
         print("**********************************************")
         print("***** Calibracion con Isotonic Regresion *****")
@@ -184,28 +184,28 @@ def main():
 
         #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=False)
         print("probamos con test...")
-        
+
         #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-        
+
         #--------------------------------------------------------------------------------------------------
-        
-        
+
+
         # ---------------------------------- Calibration Conformal  -------------------------------------------------
         print("**********************************************")
         print("********    Calibration Conformal    *********")
         print("**********************************************")
-        
+
         # Generar KDE sobre Imagen
         pos = 10 # borrar despues de probar
         id_batch = 25 # borrar despues de probar
         gt = np.cumsum(targetrel_test, axis=1)
         generate_newKDE(tpred_samples, data_test, gt, target_test, id_batch=id_batch, position = pos, method=2, test_homography=test_homography, bck=bck)
-        
+
         #--------------------- Calculamos las metricas de calibracion ---------------------------------
         #generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, args.id_test)
         ##generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
         #--------------------------------------------------------------------------------------------------
-        
+
         # Solo se ejecuta para un batch y es usado como dataset de calibración
         break
 
