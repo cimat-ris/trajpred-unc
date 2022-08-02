@@ -14,7 +14,7 @@ def convertToCov(sx,sy,corr):
     cov  = sxsy*corr
     return sx,sy,cov
 
-def Gaussian2DLikelihood(targets, means, sigmas):
+def Gaussian2DLikelihood(targets, means, sigmas, dt):
     '''
     Computes the likelihood of predicted locations under a bivariate Gaussian distribution
     params:
@@ -26,9 +26,10 @@ def Gaussian2DLikelihood(targets, means, sigmas):
     mux, muy, sx, sy, corr = means[:, 0], means[:, 1], sigmas[:, :, 0], sigmas[:,:,1], sigmas[:,:,2]
     sx,sy,cov = convertToCov(sx, sy, corr)
     # Variances and covariances are summed along time.
-    sx   = sx.sum(1)
-    sy   = sy.sum(1)
-    cov  = cov.sum(1)
+    # They are also scaled to fit displacements instead of velocities.
+    sx   = dt*dt*sx.sum(1)
+    sy   = dt*dt*sy.sum(1)
+    cov  = dt*dt*cov.sum(1)
     # Compute factors
     normx= targets[:, 0] - mux
     normy= targets[:, 1] - muy
@@ -46,84 +47,88 @@ class lstm_encdec_gaussian(nn.Module):
 
         # Layers
         self.embedding = nn.Linear(in_size, embedding_dim)
+        self.drop1     = nn.Dropout(p=0.4)
         self.lstm1     = nn.LSTM(embedding_dim, hidden_dim)
         self.lstm2     = nn.LSTM(embedding_dim, hidden_dim)
+        self.drop2     = nn.Dropout(p=0.4)
         # Added outputs for  sigmaxx, sigmayy, sigma xy
         self.decoder   = nn.Linear(hidden_dim, output_size + 3)
+        self.dt        = 0.4
 
-    # Encoding of the past trajectry
-    def encode(self, X):
+    # Encoding of the past trajectory
+    def encode(self, V):
         # Last position traj
-        x_last = X[:,-1,:].view(len(X), 1, -1)
+        v_last = V[:,-1,:].view(len(V), 1, -1)
         # Embedding positions [batch, seq_len, input_size]
-        emb = self.embedding(X)
+        emb = self.drop1(self.embedding(V))
         # LSTM for batch [seq_len, batch, input_size]
         lstm_out, hidden_state = self.lstm1(emb.permute(1,0,2))
-        return x_last,hidden_state
+        return v_last,hidden_state
 
-    # Decoding the next future position
-    def decode(self, last_pos, hidden_state):
-        # Embedding last position
-        emb_last = self.embedding(last_pos)
-        # lstm for last position with hidden states from batch
+    # Decoding the next spatial data
+    def decode(self, last_v, hidden_state):
+        # Embedding last spatial data
+        emb_last = self.embedding(last_v)
+        # lstm for last spatial data with hidden states from batch
         lstm_out, hidden_state = self.lstm2(emb_last.permute(1,0,2), hidden_state)
         # Decoder and Prediction
-        dec      = self.decoder(hidden_state[0].permute(1,0,2))
-        pred_pos = dec[:,:,:2] + last_pos
-        sigma_pos= dec[:,:,2:]
-        return pred_pos,sigma_pos,hidden_state
+        dec      = self.decoder(self.drop2(hidden_state[0].permute(1,0,2)))
+        # Model evaluates deviation to the linear model
+        pred_v = dec[:,:,:2] + last_v
+        sigma_v= dec[:,:,2:]
+        return pred_v,sigma_v,hidden_state
 
-    def forward(self,obs_displs,target_displs,obs_abs,target_abs,teacher_forcing=False):
+    def forward(self,obs_vels,target_vels,obs_abs,target_abs,teacher_forcing=False):
         # Encode the past trajectory (sequence of displacements)
-        last_displ,hidden_state = self.encode(obs_displs)
+        last_vel,hidden_state = self.encode(obs_vels)
 
         loss        = 0
-        pred_displs = []
-        sigma_displs= []
+        pred_vels   = []
+        sigma_vels  = []
 
         # Decode the future trajectories
-        for i, target_displ in enumerate(target_displs.permute(1,0,2)):
-            # Decode last displacement and hidden state into new displacement
-            pred_displ,sigma_displ,hidden_state = self.decode(last_displ,hidden_state)
-            # Keep displacement and variance on displacement
-            pred_displs.append(pred_displ)
-            sigma_displs.append(sigma_displ)
+        for i, target_vel in enumerate(target_vels.permute(1,0,2)):
+            # Decode last displacement and hidden state into new velocity
+            pred_vel,sigma_vel,hidden_state = self.decode(last_vel,hidden_state)
+            # Keep displacement and variance on velocity
+            pred_vels.append(pred_vel)
+            sigma_vels.append(sigma_vel)
             # Update the last position
             if teacher_forcing:
                 # With teacher forcing, use the GT displacement
-                last_displ = target_displ.view(len(target_displ), 1, -1)
+                last_vel = target_vel.view(len(target_vel), 1, -1)
             else:
                 # Otherwise, use the predicted displacement we just did
-                last_displ = pred_displ
+                last_vel = pred_vel
             # Deduce absolute position by summing all our predicted displacements to
             # the last absolute position
-            pred_abs = obs_abs[:,-1,:] + torch.cat(pred_displs, dim=1).sum(1)
+            pred_abs = obs_abs[:,-1,:] + torch.mul(torch.cat(pred_vels, dim=1).sum(1),self.dt)
             # Evaluate likelihood
-            loss += Gaussian2DLikelihood(target_abs[:,i,:], pred_abs, torch.cat(sigma_displs, dim=1))
+            loss += Gaussian2DLikelihood(target_abs[:,i,:], pred_abs, torch.cat(sigma_vels, dim=1),self.dt)
         # Return total loss
         return loss
 
-    def predict(self, obs_displs, dim_pred= 1):
+    def predict(self, obs_vels, dim_pred= 1):
         # Encode the past trajectory
-        last_displ,hidden_state = self.encode(obs_displs)
+        last_vel,hidden_state = self.encode(obs_vels)
 
-        pred_displs  = []
-        sigma_displs = []
+        pred_vels  = []
+        sigma_vels = []
 
         for i in range(dim_pred):
             # Decode last position and hidden state into new position
-            pred_displ,sigma_displ,hidden_state = self.decode(last_displ,hidden_state)
+            pred_vel,sigma_vel,hidden_state = self.decode(last_vel,hidden_state)
             # Keep new displacement and the corresponding variance
-            pred_displs.append(pred_displ)
+            pred_vels.append(pred_vel)
             # Convert sigma_displ into real variances
-            sigma_displ[:,:,0],sigma_displ[:,:,1],sigma_displ[:,:,2] = convertToCov(sigma_displ[:,:,0], sigma_displ[:,:,1], sigma_displ[:,:,2])
-            sigma_displs.append(sigma_displ)
+            sigma_vel[:,:,0],sigma_vel[:,:,1],sigma_vel[:,:,2] = convertToCov(sigma_vel[:,:,0], sigma_vel[:,:,1], sigma_vel[:,:,2])
+            sigma_vels.append(sigma_vel)
             # Update the last displacement
-            last_displ = pred_displ
+            last_vel = pred_vel
 
         # Sum the displacements and the variances to get the relative trajectory
-        pred_traj = torch.cumsum(torch.cat(pred_displs, dim=1), dim=1).detach().cpu().numpy()
-        sigma_traj= torch.cumsum(torch.cat(sigma_displs, dim=1), dim=1).detach().cpu().numpy()
+        pred_traj = self.dt*torch.cumsum(torch.cat(pred_vels, dim=1), dim=1).detach().cpu().numpy()
+        sigma_traj= self.dt*self.dt*torch.cumsum(torch.cat(sigma_vels, dim=1), dim=1).detach().cpu().numpy()
         return pred_traj,sigma_traj
 
 # A simple encoder-decoder network for HTP
