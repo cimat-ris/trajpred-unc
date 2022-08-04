@@ -111,7 +111,11 @@ def calibrate_IsotonicReg(pred_samples_cal, data_cal, target_cal, sigmas_samples
         # Kernel Density Estimation
         if gaussian:
             # Estimamos la pdf y muestreamos puntos (x,y) de la pdf
+<<<<<<< HEAD
             kde, sample_kde = gaussian_kde2(pred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, display=True, idTest=idTest)
+=======
+            kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=100, display=False, idTest=idTest)
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
         else:
             # Sample from the Gaussian distribution
             this_pred_out_abs = pred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()])
@@ -201,7 +205,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 
             if gaussian:
                 # Estimamos la pdf
-                kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, idTest=idTest)
+                kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=100, idTest=idTest)
             else:
                 # Muestra de la distribución bayessiana
                 this_pred_out_abs = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()])
@@ -246,21 +250,21 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 
             # Encontramos fa a partir de las muestras de pdf
             orden_i, orden_val = zip(*orden)
-            print(orden_val[::-1][:10])
-            print(np.cumsum(orden_val)[::-1][:10])
-            print("1.0-alpha: ", 1.0-alpha)
+            #print(orden_val[::-1][:10])
+            #print(np.cumsum(orden_val)[::-1][:10])
+            #print("1.0-alpha: ", 1.0-alpha)
             ind = np.where(np.cumsum(orden_val) >= (1.0-alpha))[0]
             if (ind.shape[0] == 0) :
-                print("ind: ", ind)
+                #print("ind: ", ind)
                 #fa_unc = orden[-1][0]
                 fa_unc = 0.0
             elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
-                print("ind: ", ind)
+                #print("ind: ", ind)
                 fa_unc = 0.0
             else:
-                print("ind: ", ind[0])
+                #print("ind: ", ind[0])
                 fa_unc = orden_i[ind[0]]
-            print("fa_unc: ", fa_unc)
+            #print("fa_unc: ", fa_unc)
             #sum = 0
             #fa_unc = orden[-1][0]
             #for ii, val in enumerate(orden):
@@ -270,15 +274,15 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
             #        break
 
             f_pdf = kde.pdf(gt)
-            print("gt_pdf: ", f_pdf)
-            print("f_pdf >= fa_unc: ", f_pdf >= fa_unc)
+            #print("gt_pdf: ", f_pdf)
+            #print("f_pdf >= fa_unc: ", f_pdf >= fa_unc)
             perc_within_cal.append(f_pdf >= fa)
             perc_within_unc.append(f_pdf >= fa_unc)
             #-----
 
         # Guardamos los resultados de todo el batch para un alpha especifico
-        print(perc_within_unc)
-        print(np.mean(perc_within_unc))
+        #print(perc_within_unc)
+        #print(np.mean(perc_within_unc))
         cal_pcts.append(np.mean(perc_within_cal))
         unc_pcts.append(np.mean(perc_within_unc))
 
@@ -295,7 +299,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 
                 if gaussian:
                     # Estimamos la pdf
-                    kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test, i, position, resample_size=1000, idTest=idTest)
+                    kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test, i, position, resample_size=100, idTest=idTest)
                 else:
                     # Muestra de la distribución bayessiana
                     this_pred_out_abs = tpred_samples_test[:, i, position, :] + np.array([data_test[i,:,:][-1].numpy()])
@@ -398,7 +402,7 @@ def calibration_IsotonicReg2(tpred_samples_cal, data_cal, target_cal, sigmas_sam
 
         if gaussian:
             # Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-            kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, display=True, idTest=idTest)
+            kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=100, display=False, idTest=idTest)
         else:
             # Muestra de la distribución bayessiana
             this_pred_out_abs = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()])
@@ -508,7 +512,7 @@ def calibration_IsotonicReg2(tpred_samples_cal, data_cal, target_cal, sigmas_sam
 
             if gaussian:
                 # Estimamos la pdf
-                kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, idTest=idTest)
+                kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=100, idTest=idTest)
             else:
                 # Muestra de la distribución bayessiana
                 this_pred_out_abs = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()])
@@ -551,7 +555,7 @@ def calibration_IsotonicReg2(tpred_samples_cal, data_cal, target_cal, sigmas_sam
             # Encontramos fa a partir de las muestras de pdf
             # Ordenamos las muestras
             orden = sorted(sample_pdf, reverse=True) # Ordenamos
-            print(orden[:30])
+            #print(orden[:30])
             ind = int(len(orden)*(1.0-alpha)) # Encontramos el indice del alpha-esimo elemento
             #if (ind==len(orden)) or (ind==(len(orden)-1)) or (alpha==0):
             if (ind==len(orden)) or (alpha==0):
@@ -601,7 +605,7 @@ def calibration_IsotonicReg2(tpred_samples_cal, data_cal, target_cal, sigmas_sam
 
                 if gaussian:
                     # Estimamos la pdf
-                    kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test, i, position, resample_size=1000, idTest=idTest)
+                    kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test, i, position, resample_size=100, idTest=idTest)
                 else:
                     # Muestra de la distribución bayessiana
                     this_pred_out_abs = tpred_samples_test[:, i, position, :] + np.array([data_test[i,:,:][-1].numpy()])
@@ -771,7 +775,7 @@ def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigma
 
         if gaussian:
             # Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-            fk, yi = gaussian_kde2(tpred_samples, sigmas_samples, data_test, target_test2, k, position, resample_size=100, display=True, idTest=2)
+            fk, yi = gaussian_kde2(tpred_samples, sigmas_samples, data_test, target_test2, k, position, resample_size=100, display=False, idTest=2)
         else:
             # Muestra de la distribución bayessiana
             yi = tpred_samples[:, k, position, :].T
@@ -796,19 +800,32 @@ def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigma
 
     # Ordenamos las muestras
     orden = sorted(s_xk_yk, reverse=True) # Ordenamos
+<<<<<<< HEAD
     print(orden[:30])
     print(type(orden))
 
+=======
+    #print(orden[:30])
+    #print(type(orden))
+    
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
     ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
-    print(ind)
+    #print(ind)
     if ind==len(orden):
         Sa = 0.0
     else:
         Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
+<<<<<<< HEAD
     print("alpha: ", alpha)
     print("ind: ", ind)
     print("Sa encontrado: ", Sa)
 
+=======
+    #print("alpha: ", alpha)
+    #print("ind: ", ind)
+    #print("Sa encontrado: ", Sa)
+    
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
     #--------------------------------------------------
     if draw:
         #-------------- para un id_batch ----------------------
@@ -824,18 +841,29 @@ def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigma
         # Evaluamos la muestra en la pdf
         fk_yi = fk.pdf(yi.T) # Evaluamos en la funcion de densidad
         fk_gt = fk.pdf(gt.T)[0]
+<<<<<<< HEAD
         print("f(GT)", fk_gt)
         print("f(GT) > Sa: ", fk_gt>Sa)
 
+=======
+        #print("f(GT)", fk_gt)
+        #print("f(GT) > Sa: ", fk_gt>Sa)
+        
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
         # Ordenamos las muestras
         orden = sorted(fk_yi, reverse=True) # Ordenamos
-        print(orden)
+        #print(orden)
         ind = np.where(np.array(orden) >= Sa)[0]
         ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
-        print("ind_pdf: ", ind)
+        #print("ind_pdf: ", ind)
         alpha_fk = float(ind)/len(orden)
+<<<<<<< HEAD
         print("alpha_fk: ", alpha_fk)
 
+=======
+        #print("alpha_fk: ", alpha_fk)
+        
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
         #--------------------------------------------------
         # Visualizamos la distribucion
 
@@ -883,13 +911,14 @@ def calibration_pdf32(tpred_samples, data_test, target_test, target_test2, sigma
 
         if gaussian:
             # Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-            fk, yi = gaussian_kde2(tpred_samples, sigmas_samples, data_test, target_test2, k, position, resample_size=100, display=True, idTest=2)
+            fk, yi = gaussian_kde2(tpred_samples, sigmas_samples, data_test, target_test2, k, position, resample_size=100, display=False, idTest=2)
         else:
             # Muestra de la distribución bayessiana
             yi = tpred_samples[:, k, position, :].T
 
             # Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
             fk = gaussian_kde(yi)
+<<<<<<< HEAD
 
         if gaussian:
             gt = target_test2[k,position,:].detach().numpy()
@@ -905,6 +934,10 @@ def calibration_pdf32(tpred_samples, data_test, target_test, target_test2, sigma
             s_xk_yk.append(fk_yi)
 
 
+=======
+        
+        # Evaluamos el GT
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
         fk_max = fk.pdf(yi).max()
         if gaussian:
             # Evaluamos el GT
@@ -916,27 +949,42 @@ def calibration_pdf32(tpred_samples, data_test, target_test, target_test2, sigma
         else:
             # Evaluamos el GT
             gt = target_test[k,position,:].detach().numpy()
+<<<<<<< HEAD
             fk_yi = fk.pdf(gt.T)
 
             # Guardamos en una lista
             s_xk_yk.append(fk_yi/fk_max)
 
+=======
+            fk_yi = fk.pdf(gt)
+            
+            # Guardamos en una lista
+            s_xk_yk.append(fk_yi/fk_max)
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
         # Guardamos en una lista
         list_fk.append(fk)
 
     # Ordenamos las muestras
     orden = sorted(s_xk_yk, reverse=True) # Ordenamos
-    print(orden[:30])
+    #print(orden[:30])
     ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
     if ind==len(orden):
         Sa = 0.0
     else:
         Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
+<<<<<<< HEAD
     print("alpha: ", alpha)
     print("ind: ", ind)
     print("Sa encontrado: ", Sa)
 
 
+=======
+    #print("alpha: ", alpha)
+    #print("ind: ", ind)
+    #print("Sa encontrado: ", Sa)
+    
+    
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
     #--------------------------------------------------
     if draw:
         #-------------- para un id_batch ----------------------
@@ -951,18 +999,29 @@ def calibration_pdf32(tpred_samples, data_test, target_test, target_test2, sigma
         fk_yi = fk.pdf(yi.T) # Evaluamos en la funcion de densidad
         fk_max = fk_yi.max()
         fk_gt = fk.pdf(gt.T)[0]
+<<<<<<< HEAD
         print("f(GT)", fk_gt)
         print("f(GT) > Sa: ", fk_gt > (fk_max*Sa))
 
+=======
+        #print("f(GT)", fk_gt)
+        #print("f(GT) > Sa: ", fk_gt > (fk_max*Sa))
+        
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
         # Ordenamos las muestras
         orden = sorted(fk_yi, reverse=True) # Ordenamos
         print(orden)
         ind = np.where(np.array(orden) >= (fk_max*Sa))[0]
         ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
-        print("ind_pdf: ", ind)
+        #print("ind_pdf: ", ind)
         alpha_fk = float(ind)/len(orden)
+<<<<<<< HEAD
         print("alpha_fk: ", alpha_fk)
 
+=======
+        #print("alpha_fk: ", alpha_fk)
+        
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
         #--------------------------------------------------
         # Visualizamos la distribucion
 
@@ -1009,9 +1068,15 @@ def calibration_pdf2(tpred_samples, data_test, target_test, position, alpha = 0.
 
     # Encontramos el S_alpha (1 − alpha quantile )
     Sa = get_falpha(orden, alpha)
+<<<<<<< HEAD
     print("Sa encontrado: ", -Sa)
 
 
+=======
+    #print("Sa encontrado: ", -Sa)
+    
+    
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
     #--------------------------------------------------
     if draw:
         #-------------- para un id_batch ----------------------
@@ -1031,6 +1096,7 @@ def calibration_pdf2(tpred_samples, data_test, target_test, position, alpha = 0.
         orden_fk = sort_sample(fk_yi)
         # Encontramos el alpha
         alpha_fk = get_alpha( orden_fk, -Sa)
+<<<<<<< HEAD
 
         print("alpha: ", alpha)
         print("Sa: ", Sa)
@@ -1038,6 +1104,15 @@ def calibration_pdf2(tpred_samples, data_test, target_test, position, alpha = 0.
         #print("pos_Sa: ", pos_Sa)
         print("alpha_fk: ", alpha_fk)
 
+=======
+        
+        #print("alpha: ", alpha)
+        #print("Sa: ", Sa)
+        #print("ind: ", ind)
+        #print("pos_Sa: ", pos_Sa)
+        #print("alpha_fk: ", alpha_fk)
+        
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
         #--------------------------------------------------
         # Visualizamos la distribucion
 
@@ -1108,9 +1183,15 @@ def calibration_pdf3(tpred_samples, target_test, position, alpha = 0.85, id_batc
     # Encontramos el S_alpha (1 − alpha quantile )
     Sa = get_falpha(orden, alpha)
     fk_max_Sa = fk_max*Sa
+<<<<<<< HEAD
     print("Sa encontrado: ", -Sa, -fk_max_Sa)
 
 
+=======
+    #print("Sa encontrado: ", -Sa, -fk_max_Sa)
+    
+    
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
     #--------------------------------------------------
     if draw:
         #-------------- para un id_batch ----------------------
@@ -1131,12 +1212,21 @@ def calibration_pdf3(tpred_samples, target_test, position, alpha = 0.85, id_batc
         alpha_fk = get_alpha( orden_fk, -fk_max_Sa)
         #if alpha_fk < 1e-10:
         #    alpha_fk = 0.0
+<<<<<<< HEAD
 
         print("alpha: ", alpha)
         print("Sa: ", Sa)
         print("f_max Sa: ", fk_max_Sa)
         print("alpha_fk: ", alpha_fk)
 
+=======
+        
+        #print("alpha: ", alpha)
+        #print("Sa: ", Sa)
+        #print("f_max Sa: ", fk_max_Sa)
+        #print("alpha_fk: ", alpha_fk)
+        
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
         #--------------------------------------------------
         # Visualizamos la distribucion
 
@@ -1152,6 +1242,26 @@ def calibration_pdf3(tpred_samples, target_test, position, alpha = 0.85, id_batc
         plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
         plt.savefig("images/HDR2/plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
         plt.close()
+<<<<<<< HEAD
+=======
+        
+    return -fk_max_Sa
+
+
+def sort_sample(sample_pdf):
+    # Ordenamos de forma descendente las muestras de pdf
+    sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
+    orden = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
+    return(orden)
+    
+def get_alpha(orden, f_pdf): # En realidad obtiene el alpha si le pasas el fks
+    # Predicted HDR
+    ind = np.where(np.array(orden)[:,0] >= f_pdf)[0]
+    ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
+    #print("ind: ", ind)
+    alpha = 1 - np.array(orden)[:ind+1,1].sum()
+    return alpha
+>>>>>>> 329b84d0a65747e5fd231b2901b63135e615c14f
 
     return -fk_max_Sa
 
@@ -1189,7 +1299,7 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 
             if gaussian:
                 # Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-                kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal2, i, position, resample_size=100, display=True, idTest=2)
+                kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal2, i, position, resample_size=100, display=False, idTest=2)
             else:
                 # Estimamos la pdf
                 sample_kde = tpred_samples_cal[:, i, position, :].T # Seleccionamos las muestras de una trayectoria
@@ -1248,7 +1358,7 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 
                 if gaussian:
                     # Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-                    kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test2, i, position, resample_size=100, display=True, idTest=2)
+                    kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test2, i, position, resample_size=100, display=False, idTest=2)
                 else:
                     # Estimamos la pdf
                     sample_kde = tpred_samples_test[:, i, position, :].T # Seleccionamos las muestras de una trayectoria
