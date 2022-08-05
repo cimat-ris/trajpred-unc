@@ -1413,15 +1413,20 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
     position = 11
     ll_cal = []
     ll_uncal = []
+    print("NLL")
     for i in range(tpred_samples_test.shape[1]):
         # Ground Truth
         gt = target_test[i,position,:].cpu()
 
         # Muestra de la distribución bayessiana
         this_pred_out_abs = tpred_samples_test[:, i, position, :] + np.array([data_test[i,:,:][-1].numpy()])
-        sample_kde = this_pred_out_abs.T
-        kde = gaussian_kde(sample_kde)
-        sample_kde = kde.resample(1000,0)
+        if gaussian:
+            # Estimamos la pdf y muestreamos puntos (x,y) de la pdf
+            kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test, i, position, resample_size=1000, display=False, idTest=id_test)
+        else:
+            sample_kde = this_pred_out_abs.T
+            kde = gaussian_kde(sample_kde)
+            sample_kde = kde.resample(1000,0)
 
         #--------
         # Pasos para calcular fa del HDR
@@ -1439,7 +1444,7 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
         fs_samples_new    = np.array(fs_samples_new)
         sorted_samples_new= sort_sample(fs_samples_new)
         importance_weights= fs_samples_new/sample_pdf
-        kernel = gaussian_kde(sample_kde, weights=importance_weights)
+        kernel = gaussian_kde(sample_kde.T, weights=importance_weights)
         ll_cal.append(kernel.logpdf(gt))
         ll_uncal.append(kde.logpdf(gt))
         print("neg. log: ", -kernel.logpdf(gt), -kde.logpdf(gt))
