@@ -87,7 +87,7 @@ def main():
     # Torch dataset
     train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
     val_data   = traj_dataset(validation_data[OBS_TRAJ_VEL], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
-    test_data  = traj_dataset(test_data[OBS_TRAJ_VEL], test_data[PRED_TRAJ_REL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
+    test_data  = traj_dataset(test_data[OBS_TRAJ_VEL], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
 
     # Form batches
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
@@ -95,7 +95,7 @@ def main():
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
     # Select random seeds
     seeds = np.random.choice(99999999, args.num_ensembles , replace=False)
-    logging.info("Seeds: ", seeds)
+    logging.info("Seeds: {}".format(seeds))
 
     if args.no_retrain==False:
         # Train model for each seed
@@ -183,9 +183,9 @@ def main():
         print("**********************************************")
 
         #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=False)
-        print("probamos con test...")
+        #print("probamos con test...")
 
-        #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
+        generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
 
         #--------------------------------------------------------------------------------------------------
 
@@ -196,10 +196,10 @@ def main():
         print("**********************************************")
 
         # Generar KDE sobre Imagen
-        pos = 10 # borrar despues de probar
-        id_batch = 25 # borrar despues de probar
-        gt = np.cumsum(targetrel_test, axis=1)
-        generate_newKDE(tpred_samples, data_test, gt, target_test, id_batch=id_batch, position = pos, method=2, test_homography=test_homography, bck=bck)
+        # pos = 10 # borrar despues de probar
+        # id_batch = 25 # borrar despues de probar
+        # gt = np.cumsum(targetrel_test, axis=1)
+        # generate_newKDE(tpred_samples, data_test, gt, target_test, id_batch=id_batch, position = pos, method=2, test_homography=test_homography, bck=bck)
 
         #--------------------- Calculamos las metricas de calibracion ---------------------------------
         #generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, args.id_test)
