@@ -117,8 +117,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
             kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, display=False, idTest=idTest)
         else:
             # Muestra de la distribución bayessiana
-            this_pred_out_abs = tpred_samples_cal[:, i, position, :]
-            #+ np.array([data_cal[i,:,:][-1].numpy()])
+            this_pred_out_abs = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()]) # ABSOLUTE?
             sample_kde = this_pred_out_abs.T
             # Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
             kde = gaussian_kde(sample_kde)
@@ -208,8 +207,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
                 kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, idTest=idTest)
             else:
                 # Muestra de la distribución bayessiana
-                this_pred_out_abs = tpred_samples_cal[:, i, position, :]
-                #+ np.array([data_cal[i,:,:][-1].numpy()])
+                this_pred_out_abs = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()]) # ABSOLUTE?
                 sample_kde = this_pred_out_abs.T
                 # Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
                 kde = gaussian_kde(sample_kde)
@@ -303,7 +301,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
                     kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test, i, position, resample_size=1000, idTest=idTest)
                 else:
                     # Muestra de la distribución bayessiana
-                    this_pred_out_abs = tpred_samples_test[:, i, position, :] #+ np.array([data_test[i,:,:][-1].numpy()])
+                    this_pred_out_abs = tpred_samples_test[:, i, position, :] + np.array([data_test[i,:,:][-1].numpy()]) # ABSOLUTE?
                     sample_kde = this_pred_out_abs.T
                     # Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
                     kde = gaussian_kde(sample_kde)
@@ -407,8 +405,7 @@ def calibration_IsotonicReg2(tpred_samples_cal, data_cal, target_cal, sigmas_sam
             kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, display=False, idTest=idTest)
         else:
             # Muestra de la distribución bayessiana
-            this_pred_out_abs = tpred_samples_cal[:, i, position, :]
-            #+ np.array([data_cal[i,:,:][-1].numpy()])
+            this_pred_out_abs = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()]) # ABSOLUTE?
             sample_kde = this_pred_out_abs.T
             # Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
             kde = gaussian_kde(sample_kde)
@@ -517,8 +514,7 @@ def calibration_IsotonicReg2(tpred_samples_cal, data_cal, target_cal, sigmas_sam
                 kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, idTest=idTest)
             else:
                 # Muestra de la distribución bayessiana
-                this_pred_out_abs = tpred_samples_cal[:, i, position, :]
-                # + np.array([data_cal[i,:,:][-1].numpy()])
+                this_pred_out_abs = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()]) # ABSOLUTE?
                 sample_kde = this_pred_out_abs.T
                 # Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
                 kde = gaussian_kde(sample_kde)
@@ -1423,8 +1419,7 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
         gt = target_test[i,position,:].cpu()
 
         # Muestra de la distribución bayessiana
-        this_pred_out_abs = tpred_samples_test[:, i, position, :]
-        #+ np.array([data_test[i,:,:][-1].numpy()])
+        this_pred_out_abs = tpred_samples_test[:, i, position, :] + np.array([data_test[i,:,:][-1].numpy()]) # ABSOLUTE?
         if gaussian:
             # Estimamos la pdf y muestreamos puntos (x,y) de la pdf
             kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test, i, position, resample_size=1000, display=False, idTest=id_test)
