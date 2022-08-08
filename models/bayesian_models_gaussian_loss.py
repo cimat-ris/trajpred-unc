@@ -19,6 +19,7 @@ class lstm_encdec_MCDropout(nn.Module):
         self.lstm2     = nn.LSTM(embedding_dim, hidden_dim)
         # Added outputs for  sigmaxx, sigmayy, sigma xy
         self.decoder   = nn.Linear(hidden_dim, output_size + 3)
+        self.dt        = 0.4
 
     # Encoding of the past trajectry
     def encode(self, X):
@@ -67,7 +68,7 @@ class lstm_encdec_MCDropout(nn.Module):
             else:
                 last_pos = pred_pos
             means_traj = data_abs[:,-1,:] + torch.cat(pred_traj, dim=1).sum(1)
-            loss += Gaussian2DLikelihood(target_abs[:,i,:], means_traj, torch.cat(sigma_traj, dim=1))
+            loss += Gaussian2DLikelihood(target_abs[:,i,:], means_traj, torch.cat(sigma_traj, dim=1), self.dt)
         # Return total loss
         return loss
 
@@ -140,6 +141,7 @@ class lstm_encdec_variational(nn.Module):
             posterior_rho_init = posterior_rho_init,
         )
         #self.loss_fun = nn.MSELoss()
+        self.dt = 0.4
 
     # Encoding of the past trajectry
     def encode(self, X):
@@ -205,7 +207,7 @@ class lstm_encdec_variational(nn.Module):
 
                 # Utilizamos la nueva funcion loss
                 means_traj = data_abs[:,-1,:] + torch.cat(pred_traj, dim=1).sum(1)
-                loss += Gaussian2DLikelihood(target_abs[:,i,:], means_traj, torch.cat(sigma_traj, dim=1))
+                loss += Gaussian2DLikelihood(target_abs[:,i,:], means_traj, torch.cat(sigma_traj, dim=1), self.dt)
 
             # Concatenate the trajectories preds
             pred_traj = torch.cat(pred_traj, dim=1)
