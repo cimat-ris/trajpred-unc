@@ -21,6 +21,9 @@ from utils.plot_utils import plot_traj_world, plot_traj_img_kde
 from utils.directory_utils import mkdir_p
 # Local constants
 from utils.constants import IMAGES_DIR
+# HDR utils
+from utils.hdr import sort_sample, get_alpha
+
 
 
 def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, resample_size=0 , display=False, idTest=0):
@@ -1148,21 +1151,6 @@ def calibration_pdf3(tpred_samples, target_test, position, alpha = 0.85, id_batc
 
     return -fk_max_Sa
 
-
-# Sort samples with respect to their density value
-def sort_sample(sample_pdf):
-    # Samples from the pdf are sorted in decreasing order
-    sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
-    return sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
-
-# Given a value on the pdf, deduce alpha
-def get_alpha(orden, f_pdf):
-    # Predicted HDR
-    ind = np.where(np.array(orden)[:,0] >= f_pdf)[0]
-    ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
-    alpha = np.array(orden)[:ind+1,1].sum()
-    return alpha
-
 # Given a value of alpha, deduce the value of the density
 def get_falpha(orden, alpha):
     # We find f_gamma(HDR) from the pdf samples
@@ -1546,18 +1534,18 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 
     # Guardamos los resultados de las metricas
     df = pd.DataFrame(metrics2)
-    df.to_csv("images/calibration/metrics/metrics_calibration_cal_confolmal2_"+str(id_test)+".csv")
+    df.to_csv("images/calibration/metrics/metrics_calibration_cal_conformal2_"+str(id_test)+".csv")
 
     df = pd.DataFrame(metrics3)
-    df.to_csv("images/calibration/metrics/metrics_calibration_cal_confolmal3_"+str(id_test)+".csv")
+    df.to_csv("images/calibration/metrics/metrics_calibration_cal_conformal3_"+str(id_test)+".csv")
 
     if tpred_samples_test is not None:
         # Guardamos los resultados de las metricas de Test
         df = pd.DataFrame(metrics2_test)
-        df.to_csv("images/calibration/metrics/metrics_calibration_test_confolmal2_"+str(id_test)+".csv")
+        df.to_csv("images/calibration/metrics/metrics_calibration_test_conformal2_"+str(id_test)+".csv")
 
         df = pd.DataFrame(metrics3_test)
-        df.to_csv("images/calibration/metrics/metrics_calibration_test_confolmal3_"+str(id_test)+".csv")
+        df.to_csv("images/calibration/metrics/metrics_calibration_test_conformal3_"+str(id_test)+".csv")
 
 
 
@@ -1695,100 +1683,50 @@ def root_mean_squared_calibration_error(
 
     return rmsce
 
-def generate_one_batch_test_ensembles(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12):
-
+def generate_one_batch_test(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12, type="ensemble"):
     #----------- Dataset TEST -------------
     datarel_test_full = []
     targetrel_test_full = []
     data_test_full = []
     target_test_full = []
+
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
         if batch_idx==0:
             continue
 
-        # Guardamos en una lista los batches
+         # Batchs saved into array respectively
         datarel_test_full.append(datarel_test)
         targetrel_test_full.append(targetrel_test)
         data_test_full.append(data_test)
         target_test_full.append(target_test)
 
-    # Concatenamos los batches para formar uno solo
+    # Batches concatenated to have only one
     datarel_test_full = torch.cat(datarel_test_full, dim=0)
     targetrel_test_full = torch.cat( targetrel_test_full, dim=0)
     data_test_full = torch.cat( data_test_full, dim=0)
     target_test_full = torch.cat( target_test_full, dim=0)
 
-    # Obtenemos las predicciones para el batch unico
+    # Unique batch predictions obtained
     tpred_samples_full = []
-    sigmas_samples_ful = []
-    # Muestreamos con cada modelo
+    sigmas_samples_full = []
+
+    # Each model sampled
     for ind in range(num_samples):
+        if type == "ensemble":
+            model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(id_test)+".pth"))
+            model.eval()
 
-        # Cargamos el Modelo
-        model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(id_test)+".pth"))
-        model.eval()
-
-        # Para utlizar cuda
         if torch.cuda.is_available():
             datarel_test_full  = datarel_test_full.to(device)
 
-        # Obtenemos la predicción con el modelo
+        # Model prediction obtained
         pred, sigmas = model.predict(datarel_test_full, dim_pred=12)
 
-        # Guardamos la muestra
+        # Sample saved
         tpred_samples_full.append(pred)
-        sigmas_samples_ful.append(sigmas)
+        sigmas_samples_full.append(sigmas)
 
-    # Convertimos a array np
     tpred_samples_full = np.array(tpred_samples_full)
-    sigmas_samples_ful = np.array(sigmas_samples_ful)
-    #---------------------------------------
+    sigmas_samples_full = np.array(sigmas_samples_full)
 
-    return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_ful
-
-def generate_one_batch_test_dropout(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12):
-
-    #----------- Dataset TEST -------------
-    datarel_test_full = []
-    targetrel_test_full = []
-    data_test_full = []
-    target_test_full = []
-    for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-        if batch_idx==0:
-            continue
-
-        # Guardamos en una lista los batches
-        datarel_test_full.append(datarel_test)
-        targetrel_test_full.append(targetrel_test)
-        data_test_full.append(data_test)
-        target_test_full.append(target_test)
-
-    # Concatenamos los batches para formar uno solo
-    datarel_test_full = torch.cat(datarel_test_full, dim=0)
-    targetrel_test_full = torch.cat( targetrel_test_full, dim=0)
-    data_test_full = torch.cat( data_test_full, dim=0)
-    target_test_full = torch.cat( target_test_full, dim=0)
-
-    # Obtenemos las predicciones para el batch unico
-    tpred_samples_full = []
-    sigmas_samples_ful = []
-    # Muestreamos con cada modelo
-    for ind in range(num_samples):
-
-        # Para utlizar cuda
-        if torch.cuda.is_available():
-            datarel_test_full  = datarel_test_full.to(device)
-
-        # Obtenemos la predicción con el modelo
-        pred, sigmas = model.predict(datarel_test_full, dim_pred=12)
-
-        # Guardamos la muestra
-        tpred_samples_full.append(pred)
-        sigmas_samples_ful.append(sigmas)
-
-    # Convertimos a array np
-    tpred_samples_full = np.array(tpred_samples_full)
-    sigmas_samples_ful = np.array(sigmas_samples_ful)
-    #---------------------------------------
-
-    return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_ful
+    return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full
