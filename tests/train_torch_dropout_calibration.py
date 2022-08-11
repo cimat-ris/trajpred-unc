@@ -37,7 +37,7 @@ from utils.calibration import generate_metrics_calibration_conformal, generate_n
 import torch.optim as optim
 
 # Local constants
-from utils.constants import OBS_TRAJ, OBS_TRAJ_REL, PRED_TRAJ, PRED_TRAJ_REL, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ, OBS_TRAJ_VEL, PRED_TRAJ, PRED_TRAJ_VEL, TRAINING_CKPT_DIR
 
 
 # Parser arguments
@@ -46,14 +46,14 @@ parser.add_argument('--batch-size', '--b',
                     type=int, default=256, metavar='N',
                     help='input batch size for training (default: 256)')
 parser.add_argument('--epochs', '--e',
-                    type=int, default=200, metavar='N',
+                    type=int, default=100, metavar='N',
                     help='number of epochs to train (default: 200)')
 parser.add_argument('--num-MC',
-                    type=int, default=5, metavar='N',
-                    help='number of elements in the ensemble (default: 5)')
+                    type=int, default=100, metavar='N',
+                    help='number of elements in the ensemble (default: 100)')
 parser.add_argument('--dropout-rate',
-                    type=int, default=0.3, metavar='N',
-                    help='dropout rate (default: 0.6)')
+                    type=int, default=0.5, metavar='N',
+                    help='dropout rate (default: 0.5)')
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
@@ -151,7 +151,7 @@ def main():
 
     logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
     # Load the default parameters
-    experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
+    experiment_parameters = Experiment_Parameters()
 
     dataset_dir   = "datasets/"
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
@@ -162,9 +162,9 @@ def main():
     training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
 
     # Torch dataset
-    train_data = traj_dataset(training_data[OBS_TRAJ_REL], training_data[PRED_TRAJ_REL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
-    val_data   = traj_dataset(validation_data[OBS_TRAJ_REL], validation_data[PRED_TRAJ_REL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
-    test_data  = traj_dataset(test_data[OBS_TRAJ_REL], test_data[PRED_TRAJ_REL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
+    train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
+    val_data   = traj_dataset(validation_data[OBS_TRAJ_VEL], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
+    test_data  = traj_dataset(test_data[OBS_TRAJ_VEL], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
 
     # Form batches
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
@@ -177,7 +177,7 @@ def main():
 
 
     if args.no_retrain==False:
-        
+
         # Agregamos la semilla
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
@@ -196,7 +196,7 @@ def main():
     # Instanciamos el modelo
     model = lstm_encdec_MCDropout(2,128,256,2, dropout_rate = args.dropout_rate)
     model.to(device)
-    
+
     # Load the previously trained model
     model.load_state_dict(torch.load("training_checkpoints/model_dropout_"+str(idTest)+".pth"))
     model.eval()
@@ -208,10 +208,10 @@ def main():
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
         fig, ax = plt.subplots(1,1,figsize=(12,12))
-
+        if ind_sample>data_test.shape[0]:
+            continue
         # For each element of the ensemble
         for ind in range(args.num_MC):
-
             if torch.cuda.is_available():
                   datarel_test  = datarel_test.to(device)
 
@@ -221,17 +221,15 @@ def main():
             #plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:],ax)
         plt.legend()
         plt.title('Trajectory samples')
-        plt.savefig("images/pred_dropout.pdf")
-        plt.close()
-        # Solo aplicamos a un elemento del batch
-        break
-
+        #plt.savefig("images/pred_dropout.pdf")
+        #plt.close()
+        plt.show()
 
     # ## Calibramos la incertidumbre
     draw_ellipse = True
-    
+
     #------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-    datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test_dropout(batched_test_data, model, args.num_MC, TRAINING_CKPT_DIR, "model_name", id_test=idTest, device=device)  
+    datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test_dropout(batched_test_data, model, args.num_MC, TRAINING_CKPT_DIR, "model_name", id_test=idTest, device=device)
     #---------------------------------------------------------------------------------------------------------------
 
     # Testing
@@ -255,7 +253,7 @@ def main():
 
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
-    
+
         # ---------------------------------- Calibration HDR cap libro -------------------------------------------------
         print("**********************************************")
         print("***** Calibracion con Isotonic Regresion *****")
@@ -264,15 +262,15 @@ def main():
         #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=False)
         print("probamos con test...")
         generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, idTest, gaussian=False, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-        
+
         #--------------------------------------------------------------------------------------------------
-        
+
         #--------------------- Calculamos las metricas de calibracion ---------------------------------
         print("probamos calibration conformal...")
         #generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, args.id_test)
         generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, idTest, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
         #--------------------------------------------------------------------------------------------------
-        
+
         # Solo se ejecuta para un batch
         break
 
