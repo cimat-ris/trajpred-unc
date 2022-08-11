@@ -21,6 +21,9 @@ from utils.plot_utils import plot_traj_world, plot_traj_img_kde
 from utils.directory_utils import mkdir_p
 # Local constants
 from utils.constants import IMAGES_DIR
+# HDR utils
+from utils.hdr import sort_sample, get_alpha
+
 
 
 def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, resample_size=0 , display=False, idTest=0):
@@ -599,19 +602,179 @@ def calibration_pdf32(tpred_samples, data_test, target_test, target_test2, sigma
 
     return Sa
 
-# Sort samples with respect to their density value
-def sort_sample(sample_pdf):
-    # Samples from the pdf are sorted in decreasing order
-    sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
-    return sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
 
-# Given a value on the pdf, deduce alpha
-def get_alpha(orden, f_pdf):
-    # Predicted HDR
-    ind = np.where(np.array(orden)[:,0] >= f_pdf)[0]
-    ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
-    alpha = np.array(orden)[:ind+1,1].sum()
-    return alpha
+def calibration_pdf2(tpred_samples, data_test, target_test, position, alpha = 0.85, id_batch=-2, draw=False):
+
+    list_fk = []
+    s_xk_yk = []
+    # Creamos un KDE density con las muestras # tpred_samples[ind_ensemble, id_batch, position, xy]
+    for k in range(tpred_samples.shape[1]): # Recorremos cada trayectoria del batch
+
+        # Muestra de la distribución bayessiana
+        yi = tpred_samples[:, k, position, :]
+
+        # Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
+        fk = gaussian_kde(yi.T)
+
+        # Evaluamos el GT
+        gt = target_test[k,position,:].detach().numpy()
+        fk_yi = -fk.pdf(gt.T)
+
+        # Guardamos en una lista
+        s_xk_yk.append(fk_yi)
+        list_fk.append(fk)
+
+    # Ordenamos las muestras
+    s_xk_yk = np.array(s_xk_yk)
+    orden = sort_sample(s_xk_yk)
+
+    # Encontramos el S_alpha (1 − alpha quantile )
+    Sa = get_falpha(orden, alpha)
+    #print("Sa encontrado: ", -Sa)
+
+
+    #--------------------------------------------------
+    if draw:
+        #-------------- para un id_batch ----------------------
+        # Encontramos el alpha correspondiente al nuevo Sa en la funcion de densidad
+        # Obtenemos la muestra de interes
+        yi = tpred_samples[:, id_batch, position, :] # Seleccionamos las muestras de una trayectoria
+        gt = target_test[id_batch, position,:].detach().numpy()
+        #print("yi: ", yi)
+        #print("gt: ", gt)
+
+        # Creamos la pdf para la muestra
+        fk = gaussian_kde(yi.T)
+        # Evaluamos la muestra en la pdf
+        fk_yi = fk.pdf(yi.T) # Evaluamos en la funcion de densidad
+
+        # Ordenamos las muestras
+        orden_fk = sort_sample(fk_yi)
+        # Encontramos el alpha
+        alpha_fk = get_alpha( orden_fk, -Sa)
+
+        #print("alpha: ", alpha)
+        #print("Sa: ", Sa)
+        #print("ind: ", ind)
+        #print("pos_Sa: ", pos_Sa)
+        #print("alpha_fk: ", alpha_fk)
+
+        #--------------------------------------------------
+        # Visualizamos la distribucion
+
+        plt.figure()
+        sns.kdeplot(x=yi[:,0], y=yi[:,1], label='KDE')
+        sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[alpha], label=r'$\alpha$'+"=%.2f"%(alpha)) # Para colocar bien el Sa debemos usar el alpha
+        sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[alpha_fk], label=r'$\alpha_{new}$'+"=%.2f"%(alpha_fk))
+        plt.scatter(gt[0], gt[1], marker='^', color="blue", linewidth=3, label="GT")
+
+        plt.legend()
+        plt.xlabel('x-position')
+        plt.ylabel('y-position')
+        plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
+        plt.savefig("images/HDR1/plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+        plt.close()
+
+        # Visualizamos la distribucion sobre la trayectoria
+        yi = tpred_samples[:, id_batch, position, :]  + data_test[id_batch,-1,:].numpy() # Seleccionamos las muestras de una trayectoria
+
+        plt.figure()
+        sns.kdeplot(x=yi[:,0], y=yi[:,1], label='KDE', fill=True, cmap="viridis_r", alpha=0.8)
+        #sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[alpha], label=r'$\alpha$'+"=%.2f"%(alpha)) # Para colocar bien el Sa debemos usar el alpha
+        #sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[alpha_fk], label=r'$\alpha_{new}$'+"=%.2f"%(alpha_fk))
+        #plt.scatter(gt[0], gt[1], marker='^', color="blue", linewidth=3, label="GT")
+        target_test_world = target_test[id_batch, :, :] + data_test[id_batch,-1,:].numpy()
+
+        plt.plot(data_test[id_batch,:,0].numpy(),data_test[id_batch,:,1].numpy(),"-b", linewidth=2, label="Observations") # Observations
+        plt.plot(target_test_world[:, 0], target_test_world[:, 1], '-*r', linewidth=2, label="Ground truth") # GT
+        plt.legend()
+
+        plt.legend()
+        plt.xlabel('x-position')
+        plt.ylabel('y-position')
+        plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
+        plt.savefig("images/trajectories_kde/trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+".pdf")
+        plt.close()
+
+    return -Sa
+
+def calibration_pdf3(tpred_samples, target_test, position, alpha = 0.85, id_batch=-2, draw=False):
+
+    list_fk = []
+    s_xk_yk = []
+    # Creamos un KDE density con las muestras # tpred_samples[ind_ensemble, id_batch, position, xy]
+    for k in range(tpred_samples.shape[1]): # Recorremos cada trayectoria del batch
+
+        # Muestra de la distribución bayessiana
+        yi = tpred_samples[:, k, position, :]
+
+        # Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
+        fk = gaussian_kde(yi.T)
+
+        # Evaluamos el GT
+        gt = target_test[k,position,:].detach().numpy()
+        fk_max = fk.pdf(yi.T).max()
+        #print("fk samples: ", fk.pdf(yi.T).shape)
+        #print("fk_max: ", fk_max)
+        fk_yi = fk.pdf(gt.T)
+
+        # Guardamos en una lista
+        s_xk_yk.append(-fk_yi/fk_max)
+        list_fk.append(fk)
+
+    # Ordenamos las muestras
+    s_xk_yk = np.array(s_xk_yk)
+    orden = sort_sample(s_xk_yk)
+
+    # Encontramos el S_alpha (1 − alpha quantile )
+    Sa = get_falpha(orden, alpha)
+    fk_max_Sa = fk_max*Sa
+    #print("Sa encontrado: ", -Sa, -fk_max_Sa)
+
+
+    #--------------------------------------------------
+    if draw:
+        #-------------- para un id_batch ----------------------
+        # Encontramos el alpha correspondiente al nuevo Sa en la funcion de densidad
+        # Obtenemos la muestra de interes
+        yi = tpred_samples[:, id_batch, position, :] # Seleccionamos las muestras de una trayectoria
+        gt = target_test[id_batch, position,:].detach().numpy()
+        #print("yi: ", yi)
+        #print("gt: ", gt)
+
+        # Creamos la pdf para la muestra
+        fk = gaussian_kde(yi.T)
+        # Evaluamos la muestra en la pdf
+        fk_yi = fk.pdf(yi.T) # Evaluamos en la funcion de densidad
+        # Ordenamos las muestras
+        orden_fk = sort_sample(fk_yi)
+        # Encontramos el alpha
+        alpha_fk = get_alpha( orden_fk, -fk_max_Sa)
+        #if alpha_fk < 1e-10:
+        #    alpha_fk = 0.0
+
+        #print("alpha: ", alpha)
+        #print("Sa: ", Sa)
+        #print("f_max Sa: ", fk_max_Sa)
+        #print("alpha_fk: ", alpha_fk)
+
+        #--------------------------------------------------
+        # Visualizamos la distribucion
+
+        plt.figure()
+        sns.kdeplot(x=yi[:,0], y=yi[:,1], label='KDE')
+        sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[alpha], label=r'$\alpha$'+"=%.2f"%(alpha)) # Para colocar bien el Sa debemos usar el alpha
+        sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[alpha_fk], label=r'$\alpha_{new}$'+"=%.2f"%(alpha_fk))
+        plt.scatter(gt[0], gt[1], marker='^', color="blue", linewidth=3, label="GT")
+
+        plt.legend()
+        plt.xlabel('x-position')
+        plt.ylabel('y-position')
+        plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
+        plt.savefig("images/HDR2/plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+        plt.close()
+
+    return -fk_max_Sa
 
 # Given a value of alpha, deduce the value of the density
 def get_falpha(orden, alpha):
@@ -997,18 +1160,18 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 
     # Guardamos los resultados de las metricas
     df = pd.DataFrame(metrics2)
-    df.to_csv("images/calibration/metrics/metrics_calibration_cal_confolmal2_"+str(id_test)+".csv")
+    df.to_csv("images/calibration/metrics/metrics_calibration_cal_conformal2_"+str(id_test)+".csv")
 
     df = pd.DataFrame(metrics3)
-    df.to_csv("images/calibration/metrics/metrics_calibration_cal_confolmal3_"+str(id_test)+".csv")
+    df.to_csv("images/calibration/metrics/metrics_calibration_cal_conformal3_"+str(id_test)+".csv")
 
     if tpred_samples_test is not None:
         # Guardamos los resultados de las metricas de Test
         df = pd.DataFrame(metrics2_test)
-        df.to_csv("images/calibration/metrics/metrics_calibration_test_confolmal2_"+str(id_test)+".csv")
+        df.to_csv("images/calibration/metrics/metrics_calibration_test_conformal2_"+str(id_test)+".csv")
 
         df = pd.DataFrame(metrics3_test)
-        df.to_csv("images/calibration/metrics/metrics_calibration_test_confolmal3_"+str(id_test)+".csv")
+        df.to_csv("images/calibration/metrics/metrics_calibration_test_conformal3_"+str(id_test)+".csv")
 
 
 
@@ -1146,100 +1309,50 @@ def root_mean_squared_calibration_error(
 
     return rmsce
 
-def generate_one_batch_test_ensembles(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12):
-
+def generate_one_batch_test(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12, type="ensemble"):
     #----------- Dataset TEST -------------
     datarel_test_full = []
     targetrel_test_full = []
     data_test_full = []
     target_test_full = []
+
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
         if batch_idx==0:
             continue
 
-        # Guardamos en una lista los batches
+         # Batchs saved into array respectively
         datarel_test_full.append(datarel_test)
         targetrel_test_full.append(targetrel_test)
         data_test_full.append(data_test)
         target_test_full.append(target_test)
 
-    # Concatenamos los batches para formar uno solo
+    # Batches concatenated to have only one
     datarel_test_full = torch.cat(datarel_test_full, dim=0)
     targetrel_test_full = torch.cat( targetrel_test_full, dim=0)
     data_test_full = torch.cat( data_test_full, dim=0)
     target_test_full = torch.cat( target_test_full, dim=0)
 
-    # Obtenemos las predicciones para el batch unico
+    # Unique batch predictions obtained
     tpred_samples_full = []
-    sigmas_samples_ful = []
-    # Muestreamos con cada modelo
+    sigmas_samples_full = []
+
+    # Each model sampled
     for ind in range(num_samples):
+        if type == "ensemble":
+            model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(id_test)+".pth"))
+            model.eval()
 
-        # Cargamos el Modelo
-        model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(id_test)+".pth"))
-        model.eval()
-
-        # Para utlizar cuda
         if torch.cuda.is_available():
             datarel_test_full  = datarel_test_full.to(device)
 
-        # Obtenemos la predicción con el modelo
+        # Model prediction obtained
         pred, sigmas = model.predict(datarel_test_full, dim_pred=12)
 
-        # Guardamos la muestra
+        # Sample saved
         tpred_samples_full.append(pred)
-        sigmas_samples_ful.append(sigmas)
+        sigmas_samples_full.append(sigmas)
 
-    # Convertimos a array np
     tpred_samples_full = np.array(tpred_samples_full)
-    sigmas_samples_ful = np.array(sigmas_samples_ful)
-    #---------------------------------------
+    sigmas_samples_full = np.array(sigmas_samples_full)
 
-    return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_ful
-
-def generate_one_batch_test_dropout(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12):
-
-    #----------- Dataset TEST -------------
-    datarel_test_full = []
-    targetrel_test_full = []
-    data_test_full = []
-    target_test_full = []
-    for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-        if batch_idx==0:
-            continue
-
-        # Guardamos en una lista los batches
-        datarel_test_full.append(datarel_test)
-        targetrel_test_full.append(targetrel_test)
-        data_test_full.append(data_test)
-        target_test_full.append(target_test)
-
-    # Concatenamos los batches para formar uno solo
-    datarel_test_full = torch.cat(datarel_test_full, dim=0)
-    targetrel_test_full = torch.cat( targetrel_test_full, dim=0)
-    data_test_full = torch.cat( data_test_full, dim=0)
-    target_test_full = torch.cat( target_test_full, dim=0)
-
-    # Obtenemos las predicciones para el batch unico
-    tpred_samples_full = []
-    sigmas_samples_ful = []
-    # Muestreamos con cada modelo
-    for ind in range(num_samples):
-
-        # Para utlizar cuda
-        if torch.cuda.is_available():
-            datarel_test_full  = datarel_test_full.to(device)
-
-        # Obtenemos la predicción con el modelo
-        pred, sigmas = model.predict(datarel_test_full, dim_pred=12)
-
-        # Guardamos la muestra
-        tpred_samples_full.append(pred)
-        sigmas_samples_ful.append(sigmas)
-
-    # Convertimos a array np
-    tpred_samples_full = np.array(tpred_samples_full)
-    sigmas_samples_ful = np.array(sigmas_samples_ful)
-    #---------------------------------------
-
-    return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_ful
+    return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full

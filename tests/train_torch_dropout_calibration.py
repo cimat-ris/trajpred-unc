@@ -31,7 +31,7 @@ import torch.optim as optim
 from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_one_batch_test_dropout
+from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_one_batch_test
 from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
 
 import torch.optim as optim
@@ -229,7 +229,7 @@ def main():
     draw_ellipse = True
 
     #------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-    datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test_dropout(batched_test_data, model, args.num_MC, TRAINING_CKPT_DIR, "model_name", id_test=idTest, device=device)
+    datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.num_MC, TRAINING_CKPT_DIR, "model_name", id_test=idTest, device=device, type="dropout")
     #---------------------------------------------------------------------------------------------------------------
 
     # Testing
