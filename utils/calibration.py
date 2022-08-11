@@ -1057,7 +1057,8 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
         fs_samples_new    = np.array(fs_samples_new)
         sorted_samples_new= sort_sample(fs_samples_new)
         importance_weights= fs_samples_new/sample_pdf
-        kernel = gaussian_kde(sample_kde.T, weights=importance_weights)
+        # TODO: sometimes transpose, someties not...
+        kernel = gaussian_kde(sample_kde, weights=importance_weights)
         ll_cal.append(kernel.logpdf(gt))
         ll_uncal.append(kde.logpdf(gt))
         print("neg. log: ", -kernel.logpdf(gt), -kde.logpdf(gt))

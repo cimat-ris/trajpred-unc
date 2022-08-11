@@ -2,8 +2,8 @@ import pdb
 import os
 import sys
 sys.path.append(os.path.realpath('.'))
-sys.path.append('bidireaction-trajectory-prediction/')
-sys.path.append('bidireaction-trajectory-prediction/datasets')
+sys.path.append('../bidireaction-trajectory-prediction/')
+sys.path.append('../bidireaction-trajectory-prediction/datasets')
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
@@ -43,7 +43,7 @@ if __name__ == '__main__':
                         help='input batch size for training (default: 256)')
     parser.add_argument(
         "--config_file",
-        default="bidireaction-trajectory-prediction/configs/bitrap_np_ETH.yml",
+        default="../bidireaction-trajectory-prediction/configs/bitrap_np_ETH.yml",
         metavar="FILE",
         help="path to config file",
         type=str,
@@ -128,18 +128,16 @@ if __name__ == '__main__':
             # Dictionary with keys pairs node_type x node_type
             my_adjacency = {}
             my_adjacency[(node_type,node_type)] = [torch.tensor(np.ones(n_neighbors))]
-            pred_traj    = np.zeros((1,12,nsamples,2))
-            for k in range(nsamples):
-                # Select one model randomly
-                id = 0 #random.randint(0,4)
-                # Sample a trajectory
-                pred_goal_, pred_traj_, _, dist_goal_, dist_traj_ = ensemble[id](my_input_x,neighbors_st=my_neighbors_st,adjacency=my_adjacency,
-                             z_mode=False,cur_pos=X_global[:, -1, :cfg.MODEL.DEC_OUTPUT_DIM],
+            pred_traj    = np.zeros((1,12,model.K,2))
+            # Select one model randomly
+            id = 0 #random.randint(0,4)
+            # Sample a trajectory
+            pred_goal_, pred_traj_, _, dist_goal_, dist_traj_ = ensemble[id](my_input_x,neighbors_st=my_neighbors_st,adjacency=my_adjacency,z_mode=False,cur_pos=X_global[:, -1, :cfg.MODEL.DEC_OUTPUT_DIM],
                              first_history_indices=torch.tensor([0],dtype=np.int))
-                # Transfer back to global coordinates
-                ret = post_process(cfg, X_global, y_global, pred_traj_, pred_goal=pred_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
-                X_global_, y_global_, pred_goal_, pred_traj_, dist_traj_, dist_goal_ = ret
-                pred_traj[0,:,k,:] = pred_traj_[0,:,0,:]
+            # Transfer back to global coordinates
+            ret = post_process(cfg, X_global, y_global, pred_traj_, pred_goal=pred_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
+            X_global_, y_global_, pred_goal_, pred_traj_, dist_traj_, dist_goal_ = ret
+            pred_traj[0,:,0,:] = pred_traj_[0,:,0,:]
 
             key =  list(neighbors_un.keys())[0]
             neighbors = neighbors_un[key][0]
@@ -206,23 +204,21 @@ if __name__ == '__main__':
             my_adjacency = {}
             my_adjacency[(node_type,node_type)] = [torch.tensor(np.ones(n_neighbors))]
             #pred_traj    = np.zeros((1,12,nsamples,2))
-            for k in range(nsamples):
-                # Select one model randomly
-                id = 0 # random.randint(0,4)
-                # Sample a trajectory
-                pred_goal_, pred_traj_, _, dist_goal_, dist_traj_ = ensemble[id](my_input_x,neighbors_st=my_neighbors_st,adjacency=my_adjacency,
-                             z_mode=False,cur_pos=X_global[:,-1,:2],
+            # Select one model randomly
+            id = 0 # random.randint(0,4)
+            # Sample a trajectory
+            pred_goal_, pred_traj_, _, dist_goal_, dist_traj_ = ensemble[id](my_input_x,neighbors_st=my_neighbors_st,adjacency=my_adjacency,z_mode=False,cur_pos=X_global[:,-1,:2],
                              first_history_indices=torch.tensor([0],dtype=np.int))
-                # Transfer back to global coordinates
-                ret = post_process(cfg, X_global, y_global, pred_traj_, pred_goal=pred_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
-                X_global_, y_global_, pred_goal_, pred_traj_, dist_traj_, dist_goal_ = ret
-                #print(pred_traj_.shape)
-                print("pred_traj_: ", pred_traj_.shape)
-                pred_traj[:,ind,:,:] = np.swapaxes(pred_traj_[0,:,:,:], 0, 1)
-#                pred_traj[k,ind,:,:] = pred_traj_[0,:,0,:]
-                obs_traj[ind,:,:]    = data_test[0,:,:2].numpy()
-                gt_traj[ind,:,:]     = target_test[0,:,:].numpy()
-                gt2_traj[ind,:,:]    = target_test[0,:,:].numpy() - data_test[0,-1,:2].numpy()
+            # Transfer back to global coordinates
+            ret = post_process(cfg, X_global, y_global, pred_traj_, pred_goal=pred_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
+            X_global_, y_global_, pred_goal_, pred_traj_, dist_traj_, dist_goal_ = ret
+            #print(pred_traj_.shape)
+            print("pred_traj_: ", pred_traj_.shape)
+            print(pred_traj_)
+            pred_traj[:,ind,:,:] = np.swapaxes(pred_traj_[0,:,:,:], 0, 1)
+            obs_traj[ind,:,:]    = data_test[0,:,:2].numpy()
+            gt_traj[ind,:,:]     = target_test[0,:,:].numpy()
+            gt2_traj[ind,:,:]    = target_test[0,:,:].numpy() - data_test[0,-1,:2].numpy()
 
         print("pred_traj: ")
         print(pred_traj.shape)
@@ -237,20 +233,19 @@ if __name__ == '__main__':
         target_test_full   =  torch.tensor(gt_traj[256:,:,:])
         targetrel_test     =  torch.tensor(gt2_traj[:256,:,:])
         targetrel_test_full=  torch.tensor(gt2_traj[256:,:,:])
- 
+
         # ---------------------------------- Calibration HDR cap libro -------------------------------------------------
         print("**********************************************")
         print("***** Calibracion con Isotonic Regresion *****")
         print("**********************************************")
 
         print("probamos con test...")
-        
+
         generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, None, 2, gaussian=False, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=None)
-        
+
         #--------------------------------------------------------------------------------------------------
-        
+
         #--------------------- Calculamos las metricas de calibracion ---------------------------------
-        
+
         generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, None, 2, gaussian=False, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=None)
         #--------------------------------------------------------------------------------------------------
-        
