@@ -25,7 +25,7 @@ class Experiment_Parameters:
         self.pred_len   = 12
         # Delimiter
         self.delim        = ','
-
+        # Delta time (time between two discrete time samples)
         self.dt = 0.4
 
 #  Trajectory dataset

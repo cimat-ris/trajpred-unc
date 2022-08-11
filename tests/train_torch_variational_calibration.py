@@ -35,7 +35,7 @@ from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 
 # Local constants
-from utils.constants import OBS_TRAJ, OBS_TRAJ_REL, PRED_TRAJ, PRED_TRAJ_REL
+from utils.constants import OBS_TRAJ, OBS_TRAJ_VEL, PRED_TRAJ, PRED_TRAJ_VEL
 
 # parameters models
 #initial_lr     = 0.000002
@@ -159,7 +159,7 @@ def main():
 
     logging.basicConfig(format='%(levelname)s: %(message)s',level=20)
     # Load the default parameters
-    experiment_parameters = Experiment_Parameters(add_kp=False,obstacles=False)
+    experiment_parameters = Experiment_Parameters()
 
     dataset_dir   = "datasets/"
     dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
@@ -170,9 +170,9 @@ def main():
     training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=pickle)
 
     # Torch dataset
-    train_data = traj_dataset(training_data[OBS_TRAJ_REL], training_data[PRED_TRAJ_REL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
-    val_data = traj_dataset(validation_data[OBS_TRAJ_REL], validation_data[PRED_TRAJ_REL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
-    test_data = traj_dataset(test_data[OBS_TRAJ_REL], test_data[PRED_TRAJ_REL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
+    train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
+    val_data = traj_dataset(validation_data[OBS_TRAJ_VEL], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
+    test_data = traj_dataset(test_data[OBS_TRAJ_VEL], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
 
     # Form batches
     batched_train_data = torch.utils.data.DataLoader( train_data, batch_size = batch_size, shuffle=False)
