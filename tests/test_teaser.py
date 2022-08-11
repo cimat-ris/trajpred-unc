@@ -197,7 +197,6 @@ def main():
         print("**********************************************")
 
         # HDR y Calibracion
-        # exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(pred_samples_cal, data_test, target_test, sigmas_samples_cal, position=11, idTest=args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full) # Se hace sobre la posicion absoluta
         if False:
             isotonic = calibrate_IsotonicReg(pred_samples_cal, data_test, target_test, sigmas_samples_cal, position=11, idTest=args.id_test, gaussian=True)
             pickle_out = open('isotonic.pickle',"wb")
@@ -205,28 +204,6 @@ def main():
         else:
             pickle_in = open('isotonic.pickle',"rb")
             isotonic = pickle.load(pickle_in)
-
-        # plt.show()
-        #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-
-        #--------------------------------------------------------------------------------------------------
-
-
-        # ---------------------------------- Calibration Conformal  -------------------------------------------------
-        print("**********************************************")
-        print("********    Calibration Conformal    *********")
-        print("**********************************************")
-
-        # Generar KDE sobre Imagen
-        # pos = 10 # borrar despues de probar
-        # id_batch = 25 # borrar despues de probar
-        # gt = np.cumsum(targetrel_test, axis=1)
-        # generate_newKDE(tpred_samples, data_test, gt, target_test, id_batch=id_batch, position = pos, method=2, test_homography=test_homography, bck=bck)
-
-        #--------------------- Calculamos las metricas de calibracion ---------------------------------
-        #generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, args.id_test)
-        ##generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-        #--------------------------------------------------------------------------------------------------
 
         # Solo se ejecuta para un batch y es usado como dataset de calibración
         break
