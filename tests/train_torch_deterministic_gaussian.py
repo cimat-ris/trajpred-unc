@@ -24,7 +24,7 @@ from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_one_batch_test_ensembles
+from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_one_batch_test
 from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
 import torch.optim as optim
 # Local constants
@@ -141,7 +141,7 @@ def main():
             break
 
     #------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-    datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test_ensembles(batched_test_data, model, num_ensembles, TRAINING_CKPT_DIR, model_name, id_test=args.id_test, device=device)
+    datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, num_ensembles, TRAINING_CKPT_DIR, model_name, id_test=args.id_test, device=device)
     #---------------------------------------------------------------------------------------------------------------
 
     # Testing
