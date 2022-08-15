@@ -1135,8 +1135,14 @@ def root_mean_squared_calibration_error(
 
     return rmsce
 
-def generate_one_batch_test(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12, type="ensemble"):
-    #----------- Dataset TEST -------------
+def get_test_datasets(batched_test_data):
+    """
+    Args:
+        batched_test_data: batched test data tensor
+
+    Returns:
+        Concatenated batches from test data tensor
+    """
     datarel_test_full = []
     targetrel_test_full = []
     data_test_full = []
@@ -1157,6 +1163,12 @@ def generate_one_batch_test(batched_test_data, model, num_samples, TRAINING_CKPT
     targetrel_test_full = torch.cat( targetrel_test_full, dim=0)
     data_test_full = torch.cat( data_test_full, dim=0)
     target_test_full = torch.cat( target_test_full, dim=0)
+
+    return datarel_test_full, targetrel_test_full, data_test_full, target_test_full
+
+def generate_one_batch_test(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12, type="ensemble"):
+    #----------- Dataset TEST -------------
+    datarel_test_full, targetrel_test_full, data_test_full, target_test_full = get_test_datasets(batched_test_data)
 
     # Unique batch predictions obtained
     tpred_samples_full = []
