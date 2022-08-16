@@ -125,10 +125,14 @@ def get_kde(tpred_samples_cal, data_cal, target_cal, i, gt, sigmas_samples_cal, 
 
 	return kde, sample_kde
 
-def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000):
-
+def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position=0, idTest=0, gaussian=False, resample_size=1000):
+	"""
+	Args:
+	Returns:
+		- predicted HDR
+	"""
 	predicted_hdr = []
-	# Recorremos cada trayectoria del batch
+	# Traverse each trajectory of the batch
 	for i in range(tpred_samples_cal.shape[1]):
 		# Ground Truth
 		gt = target_cal[i,position,:].cpu()
@@ -148,9 +152,15 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 
 		# Predicted HDR
 		ind = np.where(np.array(orden)[:,0] >= f_pdf)[0]
-		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
+		ind = 0 if ind.size == 0 else ind[-1] # Validate that it is not the first largest element
 		alpha_pred = 1 - np.array(orden)[:ind+1,1].sum()
 		predicted_hdr.append(alpha_pred)
+
+	return predicted_hdr
+
+def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000):
+
+	predicted_hdr = get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
 
 	# Empirical HDR
 	empirical_hdr = np.zeros(len(predicted_hdr))
