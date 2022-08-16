@@ -215,7 +215,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 				sample_kde = this_pred_out_abs.T
 				# Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
 				kde = gaussian_kde(sample_kde)
-				sample_kde = kde.resample(1000,0)
+				sample_kde = kde.resample(resample_size,0)
 
 			#--------
 			# Pasos para calcular fa del HDR
