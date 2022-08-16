@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import os
+import os, logging
 from matplotlib import pyplot as plt
 import seaborn as sns
 import statistics
@@ -13,9 +13,6 @@ from scipy.stats import multivariate_normal
 from sklearn.metrics import auc
 from sklearn.isotonic import IsotonicRegression
 
-from shapely.geometry import Polygon, LineString
-from shapely.ops import polygonize, unary_union
-
 from utils.plot_utils import plot_traj_world, plot_traj_img_kde
 # Local utils helpers
 from utils.directory_utils import mkdir_p
@@ -23,7 +20,8 @@ from utils.directory_utils import mkdir_p
 from utils.constants import IMAGES_DIR
 # HDR utils
 from utils.hdr import sort_sample, get_alpha
-
+# Calibration metrics
+from utils.calibration_metrics import miscalibration_area,mean_absolute_calibration_error,root_mean_squared_calibration_error
 
 
 def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, resample_size=0 , display=False, idTest=0):
@@ -106,40 +104,37 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
 	return multivariate_normal(mean_mix, cov_mix), sample_pdf
 
 
-def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None):
+def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000):
 
 	predicted_hdr = []
 	# Recorremos cada trayectoria del batch
 	for i in range(tpred_samples_cal.shape[1]):
 		# Ground Truth
 		gt = target_cal[i,position,:].cpu()
-		#print("GT: ", gt)
 
+		# Produce resample_size samples from the pdf
 		if gaussian:
 			# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-			kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, display=False, idTest=idTest)
+			kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=resample_size, display=False, idTest=idTest)
 		else:
-			# Muestra de la distribución bayessiana
-			this_pred_out_abs = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()]) # ABSOLUTE?
-			sample_kde = this_pred_out_abs.T
-			# Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-			kde = gaussian_kde(sample_kde)
-			sample_kde = kde.resample(1000,0)
-			print("NLL: ", -kde.logpdf(gt))
+			# TODO: Here also, the coordinates may be absolute or relative
+			# depending on the prediction method
+			sample_kde = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()])
+			# Use KDE to get a representation of the p.d.f.
+			# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
+			kde        = gaussian_kde(sample_kde.T)
+			sample_kde = kde.resample(resample_size,0)
 
 		#----------------------------------------------------------
-		# Pasos para calcular fa del HDR
-
-		# Evaluamos la muestra en la pdf
+		# Evaluate these samples on the p.d.f.
 		sample_pdf = kde.pdf(sample_kde)
 
-		# Ordenamos de forma descendente las muestras de pdf
+		# Sort the samples in decreasing order of their p.d.f. value
 		sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
-		orden = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
+		orden          = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
 		#----------------------------------------------------------
 
-
-		# Evaluamos el Ground Truth (ultima posicion) en la distribucion
+		# Ealuate the GT on the p.d.f.
 		f_pdf = kde.pdf(gt)
 
 		# Predicted HDR
@@ -151,7 +146,8 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	# Empirical HDR
 	empirical_hdr = np.zeros(len(predicted_hdr))
 	for i, p in enumerate(predicted_hdr):
-		empirical_hdr[i] = np.sum(predicted_hdr <= p)/len(predicted_hdr) # En este paso, p toma los valores de alpha, por lo que no estoy seguro  si debe ser menor e igual o mayor e igual.
+		# TODO: check whether < or <=
+		empirical_hdr[i] = np.sum(predicted_hdr <= p)/len(predicted_hdr)
 
 	#Visualization
 	plt.figure(figsize=(10,7))
@@ -163,21 +159,21 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	plt.legend(fontsize=17)
 	plt.grid("on")
 
-	# Create calibration directory if does not exists
-	output_calibration_dir = os.path.join(IMAGES_DIR, "calibration")
-	mkdir_p(output_calibration_dir)
-	output_image_name = os.path.join(output_calibration_dir , "plot_uncalibrate_"+str(idTest)+".pdf")
+	# TODO: avoid to harcode
+	figpath = 'images/calibration/'
+	# Check whether the specified path exists or not and create it if needed
+	mkdir_p(figpath)
 
-	plt.savefig(output_image_name)
+	plt.savefig(figpath+"plot_uncalibrate_"+str(idTest)+".pdf")
 	plt.show()
 
 	#-----------------
 
-	# fit the isotonic regression
+	# Fit empirical_hdr to predicted_hdr with isotonic regression
 	isotonic = IsotonicRegression(out_of_bounds='clip')
 	isotonic.fit(empirical_hdr, predicted_hdr)
 
-	#Visualization
+	# Visualization
 	plt.figure(figsize=(10,7))
 	plt.scatter(predicted_hdr, isotonic.predict(empirical_hdr), alpha=0.7)
 	plt.plot([0,1],[0,1],'--', color='grey', label='Perfect calibration')
@@ -187,8 +183,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	plt.legend(fontsize=17)
 	plt.grid("on")
 
-	output_image_name = os.path.join(output_calibration_dir , "plot_calibrate_"+str(idTest)+".pdf")
-	plt.savefig(output_image_name)
+	plt.savefig(figpath+"plot_calibrate_"+str(idTest)+".pdf")
 	plt.show()
 
 	#----------------
@@ -374,17 +369,12 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	#plt.title('Calibration Plot on Testing Data ('+str(idTest)+')', fontsize=17)
 	plt.xlabel(r'$\alpha$', fontsize=17)
 	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
-
-	# Create confidence level directory if does not exists
-	output_confidence_dir = os.path.join(output_calibration_dir, "confidence_level")
-	mkdir_p(output_confidence_dir)
-
+	confidence_figpath = figpath+"/confidence_level/"
+	mkdir_p(confidence_figpath)
 	if gaussian:
-		output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
-		plt.savefig(output_image_name)
+		plt.savefig(confidence_figpath+"confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
 	else:
-		output_image_name = os.path.join(output_confidence_dir , "confidence_level/confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
-		plt.savefig(output_image_name)
+		plt.savefig(confidence_figpath+"confidence_level/confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
 	plt.show()
 
 	if tpred_samples_test is not None:
@@ -398,11 +388,9 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 		plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
 
 		if gaussian:
-			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
-			plt.savefig(output_image_name)
+			plt.savefig(confidence_figpath+"confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
 		else:
-			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
-			plt.savefig(output_image_name)
+			plt.savefig(confidence_figpath+"confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
 		plt.show()
 
 	#----------------------------------------------------------------------
@@ -917,9 +905,6 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 					fa_unc = 0
 				else:
 					fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
-				##print("alpha: ", alpha)
-				##print("ind: ", ind)
-				##print("fa_unc encontrado: ", fa_unc)
 
 				if gaussian:
 					gt = target_test2[i,position,:].cpu()
@@ -954,12 +939,7 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 	plt.xlabel(r'$\alpha$', fontsize=17)
 	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
 
-	# Create confidence level directory if does not exists
-	output_confidence_dir = os.path.join(IMAGES_DIR, "calibration", "confidence_level")
-	mkdir_p(output_confidence_dir)
-
-	output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
-	plt.savefig(output_image_name)
+	plt.savefig("images/calibration/confidence_level/confidence_level_cal_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
 	plt.show()
 
 	if tpred_samples_test is not None:
@@ -972,86 +952,82 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 		plt.xlabel(r'$\alpha$', fontsize=17)
 		plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
 
-		output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
-		plt.savefig(output_image_name)
+		plt.savefig("images/calibration/confidence_level/confidence_level_test_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
 		plt.show()
 	#----------------------------------------------------------------------
 	return conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2
 
 def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None):
 
-	#--------------------- Calculamos las metricas de calibracion ---------------------------------
-	metrics1 = [["","MACE","RMSCE","MA"]]
-	metrics2_test = [["","MACE","RMSCE","MA"]]
+	#------------Calibration metrics-------------------
+	metrics_calibration_data = [["","MACE","RMSCE","MA"]]
+	metrics_test_data        = [["","MACE","RMSCE","MA"]]
 
 	# Recorremos cada posicion
-	for pos in range(tpred_samples_cal.shape[2]):
-		pos = 11
-		#pos = 0 # borrar, solo para pruebas
-		print("Procesamos para posicion: ", pos)
+	positions_to_test = [11]
+	for position in positions_to_test:
+		logging.info("Calibration metrics at position: {}".format(position))
+		# Apply isotonic regression
+		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test)
 
-		# HDR y Calibracion
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test) # Se hace sobre la posicion absoluta
+		# TODO: move?
 		plt.show()
-		#aaaaa
 
-		# Modificamos la distribución y graficamos
-		#new_positions = calibration_pdf(tpred_samples, isotonic, pos)
-
-		# Metricas de Calibration
-		ma1    = miscalibration_area(exp_proportions, obs_proportions_unc)
-		mace1  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
-		rmsce1 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc)
-		metrics1.append(["Before Recalibration pos "+str(pos), mace1, rmsce1, ma1])
+		# Calibration metrics
+		ma    = miscalibration_area(exp_proportions, obs_proportions_unc)
+		mace  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
+		rmsce = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc)
+		metrics_calibration_data.append(["Before Recalibration pos "+str(position),mace,rmsce,ma])
 		print("Before Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace1, rmsce1, ma1))
+		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace,rmsce,ma))
 
-		ma2 = miscalibration_area(exp_proportions, obs_proportions_cal)
-		mace2 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal)
-		rmsce2 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal)
-		metrics1.append(["After Recalibration pos "+str(pos), mace2, rmsce2, ma2])
+		ma    = miscalibration_area(exp_proportions, obs_proportions_cal)
+		mace  = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal)
+		rmsce = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal)
+		metrics_calibration_data.append(["After Recalibration pos "+str(position), mace, rmsce, ma])
 		print("After Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace2, rmsce2, ma2))
+		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace,rmsce,ma))
 
-		#break # borrar solo para pruebas
 
 		if tpred_samples_test is not None:
-			# Metrics Calibration Test
+			# Metrics Calibration on testing data
 			ma3    = miscalibration_area(exp_proportions, obs_proportions_unc2)
 			mace3  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc2)
 			rmsce3 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc2)
-			metrics2_test.append(["Before Recalibration pos "+str(pos), mace3, rmsce3, ma3])
+			metrics_test_data.append(["Before Recalibration pos "+str(position), mace3, rmsce3, ma3])
 			print("Before Recalibration:  ", end="")
 			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace3, rmsce3, ma3))
 
 			ma4 = miscalibration_area(exp_proportions, obs_proportions_cal2)
 			mace4 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal2)
 			rmsce4 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal2)
-			metrics2_test.append(["After Recalibration pos "+str(pos), mace4, rmsce4, ma4])
+			metrics_test_data.append(["After Recalibration pos "+str(position), mace4, rmsce4, ma4])
 			print("After Recalibration:  ", end="")
 			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace4, rmsce4, ma4))
 		break
 
-	# Guardamos los resultados de las metricas
-	df = pd.DataFrame(metrics1)
-	df.to_csv("images/calibration/metrics/metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
+	# Save the metrics results: on calibration dataset
+	df = pd.DataFrame(metrics_calibration_data)
+	metrics_dir = "images/calibration/metrics/"
+	mkdir_p(metrics_dir)
+	df.to_csv(metrics_dir+"metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
 
 	if tpred_samples_test is not None:
-		# Guardamos los resultados de las metricas de Test
-		df = pd.DataFrame(metrics2_test)
-		df.to_csv("images/calibration/metrics/metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
+		# Save the metrics results: on test dataset
+		df = pd.DataFrame(metrics_test_data)
+		df.to_csv(metrics_dir+"metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
 
-	# ---------------- Solo caso deterministico
-	# Agregamos el calculo de la nll
+	# Evaluation of NLL
 	position = 11
 	ll_cal = []
 	ll_uncal = []
-	print("NLL")
+
 	for i in range(tpred_samples_test.shape[1]):
 		# Ground Truth
 		gt = target_test[i,position,:].cpu()
 
-		# Muestra de la distribución bayessiana
+		# TODO: here, it depends on the predition system whether the output is
+		# TODO: relative or absolute
 		this_pred_out_abs = tpred_samples_test[:, i, position, :] + np.array([data_test[i,:,:][-1].numpy()]) # ABSOLUTE?
 		if gaussian:
 			# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
@@ -1060,9 +1036,6 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 			sample_kde = this_pred_out_abs.T
 			kde = gaussian_kde(sample_kde)
 			sample_kde = kde.resample(1000,0)
-
-		#--------
-		# Pasos para calcular fa del HDR
 
 		# Evaluamos la muestra en la pdf
 		sample_pdf = kde.pdf(sample_kde)
@@ -1078,14 +1051,15 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		sorted_samples_new= sort_sample(fs_samples_new)
 		importance_weights= fs_samples_new/sample_pdf
 		# TODO: sometimes transpose, someties not...
+		if (sample_kde.shape[0]==importance_weights.shape[0]):
+			sample_kde = sample_kde.T
 		kernel = gaussian_kde(sample_kde, weights=importance_weights)
 		ll_cal.append(kernel.logpdf(gt))
 		ll_uncal.append(kde.logpdf(gt))
-		print("neg. log: ", -kernel.logpdf(gt), -kde.logpdf(gt))
 		#-----
 
 	# Calculamos el Negative LogLikelihood
-	nll_cal = statistics.median(ll_cal)
+	nll_cal   = statistics.median(ll_cal)
 	nll_uncal = statistics.median(ll_uncal)
 
 	df = pd.DataFrame([["calibrated", "uncalibrated"],[nll_cal, nll_uncal]])
@@ -1265,69 +1239,6 @@ def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_ba
 		plot_traj_img_kde(tpred_samples, data_test, target_test, test_homography, bck, id_batch, pos=position, w_i=w_i)
 
 
-def miscalibration_area(
-	exp_proportions: np.ndarray,
-	obs_proportions: np.ndarray
-) -> float:
-	"""Miscalibration area.
-	This is identical to mean absolute calibration error and ECE, however
-	the integration here is taken by tracing the area between curves.
-	In the limit of num_bins, miscalibration area and
-	mean absolute calibration error will converge to the same value.
-	Args:
-
-	Returns:
-		A single scalar which calculates the miscalibration area.
-	"""
-
-	# Compute approximation to area between curves
-	polygon_points = []
-	for point in zip(exp_proportions, obs_proportions):
-		polygon_points.append(point)
-	for point in zip(reversed(exp_proportions), reversed(exp_proportions)):
-		polygon_points.append(point)
-	polygon_points.append((exp_proportions[0], obs_proportions[0]))
-	polygon = Polygon(polygon_points)
-	x, y = polygon.exterior.xy
-	ls = LineString(np.c_[x, y])
-	lr = LineString(ls.coords[:] + ls.coords[0:1])
-	mls = unary_union(lr)
-	polygon_area_list = [poly.area for poly in polygonize(mls)]
-	miscalibration_area = np.asarray(polygon_area_list).sum()
-
-	return miscalibration_area
-
-def mean_absolute_calibration_error(
-	 exp_proportions: np.ndarray,
-	 obs_proportions: np.ndarray
-) -> float:
-	"""Mean absolute calibration error; identical to ECE.
-	Args:
-
-	Returns:
-		A single scalar which calculates the mean absolute calibration error.
-	"""
-
-	abs_diff_proportions = np.abs(exp_proportions - obs_proportions)
-	mace = np.mean(abs_diff_proportions)
-
-	return mace
-
-def root_mean_squared_calibration_error(
-	 exp_proportions: np.ndarray,
-	 obs_proportions: np.ndarray
-) -> float:
-	"""Root mean squared calibration error.
-	Args:
-
-	Returns:
-		A single scalar which calculates the root mean squared calibration error.
-	"""
-
-	squared_diff_proportions = np.square(exp_proportions - obs_proportions)
-	rmsce = np.sqrt(np.mean(squared_diff_proportions))
-
-	return rmsce
 
 def generate_one_batch_test(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12, type="ensemble"):
 	#----------- Dataset TEST -------------
