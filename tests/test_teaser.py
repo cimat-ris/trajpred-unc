@@ -28,7 +28,7 @@ from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world,world_to_image_xy
-from utils.calibration import calibrate_IsotonicReg, generate_one_batch_test
+from utils.calibration import calibration_IsotonicReg, generate_one_batch_test
 from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
 from utils.hdr import get_alpha,get_alpha_bs,get_falpha,sort_sample
 import torch.optim as optim
@@ -197,8 +197,8 @@ def main():
         print("**********************************************")
 
         # HDR y Calibracion
-        if False:
-            isotonic = calibrate_IsotonicReg(pred_samples_cal, data_test, target_test, sigmas_samples_cal, position=11, idTest=args.id_test, gaussian=True)
+        if True:
+            __,__,__,__,__,isotonic = calibration_IsotonicReg(pred_samples_cal, data_test, target_test, sigmas_samples_cal, position=11, idTest=args.id_test, gaussian=True)
             pickle_out = open('isotonic.pickle',"wb")
             pickle.dump(isotonic, pickle_out)
         else:
