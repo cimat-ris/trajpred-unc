@@ -163,12 +163,12 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	plt.legend(fontsize=17)
 	plt.grid("on")
 
-	# TODO: avoid to harcode
-	figpath = 'images/calibration/'
-	# Check whether the specified path exists or not and create it if needed
-	mkdir_p(figpath)
+	# Create calibration directory if does not exists
+	output_calibration_dir = os.path.join(IMAGES_DIR, "calibration")
+	mkdir_p(output_calibration_dir)
+	output_image_name = os.path.join(output_calibration_dir , "plot_uncalibrate_"+str(idTest)+".pdf")
 
-	plt.savefig(figpath+"plot_uncalibrate_"+str(idTest)+".pdf")
+	plt.savefig(output_image_name)
 	plt.show()
 
 	#-----------------
@@ -187,7 +187,8 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	plt.legend(fontsize=17)
 	plt.grid("on")
 
-	plt.savefig(figpath+"plot_calibrate_"+str(idTest)+".pdf")
+	output_image_name = os.path.join(output_calibration_dir , "plot_calibrate_"+str(idTest)+".pdf")
+	plt.savefig(output_image_name)
 	plt.show()
 
 	#----------------
@@ -373,12 +374,17 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	#plt.title('Calibration Plot on Testing Data ('+str(idTest)+')', fontsize=17)
 	plt.xlabel(r'$\alpha$', fontsize=17)
 	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
-	confidence_figpath = figpath+"/confidence_level/"
-	mkdir_p(confidence_figpath)
+
+	# Create confidence level directory if does not exists
+	output_confidence_dir = os.path.join(output_calibration_dir, "confidence_level")
+	mkdir_p(output_confidence_dir)
+
 	if gaussian:
-		plt.savefig(confidence_figpath+"confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
+		output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
+		plt.savefig(output_image_name)
 	else:
-		plt.savefig(confidence_figpath+"confidence_level/confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
+		output_image_name = os.path.join(output_confidence_dir , "confidence_level/confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
+		plt.savefig(output_image_name)
 	plt.show()
 
 	if tpred_samples_test is not None:
@@ -392,9 +398,11 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 		plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
 
 		if gaussian:
-			plt.savefig(confidence_figpath+"confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
+			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
+			plt.savefig(output_image_name)
 		else:
-			plt.savefig(confidence_figpath+"confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
+			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
+			plt.savefig(output_image_name)
 		plt.show()
 
 	#----------------------------------------------------------------------
@@ -946,7 +954,12 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 	plt.xlabel(r'$\alpha$', fontsize=17)
 	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
 
-	plt.savefig("images/calibration/confidence_level/confidence_level_cal_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
+	# Create confidence level directory if does not exists
+	output_confidence_dir = os.path.join(IMAGES_DIR, "calibration", "confidence_level")
+	mkdir_p(output_confidence_dir)
+
+	output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
+	plt.savefig(output_image_name)
 	plt.show()
 
 	if tpred_samples_test is not None:
@@ -959,7 +972,8 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 		plt.xlabel(r'$\alpha$', fontsize=17)
 		plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
 
-		plt.savefig("images/calibration/confidence_level/confidence_level_test_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
+		output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
+		plt.savefig(output_image_name)
 		plt.show()
 	#----------------------------------------------------------------------
 	return conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2
