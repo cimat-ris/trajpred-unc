@@ -103,6 +103,27 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
 
 	return multivariate_normal(mean_mix, cov_mix), sample_pdf
 
+def get_kde(tpred_samples_cal, data_cal, target_cal, i, gt, sigmas_samples_cal, position=0, idTest=0, gaussian=False, resample_size=1000):
+	"""
+	Args:
+	Returns:
+		- kde: PDF estimation
+		- sample_kde: Sampled points (x,y) from PDF
+	"""
+	# Produce resample_size samples from the pdf
+	if gaussian:
+		# p.d.f. estimation. Sampling points (x,y) from PDF
+		kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=resample_size, display=False, idTest=idTest)
+	else:
+		# TODO: Here also, the coordinates may be absolute or relative
+		# depending on the prediction method
+		sample_kde = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()])
+		# Use KDE to get a representation of the p.d.f.
+		# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
+		kde        = gaussian_kde(sample_kde.T)
+		sample_kde = kde.resample(resample_size,0)
+
+	return kde, sample_kde
 
 def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000):
 
@@ -111,19 +132,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	for i in range(tpred_samples_cal.shape[1]):
 		# Ground Truth
 		gt = target_cal[i,position,:].cpu()
-
-		# Produce resample_size samples from the pdf
-		if gaussian:
-			# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-			kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=resample_size, display=False, idTest=idTest)
-		else:
-			# TODO: Here also, the coordinates may be absolute or relative
-			# depending on the prediction method
-			sample_kde = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()])
-			# Use KDE to get a representation of the p.d.f.
-			# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-			kde        = gaussian_kde(sample_kde.T)
-			sample_kde = kde.resample(resample_size,0)
+		kde, sample_kde = get_kde(tpred_samples_cal, data_cal, target_cal, i, gt, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
 
 		#----------------------------------------------------------
 		# Evaluate these samples on the p.d.f.
