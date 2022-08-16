@@ -13,7 +13,7 @@ from scipy.stats import multivariate_normal
 from sklearn.metrics import auc
 from sklearn.isotonic import IsotonicRegression
 
-from utils.plot_utils import plot_HDR_curves, plot_traj_world, plot_traj_img_kde
+from utils.plot_utils import plot_calibration_curves, plot_HDR_curves, plot_traj_world, plot_traj_img_kde
 # Local utils helpers
 from utils.directory_utils import mkdir_p
 # Local constants
@@ -157,6 +157,30 @@ def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_ca
 		predicted_hdr.append(alpha_pred)
 
 	return predicted_hdr
+
+def save_calibration_curves(output_calibration_dir, tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=False, idTest=0, position=0):
+	"""
+	Save calibration curves
+	"""
+	# Create confidence level directory if does not exists
+	output_confidence_dir = os.path.join(output_calibration_dir, "confidence_level")
+	mkdir_p(output_confidence_dir)
+
+	if gaussian:
+		output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
+		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name)
+	else:
+		output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
+		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name)
+
+	if tpred_samples_test is not None:
+		if gaussian:
+			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
+			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name)
+		else:
+			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
+			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name)
+
 
 def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000):
 
@@ -319,46 +343,8 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 			unc_pcts2.append(np.mean(perc_within_unc))
 
 
-	#--------------------- Guardamos las curvas de calibracion ---------------------------
+	save_calibration_curves(output_calibration_dir, tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=gaussian, idTest=idTest, position=position)
 
-	plt.figure(figsize=(10,7))
-	plt.plot([0,1],[0,1],'--', color='grey')
-	plt.plot(1-conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
-	plt.plot(1-conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
-	plt.legend(fontsize=14)
-	plt.xlabel(r'$\alpha$', fontsize=17)
-	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
-
-	# Create confidence level directory if does not exists
-	output_confidence_dir = os.path.join(output_calibration_dir, "confidence_level")
-	mkdir_p(output_confidence_dir)
-
-	if gaussian:
-		output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
-		plt.savefig(output_image_name)
-	else:
-		output_image_name = os.path.join(output_confidence_dir , "confidence_level/confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
-		plt.savefig(output_image_name)
-	plt.show()
-
-	if tpred_samples_test is not None:
-		plt.figure(figsize=(10,7))
-		plt.plot([0,1],[0,1],'--', color='grey')
-		plt.plot(1-conf_levels, unc_pcts2, '-o', color='purple', label='Uncalibrated')
-		plt.plot(1-conf_levels, cal_pcts2, '-o', color='red', label='Calibrated')
-		plt.legend(fontsize=14)
-		plt.xlabel(r'$\alpha$', fontsize=17)
-		plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
-
-		if gaussian:
-			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
-			plt.savefig(output_image_name)
-		else:
-			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
-			plt.savefig(output_image_name)
-		plt.show()
-
-	#----------------------------------------------------------------------
 	return 1-conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, isotonic
 
 

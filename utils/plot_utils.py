@@ -193,3 +193,17 @@ def plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title, ax=N
     plt.grid("on")
     plt.savefig(output_image_name)
     plt.show()
+
+def plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name):
+    """
+    Plot calibration curves
+    """
+    plt.figure(figsize=(10,7))
+    plt.plot([0,1],[0,1],'--', color='grey')
+    plt.plot(1-conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
+    plt.plot(1-conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
+    plt.legend(fontsize=14)
+    plt.xlabel(r'$\alpha$', fontsize=17)
+    plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
+    plt.savefig(output_image_name)
+    plt.show()
