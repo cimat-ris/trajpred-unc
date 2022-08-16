@@ -909,9 +909,6 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 					fa_unc = 0
 				else:
 					fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
-				##print("alpha: ", alpha)
-				##print("ind: ", ind)
-				##print("fa_unc encontrado: ", fa_unc)
 
 				if gaussian:
 					gt = target_test2[i,position,:].cpu()
@@ -966,67 +963,63 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 
 def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None):
 
-	#--------------------- Calculamos las metricas de calibracion ---------------------------------
-	metrics1 = [["","MACE","RMSCE","MA"]]
-	metrics2_test = [["","MACE","RMSCE","MA"]]
+	#------------Calibration metrics-------------------
+	metrics_calibration_data = [["","MACE","RMSCE","MA"]]
+	metrics_test_data        = [["","MACE","RMSCE","MA"]]
 
 	# Recorremos cada posicion
-	for pos in range(tpred_samples_cal.shape[2]):
-		pos = 11
-		#pos = 0 # borrar, solo para pruebas
-		print("Procesamos para posicion: ", pos)
+	positions_to_test = [11]
+	for position in positions_to_test:
+		print("Processing position: ", position)
 
-		# HDR y Calibracion
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test) # Se hace sobre la posicion absoluta
+		# Apply isotonic regression
+		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test)
+
+		# TODO: move?
 		plt.show()
-		#aaaaa
 
-		# Modificamos la distribución y graficamos
-		#new_positions = calibration_pdf(tpred_samples, isotonic, pos)
-
-		# Metricas de Calibration
-		ma1    = miscalibration_area(exp_proportions, obs_proportions_unc)
-		mace1  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
-		rmsce1 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc)
-		metrics1.append(["Before Recalibration pos "+str(pos), mace1, rmsce1, ma1])
+		# Calibration metrics
+		ma    = miscalibration_area(exp_proportions, obs_proportions_unc)
+		mace  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
+		rmsce = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc)
+		metrics_calibration_data.append(["Before Recalibration pos "+str(position),mace,rmsce,ma])
 		print("Before Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace1, rmsce1, ma1))
+		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace,rmsce,ma))
 
-		ma2 = miscalibration_area(exp_proportions, obs_proportions_cal)
-		mace2 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal)
-		rmsce2 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal)
-		metrics1.append(["After Recalibration pos "+str(pos), mace2, rmsce2, ma2])
+		ma    = miscalibration_area(exp_proportions, obs_proportions_cal)
+		mace  = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal)
+		rmsce = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal)
+		metrics_calibration_data.append(["After Recalibration pos "+str(position), mace, rmsce, ma])
 		print("After Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace2, rmsce2, ma2))
+		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace,rmsce,ma))
 
-		#break # borrar solo para pruebas
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration Test
 			ma3    = miscalibration_area(exp_proportions, obs_proportions_unc2)
 			mace3  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc2)
 			rmsce3 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc2)
-			metrics2_test.append(["Before Recalibration pos "+str(pos), mace3, rmsce3, ma3])
+			metrics_test_data.append(["Before Recalibration pos "+str(position), mace3, rmsce3, ma3])
 			print("Before Recalibration:  ", end="")
 			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace3, rmsce3, ma3))
 
 			ma4 = miscalibration_area(exp_proportions, obs_proportions_cal2)
 			mace4 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal2)
 			rmsce4 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal2)
-			metrics2_test.append(["After Recalibration pos "+str(pos), mace4, rmsce4, ma4])
+			metrics_test_data.append(["After Recalibration pos "+str(position), mace4, rmsce4, ma4])
 			print("After Recalibration:  ", end="")
 			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace4, rmsce4, ma4))
 		break
 
-	# Guardamos los resultados de las metricas
-	df = pd.DataFrame(metrics1)
+	# Save the metrics results: on calibration dataset
+	df = pd.DataFrame(metrics_calibration_data)
 	metrics_dir = "images/calibration/metrics/"
 	mkdir_p(metrics_dir)
 	df.to_csv(metrics_dir+"metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
 
 	if tpred_samples_test is not None:
-		# Guardamos los resultados de las metricas de Test
-		df = pd.DataFrame(metrics2_test)
+		# Save the metrics results: on test dataset
+		df = pd.DataFrame(metrics_test_data)
 		df.to_csv(metrics_dir+"metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
 
 	# ---------------- Solo caso deterministico
