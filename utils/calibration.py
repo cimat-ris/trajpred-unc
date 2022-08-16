@@ -1020,12 +1020,14 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 
 	# Guardamos los resultados de las metricas
 	df = pd.DataFrame(metrics1)
-	df.to_csv("images/calibration/metrics/metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
+	metrics_dir = "images/calibration/metrics/"
+	mkdir_p(metrics_dir)
+	df.to_csv(metrics_dir+"metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
 
 	if tpred_samples_test is not None:
 		# Guardamos los resultados de las metricas de Test
 		df = pd.DataFrame(metrics2_test)
-		df.to_csv("images/calibration/metrics/metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
+		df.to_csv(metrics_dir+"metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
 
 	# ---------------- Solo caso deterministico
 	# Agregamos el calculo de la nll
@@ -1064,10 +1066,11 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		sorted_samples_new= sort_sample(fs_samples_new)
 		importance_weights= fs_samples_new/sample_pdf
 		# TODO: sometimes transpose, someties not...
+		if (sample_kde.shape[0]==importance_weights.shape[0]):
+			sample_kde = sample_kde.T
 		kernel = gaussian_kde(sample_kde, weights=importance_weights)
 		ll_cal.append(kernel.logpdf(gt))
 		ll_uncal.append(kde.logpdf(gt))
-		print("neg. log: ", -kernel.logpdf(gt), -kde.logpdf(gt))
 		#-----
 
 	# Calculamos el Negative LogLikelihood
