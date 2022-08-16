@@ -103,7 +103,7 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
 
 	return multivariate_normal(mean_mix, cov_mix), sample_pdf
 
-def get_kde(tpred_samples_cal, data_cal, target_cal, i, gt, sigmas_samples_cal, position=0, idTest=0, gaussian=False, resample_size=1000):
+def get_kde(tpred_samples, data, target, i, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000):
 	"""
 	Args:
 	Returns:
@@ -113,17 +113,18 @@ def get_kde(tpred_samples_cal, data_cal, target_cal, i, gt, sigmas_samples_cal, 
 	# Produce resample_size samples from the pdf
 	if gaussian:
 		# p.d.f. estimation. Sampling points (x,y) from PDF
-		kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=resample_size, display=False, idTest=idTest)
+		kde, sample_kde = gaussian_kde2(tpred_samples, sigmas_samples, data, target, i, position, resample_size=resample_size, display=False, idTest=idTest)
 	else:
 		# TODO: Here also, the coordinates may be absolute or relative
 		# depending on the prediction method
-		sample_kde = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()])
+		sample_kde = tpred_samples[:, i, position, :] + np.array([data[i,:,:][-1].numpy()])
 		# Use KDE to get a representation of the p.d.f.
 		# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
 		kde        = gaussian_kde(sample_kde.T)
 		sample_kde = kde.resample(resample_size,0)
 
 	return kde, sample_kde
+
 
 def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position=0, idTest=0, gaussian=False, resample_size=1000):
 	"""
@@ -136,7 +137,7 @@ def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_ca
 	for i in range(tpred_samples_cal.shape[1]):
 		# Ground Truth
 		gt = target_cal[i,position,:].cpu()
-		kde, sample_kde = get_kde(tpred_samples_cal, data_cal, target_cal, i, gt, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
+		kde, sample_kde = get_kde(tpred_samples_cal, data_cal, target_cal, i, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
 
 		#----------------------------------------------------------
 		# Evaluate these samples on the p.d.f.
@@ -157,6 +158,7 @@ def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_ca
 		predicted_hdr.append(alpha_pred)
 
 	return predicted_hdr
+
 
 def save_calibration_curves(output_calibration_dir, tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=False, idTest=0, position=0):
 	"""
@@ -180,6 +182,70 @@ def save_calibration_curves(output_calibration_dir, tpred_samples_test, conf_lev
 		else:
 			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
 			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name)
+
+
+def get_fa(orden, alpha, ind_alpha):
+	"""
+	Args:
+		- orden
+		- alpha: alpha value to be used at elif
+		- ind_alpha: alpha value to be used to compute index
+	Returns:
+		- fa obtained from PDF samples
+	"""
+	orden_i, orden_val = zip(*orden)
+	ind = np.where(np.cumsum(orden_val) >= (1.0-ind_alpha))[0]
+	if (ind.shape[0] == 0) :
+		fa = 0.0
+	elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
+		fa = 0.0
+	else:
+		fa = orden_i[ind[0]]
+	return fa
+
+
+def get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples, target, data, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000):
+	"""
+	Args:
+	Returns:
+		- calibrated percentages
+		- uncalibrated percentages
+	"""
+	unc_pcts = []
+	cal_pcts = []
+	for alpha in conf_levels:
+		new_alpha = isotonic.transform([alpha])
+		print("alpha: ", alpha, " -- new_alpha: ", new_alpha)
+
+		perc_within_cal = []
+		perc_within_unc = []
+		for i in range(tpred_samples.shape[1]):
+			# Ground Truth
+			gt = target[i,position,:].cpu()
+			kde, sample_kde = get_kde(tpred_samples, data, target, i, sigmas_samples, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
+
+			#--------
+			# Steps to compute HDRs fa
+			# Evaluate these samples on the p.d.f.
+			sample_pdf = kde.pdf(sample_kde)
+
+			# Sort the samples in decreasing order of their p.d.f. value
+			sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
+			orden = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
+
+			fa = get_fa(orden, alpha, new_alpha)
+			fa_unc = get_fa(orden, alpha, alpha)
+
+			f_pdf = kde.pdf(gt)
+			perc_within_cal.append(f_pdf >= fa)
+			perc_within_unc.append(f_pdf >= fa_unc)
+			#-----
+
+		# Save batch results for an specific alpha
+		cal_pcts.append(np.mean(perc_within_cal))
+		unc_pcts.append(np.mean(perc_within_unc))
+
+	return cal_pcts, unc_pcts
 
 
 def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000):
@@ -216,132 +282,12 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 
 	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05) # Valores de alpha
 
-	unc_pcts = []
-	cal_pcts = []
+	cal_pcts, unc_pcts = get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples_cal, target_cal, data_cal, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
 	unc_pcts2 = []
 	cal_pcts2 = []
 
-	for alpha in conf_levels:
-		new_alpha = isotonic.transform([alpha])
-		print("alpha: ", alpha, " -- new_alpha: ", new_alpha)
-
-		perc_within_cal = []
-		perc_within_unc = []
-		for i in range(tpred_samples_cal.shape[1]):
-			# Ground Truth
-			gt = target_cal[i,position,:].cpu()
-
-			if gaussian:
-				# Estimamos la pdf
-				kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal, i, position, resample_size=1000, idTest=idTest)
-			else:
-				# Muestra de la distribución bayessiana
-				this_pred_out_abs = tpred_samples_cal[:, i, position, :] + np.array([data_cal[i,:,:][-1].numpy()]) # ABSOLUTE?
-				sample_kde = this_pred_out_abs.T
-				# Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-				kde = gaussian_kde(sample_kde)
-				sample_kde = kde.resample(resample_size,0)
-
-			#--------
-			# Pasos para calcular fa del HDR
-
-			# Evaluamos la muestra en la pdf
-			sample_pdf = kde.pdf(sample_kde)
-
-			# Ordenamos de forma descendente las muestras de pdf
-			sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
-			orden = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
-
-			# Encontramos fa a partir de las muestras de pdf
-			orden_i, orden_val = zip(*orden)
-			ind = np.where(np.cumsum(orden_val) >= (1.0-new_alpha))[0]
-			if (ind.shape[0] == 0) :
-				fa = 0.0
-			elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
-				fa = 0.0
-			else:
-				fa = orden_i[ind[0]]
-			
-			# Encontramos fa a partir de las muestras de pdf
-			orden_i, orden_val = zip(*orden)
-			ind = np.where(np.cumsum(orden_val) >= (1.0-alpha))[0]
-			if (ind.shape[0] == 0) :
-				fa_unc = 0.0
-			elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
-				fa_unc = 0.0
-			else:
-				fa_unc = orden_i[ind[0]]
-
-			f_pdf = kde.pdf(gt)
-
-			perc_within_cal.append(f_pdf >= fa)
-			perc_within_unc.append(f_pdf >= fa_unc)
-			#-----
-
-		# Guardamos los resultados de todo el batch para un alpha especifico
-		cal_pcts.append(np.mean(perc_within_cal))
-		unc_pcts.append(np.mean(perc_within_unc))
-
 	if tpred_samples_test is not None:
-		for alpha in conf_levels:
-			new_alpha = isotonic.transform([alpha])
-
-			perc_within_cal = []
-			perc_within_unc = []
-			for i in range(tpred_samples_test.shape[1]):
-				# Ground Truth
-				gt = target_test[i,position,:].cpu()
-
-				if gaussian:
-					# Estimamos la pdf
-					kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test, i, position, resample_size=1000, idTest=idTest)
-				else:
-					# Muestra de la distribución bayessiana
-					this_pred_out_abs = tpred_samples_test[:, i, position, :] + np.array([data_test[i,:,:][-1].numpy()]) # ABSOLUTE?
-					sample_kde = this_pred_out_abs.T
-					# Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-					kde = gaussian_kde(sample_kde)
-					sample_kde = kde.resample(1000,0)
-
-				#--------
-				# Pasos para calcular fa del HDR
-
-				# Evaluamos la muestra en la pdf
-				sample_pdf = kde.pdf(sample_kde)
-
-				# Ordenamos de forma descendente las muestras de pdf
-				sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
-				orden = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
-
-				# Encontramos fa a partir de las muestras de pdf
-				orden_i, orden_val = zip(*orden)
-				ind = np.where(np.cumsum(orden_val) >= (1.0-new_alpha))[0]
-				if (ind.shape[0] == 0) :
-					fa = 0.0
-				elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
-					fa = 0.0
-				else:
-					fa = orden_i[ind[0]]
-
-				# Encontramos fa a partir de las muestras de pdf
-				orden_i, orden_val = zip(*orden)
-				ind = np.where(np.cumsum(orden_val) >= (1.0-alpha))[0]
-				if (ind.shape[0] == 0):
-					fa_unc = 0.0
-				elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
-					fa_unc = 0.0
-				else:
-					fa_unc = orden_i[ind[0]]
-
-				f_pdf = kde.pdf(gt)
-				perc_within_cal.append(f_pdf >= fa)
-				perc_within_unc.append(f_pdf >= fa_unc)
-				#-----
-
-			# Guardamos los resultados de todo el batch para un alpha especifico
-			cal_pcts2.append(np.mean(perc_within_cal))
-			unc_pcts2.append(np.mean(perc_within_unc))
-
+		cal_pcts2, unc_pcts2 = get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples_test, target_test, data_test, sigmas_samples_test, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
 
 	save_calibration_curves(output_calibration_dir, tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=gaussian, idTest=idTest, position=position)
 
@@ -839,7 +785,6 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		kernel = gaussian_kde(sample_kde, weights=importance_weights)
 		ll_cal.append(kernel.logpdf(gt))
 		ll_uncal.append(kde.logpdf(gt))
-		print("neg. log: ", -kernel.logpdf(gt), -kde.logpdf(gt))
 		#-----
 
 	# Calculamos el Negative LogLikelihood
