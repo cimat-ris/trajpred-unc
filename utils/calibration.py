@@ -848,14 +848,19 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 
 	# Save the metrics results: on calibration dataset
 	df = pd.DataFrame(metrics_calibration_data)
-	metrics_dir = "images/calibration/metrics/"
-	mkdir_p(metrics_dir)
-	df.to_csv(metrics_dir+"metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
+
+	# Create metrics directory if does not exists
+	output_metrics_dir = os.path.join(IMAGES_DIR, "calibration", "metrics")
+	mkdir_p(output_metrics_dir)
+
+	output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
+	df.to_csv(output_csv_name)
 
 	if tpred_samples_test is not None:
 		# Save the metrics results: on test dataset
 		df = pd.DataFrame(metrics_test_data)
-		df.to_csv(metrics_dir+"metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
+		output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
+		df.to_csv(output_csv_name)
 
 	# Evaluation of NLL
 	position = 11
@@ -903,7 +908,8 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 	nll_uncal = statistics.median(ll_uncal)
 
 	df = pd.DataFrame([["calibrated", "uncalibrated"],[nll_cal, nll_uncal]])
-	df.to_csv("images/calibration/metrics/nll_IsotonicRegresion_"+str(id_test)+".csv")
+	output_csv_name = os.path.join(output_metrics_dir, "nll_IsotonicRegresion_"+str(id_test)+".csv")
+	df.to_csv(output_csv_name)
 	print(df)
 
 
@@ -992,20 +998,28 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 
 		break
 
+	# Create metrics directory if does not exists
+	output_metrics_dir = os.path.join(IMAGES_DIR, "calibration", "metrics")
+	mkdir_p(output_metrics_dir)
+
 	# Guardamos los resultados de las metricas
 	df = pd.DataFrame(metrics2)
-	df.to_csv("images/calibration/metrics/metrics_calibration_cal_conformal2_"+str(id_test)+".csv")
+	output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_cal_conformal2_"+str(id_test)+".csv")
+	df.to_csv(output_csv_name)
 
 	df = pd.DataFrame(metrics3)
-	df.to_csv("images/calibration/metrics/metrics_calibration_cal_conformal3_"+str(id_test)+".csv")
+	output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_cal_conformal3_"+str(id_test)+".csv")
+	df.to_csv(output_csv_name)
 
 	if tpred_samples_test is not None:
 		# Guardamos los resultados de las metricas de Test
 		df = pd.DataFrame(metrics2_test)
-		df.to_csv("images/calibration/metrics/metrics_calibration_test_conformal2_"+str(id_test)+".csv")
+		output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_test_conformal2_"+str(id_test)+".csv")
+		df.to_csv(output_csv_name)
 
 		df = pd.DataFrame(metrics3_test)
-		df.to_csv("images/calibration/metrics/metrics_calibration_test_conformal3_"+str(id_test)+".csv")
+		output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_test_conformal3_"+str(id_test)+".csv")
+		df.to_csv(output_csv_name)
 
 
 
