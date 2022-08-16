@@ -180,8 +180,9 @@ def plot_traj_img_kde(pred_traj, obs_traj_gt, pred_traj_gt, homography_to_world,
     plt.close()
 
 def plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title, ax=None):
-    ax = ax or plt.gca()
-
+    """
+    Plot HDR curves
+    """
     plt.figure(figsize=(10,7))
     plt.scatter(predicted_hdr, empirical_hdr, alpha=0.7)
     plt.plot([0,1],[0,1],'--', color='grey', label='Perfect calibration')

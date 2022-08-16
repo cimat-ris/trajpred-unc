@@ -13,7 +13,7 @@ from scipy.stats import multivariate_normal
 from sklearn.metrics import auc
 from sklearn.isotonic import IsotonicRegression
 
-from utils.plot_utils import plot_traj_world, plot_traj_img_kde
+from utils.plot_utils import plot_HDR_curves, plot_traj_world, plot_traj_img_kde
 # Local utils helpers
 from utils.directory_utils import mkdir_p
 # Local constants
@@ -168,23 +168,14 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 		# TODO: check whether < or <=
 		empirical_hdr[i] = np.sum(predicted_hdr <= p)/len(predicted_hdr)
 
-	#Visualization
-	plt.figure(figsize=(10,7))
-	plt.scatter(predicted_hdr, empirical_hdr, alpha=0.7)
-	plt.plot([0,1],[0,1],'--', color='grey', label='Perfect calibration')
-	plt.xlabel('Predicted HDR', fontsize=17)
-	plt.ylabel('Empirical HDR', fontsize=17)
-	plt.title('Estimating HDR of Forecast', fontsize=17)
-	plt.legend(fontsize=17)
-	plt.grid("on")
-
 	# Create calibration directory if does not exists
 	output_calibration_dir = os.path.join(IMAGES_DIR, "calibration")
 	mkdir_p(output_calibration_dir)
-	output_image_name = os.path.join(output_calibration_dir , "plot_uncalibrate_"+str(idTest)+".pdf")
 
-	plt.savefig(output_image_name)
-	plt.show()
+	#Visualization: Estimating HDR of Forecast
+	output_image_name = os.path.join(output_calibration_dir , "plot_uncalibrate_"+str(idTest)+".pdf")
+	title = "Estimating HDR of Forecast"
+	plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title)
 
 	#-----------------
 
@@ -192,19 +183,10 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	isotonic = IsotonicRegression(out_of_bounds='clip')
 	isotonic.fit(empirical_hdr, predicted_hdr)
 
-	# Visualization
-	plt.figure(figsize=(10,7))
-	plt.scatter(predicted_hdr, isotonic.predict(empirical_hdr), alpha=0.7)
-	plt.plot([0,1],[0,1],'--', color='grey', label='Perfect calibration')
-	plt.xlabel('Predicted HDR', fontsize=17)
-	plt.ylabel('Empirical HDR', fontsize=17)
-	plt.title('Calibration with Isotonic Regression', fontsize=17)
-	plt.legend(fontsize=17)
-	plt.grid("on")
-
+	# Visualization: Calibration with Isotonic Regression
 	output_image_name = os.path.join(output_calibration_dir , "plot_calibrate_"+str(idTest)+".pdf")
-	plt.savefig(output_image_name)
-	plt.show()
+	title = "Calibration with Isotonic Regression"
+	plot_HDR_curves(predicted_hdr, isotonic.predict(empirical_hdr), output_image_name, title)
 
 	#----------------
 
@@ -218,7 +200,6 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	for alpha in conf_levels:
 		new_alpha = isotonic.transform([alpha])
 		print("alpha: ", alpha, " -- new_alpha: ", new_alpha)
-		#print("hdr: ", 1-alpha, " -- new_hdr: ", 1-new_alpha)
 
 		perc_within_cal = []
 		perc_within_unc = []
@@ -249,63 +230,31 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 
 			# Encontramos fa a partir de las muestras de pdf
 			orden_i, orden_val = zip(*orden)
-#            print(np.cumsum(orden_val) >= (1.0-new_alpha))
-#            print(np.where(np.cumsum(orden_val) >= (1.0-new_alpha)))
-#            print(np.where(np.cumsum(orden_val) >= (1.0-new_alpha))[0])
 			ind = np.where(np.cumsum(orden_val) >= (1.0-new_alpha))[0]
 			if (ind.shape[0] == 0) :
-#                print("ind1: ", -1)
-				#fa = orden[-1][0]
 				fa = 0.0
 			elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
 				fa = 0.0
 			else:
-#                print("ind1: ", ind)
 				fa = orden_i[ind[0]]
-			#sum = 0
-			#fa = orden[-1][0]
-			#for ii, val in enumerate(orden):
-			#    sum += val[1]
-			#    #if sum >= new_alpha:
-			#    if sum >= (1.0-new_alpha):
-			#        fa = val[0]
-			#        break
-
+			
 			# Encontramos fa a partir de las muestras de pdf
 			orden_i, orden_val = zip(*orden)
-			#print(orden_val[::-1][:10])
-			#print(np.cumsum(orden_val)[::-1][:10])
-			#print("1.0-alpha: ", 1.0-alpha)
 			ind = np.where(np.cumsum(orden_val) >= (1.0-alpha))[0]
 			if (ind.shape[0] == 0) :
-				#print("ind: ", ind)
-				#fa_unc = orden[-1][0]
 				fa_unc = 0.0
 			elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
-				#print("ind: ", ind)
 				fa_unc = 0.0
 			else:
-				#print("ind: ", ind[0])
 				fa_unc = orden_i[ind[0]]
-			#print("fa_unc: ", fa_unc)
-			#sum = 0
-			#fa_unc = orden[-1][0]
-			#for ii, val in enumerate(orden):
-			#    sum += val[1]
-			#    if sum >= (1.0-alpha):
-			#        fa_unc = val[0]
-			#        break
 
 			f_pdf = kde.pdf(gt)
-			#print("gt_pdf: ", f_pdf)
-			#print("f_pdf >= fa_unc: ", f_pdf >= fa_unc)
+
 			perc_within_cal.append(f_pdf >= fa)
 			perc_within_unc.append(f_pdf >= fa_unc)
 			#-----
 
 		# Guardamos los resultados de todo el batch para un alpha especifico
-		#print(perc_within_unc)
-		#print(np.mean(perc_within_unc))
 		cal_pcts.append(np.mean(perc_within_cal))
 		unc_pcts.append(np.mean(perc_within_unc))
 
@@ -316,7 +265,6 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 			perc_within_cal = []
 			perc_within_unc = []
 			for i in range(tpred_samples_test.shape[1]):
-				#i = 1
 				# Ground Truth
 				gt = target_test[i,position,:].cpu()
 
@@ -344,25 +292,17 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 				# Encontramos fa a partir de las muestras de pdf
 				orden_i, orden_val = zip(*orden)
 				ind = np.where(np.cumsum(orden_val) >= (1.0-new_alpha))[0]
-	#            print(ind)
 				if (ind.shape[0] == 0) :
-	#                print("ind1: ", -1)
-					#fa = orden[-1][0]
 					fa = 0.0
 				elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
 					fa = 0.0
 				else:
-	#                print("ind1: ", ind)
 					fa = orden_i[ind[0]]
-	#            print(fa)
 
 				# Encontramos fa a partir de las muestras de pdf
 				orden_i, orden_val = zip(*orden)
 				ind = np.where(np.cumsum(orden_val) >= (1.0-alpha))[0]
-	#            print(ind)
-	#            print(ind.shape)
 				if (ind.shape[0] == 0):
-					#fa_unc = orden[-1][0]
 					fa_unc = 0.0
 				elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
 					fa_unc = 0.0
@@ -386,7 +326,6 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	plt.plot(1-conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
 	plt.plot(1-conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
 	plt.legend(fontsize=14)
-	#plt.title('Calibration Plot on Testing Data ('+str(idTest)+')', fontsize=17)
 	plt.xlabel(r'$\alpha$', fontsize=17)
 	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
 
@@ -408,7 +347,6 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 		plt.plot(1-conf_levels, unc_pcts2, '-o', color='purple', label='Uncalibrated')
 		plt.plot(1-conf_levels, cal_pcts2, '-o', color='red', label='Calibrated')
 		plt.legend(fontsize=14)
-		#plt.title('Calibration Plot on Testing Data ('+str(idTest)+')', fontsize=17)
 		plt.xlabel(r'$\alpha$', fontsize=17)
 		plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
 
@@ -915,6 +853,7 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		kernel = gaussian_kde(sample_kde, weights=importance_weights)
 		ll_cal.append(kernel.logpdf(gt))
 		ll_uncal.append(kde.logpdf(gt))
+		print("neg. log: ", -kernel.logpdf(gt), -kde.logpdf(gt))
 		#-----
 
 	# Calculamos el Negative LogLikelihood
