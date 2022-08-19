@@ -686,11 +686,26 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 	#----------------------------------------------------------------------
 	return conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2
 
+def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, position, key):
+	"""
+	Compute MA, MACE and RMSCE calibration metrics and save those into metrics_data dictionary
+	Args:
+	Returns:
+	"""
+	ma    = miscalibration_area(exp_proportions, obs_proportions)
+	mace  = mean_absolute_calibration_error(exp_proportions, obs_proportions)
+	rmsce = root_mean_squared_calibration_error(exp_proportions, obs_proportions)
+	metrics_data.append([key + " pos " + str(position),mace,rmsce,ma])
+	print(key + ":  ", end="")
+	print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace,rmsce,ma))
+
 def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None):
 
 	#------------Calibration metrics-------------------
 	metrics_calibration_data = [["","MACE","RMSCE","MA"]]
 	metrics_test_data        = [["","MACE","RMSCE","MA"]]
+	key_before = "Before Recalibration"
+	key_after = "After Recalibration"
 
 	# Recorremos cada posicion
 	positions_to_test = [11]
@@ -703,36 +718,17 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		plt.show()
 
 		# Calibration metrics
-		ma    = miscalibration_area(exp_proportions, obs_proportions_unc)
-		mace  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
-		rmsce = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc)
-		metrics_calibration_data.append(["Before Recalibration pos "+str(position),mace,rmsce,ma])
-		print("Before Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace,rmsce,ma))
+		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics_calibration_data, position, key_before)
 
-		ma    = miscalibration_area(exp_proportions, obs_proportions_cal)
-		mace  = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal)
-		rmsce = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal)
-		metrics_calibration_data.append(["After Recalibration pos "+str(position), mace, rmsce, ma])
-		print("After Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace,rmsce,ma))
+		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics_calibration_data, position, key_after)
 
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration on testing data
-			ma3    = miscalibration_area(exp_proportions, obs_proportions_unc2)
-			mace3  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc2)
-			rmsce3 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc2)
-			metrics_test_data.append(["Before Recalibration pos "+str(position), mace3, rmsce3, ma3])
-			print("Before Recalibration:  ", end="")
-			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace3, rmsce3, ma3))
+			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics_test_data, position, key_before)
 
-			ma4 = miscalibration_area(exp_proportions, obs_proportions_cal2)
-			mace4 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal2)
-			rmsce4 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal2)
-			metrics_test_data.append(["After Recalibration pos "+str(position), mace4, rmsce4, ma4])
-			print("After Recalibration:  ", end="")
-			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace4, rmsce4, ma4))
+			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics_test_data, position, key_after)
+
 		break
 
 	# Save the metrics results: on calibration dataset
@@ -809,6 +805,8 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 	metrics3 = [["","MACE","RMSCE","MA"]]
 	metrics2_test = [["","MACE","RMSCE","MA"]]
 	metrics3_test = [["","MACE","RMSCE","MA"]]
+	key_before = "Before Recalibration"
+	key_after = "After Recalibration"
 	# Recorremos cada posicion para calibrar
 	for pos in range(tpred_samples_cal.shape[2]):
 		pos = 11
@@ -821,69 +819,29 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test)
 
 		# Metrics Calibration
-		ma1    = miscalibration_area(exp_proportions, obs_proportions_unc)
-		mace1  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
-		rmsce1 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc)
-		metrics2.append(["Before Recalibration pos "+str(pos), mace1, rmsce1, ma1])
-		print("Before Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace1, rmsce1, ma1))
+		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics2, pos, key_before)
 
-		ma2 = miscalibration_area(exp_proportions, obs_proportions_cal)
-		mace2 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal)
-		rmsce2 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal)
-		metrics2.append(["After Recalibration pos "+str(pos), mace2, rmsce2, ma2])
-		print("After Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace2, rmsce2, ma2))
+		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics2, pos, key_after)
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration Test
-			ma3    = miscalibration_area(exp_proportions, obs_proportions_unc2)
-			mace3  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc2)
-			rmsce3 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc2)
-			metrics2_test.append(["Before Recalibration pos "+str(pos), mace3, rmsce3, ma3])
-			print("Before Recalibration:  ", end="")
-			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace3, rmsce3, ma3))
+			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics2_test, pos, key_before)
 
-			ma4 = miscalibration_area(exp_proportions, obs_proportions_cal2)
-			mace4 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal2)
-			rmsce4 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal2)
-			metrics2_test.append(["After Recalibration pos "+str(pos), mace4, rmsce4, ma4])
-			print("After Recalibration:  ", end="")
-			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace4, rmsce4, ma4))
+			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics2_test, pos, key_after)
 
 		print("------- calibration_pdf3 ")
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=3, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test)
 
 		# Metrics Calibration
-		ma1    = miscalibration_area(exp_proportions, obs_proportions_unc)
-		mace1  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc)
-		rmsce1 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc)
-		metrics3.append(["Before Recalibration pos "+str(pos), mace1, rmsce1, ma1])
-		print("Before Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace1, rmsce1, ma1))
+		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics3, pos, key_before)
 
-		ma2 = miscalibration_area(exp_proportions, obs_proportions_cal)
-		mace2 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal)
-		rmsce2 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal)
-		metrics3.append(["After Recalibration pos "+str(pos), mace2, rmsce2, ma2])
-		print("After Recalibration:  ", end="")
-		print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace2, rmsce2, ma2))
+		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics3, pos, key_after)
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration Test
-			ma3    = miscalibration_area(exp_proportions, obs_proportions_unc2)
-			mace3  = mean_absolute_calibration_error(exp_proportions, obs_proportions_unc2)
-			rmsce3 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_unc2)
-			metrics3_test.append(["Before Recalibration pos "+str(pos), mace3, rmsce3, ma3])
-			print("Before Recalibration:  ", end="")
-			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace3, rmsce3, ma3))
+			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics3_test, pos, key_before)
 
-			ma4 = miscalibration_area(exp_proportions, obs_proportions_cal2)
-			mace4 = mean_absolute_calibration_error(exp_proportions, obs_proportions_cal2)
-			rmsce4 = root_mean_squared_calibration_error(exp_proportions, obs_proportions_cal2)
-			metrics3_test.append(["After Recalibration pos "+str(pos), mace4, rmsce4, ma4])
-			print("After Recalibration:  ", end="")
-			print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace4, rmsce4, ma4))
+			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics3_test, pos, key_after)
 
 		break
 
