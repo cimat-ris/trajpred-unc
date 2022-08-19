@@ -178,3 +178,32 @@ def plot_traj_img_kde(pred_traj, obs_traj_gt, pred_traj_gt, homography_to_world,
     plt.plot(pred_traj_gt[:, 0], pred_traj_gt[:, 1], '-*r', linewidth=2, label="Ground truth") # GT
     plt.savefig("images/calibration/trajectories_with_kde/trajectories_kde_WORLD_"+str(id_batch)+"_"+str(pos)+".pdf")
     plt.close()
+
+def plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title, ax=None):
+    """
+    Plot HDR curves
+    """
+    plt.figure(figsize=(10,7))
+    plt.scatter(predicted_hdr, empirical_hdr, alpha=0.7)
+    plt.plot([0,1],[0,1],'--', color='grey', label='Perfect calibration')
+    plt.xlabel('Predicted HDR', fontsize=17)
+    plt.ylabel('Empirical HDR', fontsize=17)
+    plt.title(title, fontsize=17)
+    plt.legend(fontsize=17)
+    plt.grid("on")
+    plt.savefig(output_image_name)
+    plt.show()
+
+def plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name):
+    """
+    Plot calibration curves
+    """
+    plt.figure(figsize=(10,7))
+    plt.plot([0,1],[0,1],'--', color='grey')
+    plt.plot(1-conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
+    plt.plot(1-conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
+    plt.legend(fontsize=14)
+    plt.xlabel(r'$\alpha$', fontsize=17)
+    plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
+    plt.savefig(output_image_name)
+    plt.show()

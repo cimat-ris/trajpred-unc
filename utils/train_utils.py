@@ -10,7 +10,7 @@ import sys,os,logging,argparse
 sys.path.append('.')
 import math,numpy as np
 import matplotlib as mpl
-mpl.use('TkAgg')  # or whatever other backend that you want
+#mpl.use('TkAgg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
 import pandas as pd
 
