@@ -7,7 +7,6 @@ import statistics
 
 import torch
 from scipy.stats import gaussian_kde
-#from sklearn.neighbors import KernelDensity
 
 from scipy.stats import multivariate_normal
 from sklearn.metrics import auc
@@ -34,35 +33,19 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
 	for ind_ensemble in range(sigmas_samples.shape[0]):
 		# Procesamos las medias y sigmas [2, 16, 12, 3]
 		# Extraemos los valores para la covarianza
-		#cum_sigmas_samples = np.cumsum(sigmas_samples[ind_ensemble, i,:,:], axis=0)
 		sigmas_samples_ensemble = sigmas_samples[ind_ensemble, i,:,:]
-		#sx, sy, cor = sigmas_samples[ind_ensemble, i, position, 0], sigmas_samples[ind_ensemble, i, position, 1], sigmas_samples[ind_ensemble, i, position, 2]
-		#sx, sy, cor = cum_sigmas_samples[position, 0], cum_sigmas_samples[position, 1], cum_sigmas_samples[position, 2]
 		sx, sy, cor = sigmas_samples_ensemble[:, 0], sigmas_samples_ensemble[:, 1], sigmas_samples_ensemble[:, 2]
 
 		# Exponential to get a positive value for std dev
-		#sx = np.exp(sx)
-		#sy = np.exp(sy)
-		#sx   = np.exp(sx)+1e-2
-		#sy   = np.exp(sy)+1e-2
-		#sx   = np.cumsum(sx)[position]
-		#sy   = np.cumsum(sy)[position]
 		sx   = sx[position]
 		sy   = sy[position]
 
-		# tanh to get a value between [-1, 1] for correlation
-		#cor = np.tanh(cor)
-
 		# Coordenadas absolutas
-		#displacement = np.cumsum(pred[ind_ensemble, i,:,:], axis=0)
 		displacement = pred[ind_ensemble, i,:,:]
 		this_pred_out_abs = displacement + np.array([data_test[i,:,:][-1].numpy()])
 
 		mean = this_pred_out_abs[position, :]
-		#cov = np.array([[sx**2, cor*sx*sy],
-		#                [cor*sx*sy, sy**2]])
-		cov = np.array([[sx**2, 0],
-						[0, sy**2]])
+		cov = np.array([[sx**2, 0],[0, sy**2]])
 
 		if display:
 			label4, = plt.plot(mean[0], mean[1], "*", color="red", label = "Means from Gaussian Mix")
