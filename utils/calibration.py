@@ -280,18 +280,18 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	return 1-conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, isotonic
 
 
-def gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=False):
+def gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=False, fk_max=1.0):
 	"""
 	GT evaluation
 	"""
 	if gaussian:
 		gt = target_test2[k,position,:].detach().numpy()
 		fk_yi = np.array([fk.pdf(gt)])
-		s_xk_yk.append(np.array([fk_yi]))
+		s_xk_yk.append(np.array([fk_yi/fk_max]))
 	else:
 		gt = target_test[k,position,:].detach().numpy()
 		fk_yi = fk.pdf(gt)
-		s_xk_yk.append(fk_yi)
+		s_xk_yk.append(fk_yi/fk_max)
 
 def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
 
@@ -315,7 +315,7 @@ def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigma
 	if draw:
 		#-------------- For an specific id_batch ----------------------
 		# Compute alpha that relates the new Sa in p.d.f.
-		# Compute sample of interest
+		# Get sample of interest
 		yi = tpred_samples[:, id_batch, position, :].T
 		gt = target_test[id_batch, position,:].detach().numpy()
 
@@ -333,9 +333,9 @@ def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigma
 		output_hdr_dir = os.path.join(IMAGES_DIR, "HDR1")
 		mkdir_p(output_hdr_dir)
 		output_image_name = os.path.join(output_hdr_dir , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		# Distribution visualization
 		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
-		# Visualizamos la distribucion sobre la trayectoria
 		yi = tpred_samples[:, id_batch, position, :]  + data_test[id_batch,-1,:].numpy()
 		target_test_world = target_test[id_batch, :, :] + data_test[id_batch,-1,:].numpy()
 
@@ -343,6 +343,7 @@ def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigma
 		output_traj_dir = os.path.join(IMAGES_DIR, "trajectories_kde")
 		mkdir_p(output_traj_dir)
 		output_image_name = os.path.join(output_traj_dir , "trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+".pdf")
+		# Distribution visualization along trajectory
 		plot_calibration_pdf_traj(yi, data_test, id_batch, target_test_world, Sa, output_image_name)
 
 	return Sa
@@ -351,84 +352,46 @@ def calibration_pdf32(tpred_samples, data_test, target_test, target_test2, sigma
 
 	list_fk = []
 	s_xk_yk = []
-	# Creamos un KDE density con las muestras # tpred_samples[ind_ensemble, id_batch, position, xy]
-	for k in range(tpred_samples.shape[1]): # Recorremos cada trayectoria del batch
-
-		if gaussian:
-			# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-			fk, yi = gaussian_kde2(tpred_samples, sigmas_samples, data_test, target_test2, k, position, resample_size=1000, display=False, idTest=2)
-		else:
-			# Muestra de la distribución bayessiana
-			yi = tpred_samples[:, k, position, :].T
-
-			# Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-			fk = gaussian_kde(yi)
-			yi = fk.resample(1000,0)
-
-		# Evaluamos el GT
+	# KDE density creation using provided samples
+	for k in range(tpred_samples.shape[1]):
+		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, pdf_flag=True)
 		fk_max = fk.pdf(yi).max()
-		if gaussian:
-			# Evaluamos el GT
-			gt = target_test2[k,position,:].detach().numpy()
-			fk_yi = np.array([fk.pdf(gt)])
-
-			# Guardamos en una lista
-			s_xk_yk.append(np.array([fk_yi/fk_max]))
-		else:
-			# Evaluamos el GT
-			gt = target_test[k,position,:].detach().numpy()
-			fk_yi = fk.pdf(gt)
-
-			# Guardamos en una lista
-			s_xk_yk.append(fk_yi/fk_max)
-		# Guardamos en una lista
+		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
 		list_fk.append(fk)
 
-	# Ordenamos las muestras
+	# Sort samples
 	orden = sorted(s_xk_yk, reverse=True)
-	ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
+	#  Index of alpha-th sample
+	ind = int(len(orden)*alpha)
 	if ind==len(orden):
 		Sa = 0.0
 	else:
 		Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
 
-	#--------------------------------------------------
 	if draw:
-		#-------------- para un id_batch ----------------------
-		# Encontramos el alpha correspondiente al nuevo Sa en la funcion de densidad
-		# Obtenemos la muestra de interes
+		#-------------- For an specific id_batch ----------------------
+		# Compute alpha that relates the new Sa in p.d.f.
+		# Get sample of interest
 		yi = tpred_samples[:, id_batch, position, :] # Seleccionamos las muestras de una trayectoria
 		gt = target_test[id_batch, position,:].detach().numpy()
 
-		# Creamos la pdf para la muestra
+		# p.d.f creation and sample evaluation in it
 		fk = gaussian_kde(yi.T)
-		# Evaluamos la muestra en la pdf
-		fk_yi = fk.pdf(yi.T) # Evaluamos en la funcion de densidad
+		fk_yi = fk.pdf(yi.T)
 		fk_max = fk_yi.max()
-		fk_gt = fk.pdf(gt.T)[0]
 
-		# Ordenamos las muestras
-		orden = sorted(fk_yi, reverse=True) # Ordenamos
-		print(orden)
+		# Sort samples
+		orden = sorted(fk_yi, reverse=True)
 		ind = np.where(np.array(orden) >= (fk_max*Sa))[0]
 		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
 		alpha_fk = float(ind)/len(orden)
 
-		#--------------------------------------------------
-		# Visualizamos la distribucion
-
-		plt.figure()
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], label='KDE')
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[1-alpha], label=r'$\alpha$'+"=%.2f"%(alpha)) # Para colocar bien el Sa debemos usar el alpha
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[1-alpha_fk], label=r'$\alpha_{new}$'+"=%.2f"%(alpha_fk))
-		plt.scatter(gt[0], gt[1], marker='^', color="blue", linewidth=3, label="GT")
-
-		plt.legend()
-		plt.xlabel('x-position')
-		plt.ylabel('y-position')
-		plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
-		plt.savefig("images/HDR2/plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
-		plt.close()
+		# Create HDR2 directory if does not exists
+		output_hdr_dir = os.path.join(IMAGES_DIR, "HDR2")
+		mkdir_p(output_hdr_dir)
+		output_image_name = os.path.join(output_hdr_dir , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		# Distribution visualization
+		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
 	return Sa
 
