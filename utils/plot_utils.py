@@ -207,3 +207,35 @@ def plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name):
     plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
     plt.savefig(output_image_name)
     plt.show()
+
+def plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=0.85):
+    """
+    Plot calibration PDF
+    """
+    plt.figure()
+    sns.kdeplot(x=yi[:,0], y=yi[:,1], label='KDE')
+    sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[1-alpha], label=r'$\alpha$'+"=%.2f"%(alpha)) # Para colocar bien el Sa debemos usar el alpha
+    sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[1-alpha_fk], label=r'$\alpha_{new}$'+"=%.2f"%(alpha_fk))
+    plt.scatter(gt[0], gt[1], marker='^', color="blue", linewidth=3, label="GT")
+
+    plt.legend()
+    plt.xlabel('x-position')
+    plt.ylabel('y-position')
+    plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
+    plt.savefig(output_image_name)
+    plt.close()
+
+def plot_calibration_pdf_traj(yi, data_test, id_batch, target, Sa, output_image_name):
+    """
+    Plot calibration PDF along with trajectory
+    """
+    plt.figure()
+    sns.kdeplot(x=yi[:,0], y=yi[:,1], label='KDE', fill=True, cmap="viridis_r", alpha=0.8)
+    plt.plot(data_test[id_batch,:,0].numpy(),data_test[id_batch,:,1].numpy(),"-b", linewidth=2, label="Observations") # Observations
+    plt.plot(target[:, 0], target[:, 1], '-*r', linewidth=2, label="Ground truth") # GT
+    plt.legend()
+    plt.xlabel('x-position')
+    plt.ylabel('y-position')
+    plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
+    plt.savefig(output_image_name)
+    plt.close()
