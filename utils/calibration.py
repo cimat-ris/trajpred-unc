@@ -293,7 +293,7 @@ def gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=
 		fk_yi = fk.pdf(gt)
 		s_xk_yk.append(fk_yi/fk_max)
 
-def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
+def calibration_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
 
 	list_fk = []
 	s_xk_yk = []
@@ -348,7 +348,7 @@ def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigma
 
 	return Sa
 
-def calibration_pdf32(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
+def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
 
 	list_fk = []
 	s_xk_yk = []
@@ -426,9 +426,9 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 		print("***** alpha: ", alpha)
 		# Obtenemos el fa con el metodo conformal
 		if method==2:
-			fa = calibration_pdf22(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
+			fa = calibration_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
 		elif method==3:
-			fa = calibration_pdf32(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
+			fa = calibration_relative_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
 		else:
 			print("Método incorrecto, valores posibles 2 o 3.")
 			return -1
@@ -613,14 +613,12 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 
 		# Calibration metrics
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics_calibration_data, position, key_before)
-
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics_calibration_data, position, key_after)
 
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration on testing data
 			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics_test_data, position, key_before)
-
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics_test_data, position, key_after)
 
 		break
@@ -709,32 +707,28 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 		gt = np.cumsum(targetrel_cal, axis=1)
 		gt_test = np.cumsum(targetrel_test, axis=1)
 		# HDR y Calibracion
-		print("------- calibration_pdf2 ")
+		print("------- calibration_density")
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test)
 
 		# Metrics Calibration
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics2, pos, key_before)
-
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics2, pos, key_after)
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration Test
 			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics2_test, pos, key_before)
-
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics2_test, pos, key_after)
 
-		print("------- calibration_pdf3 ")
+		print("------- calibration_relative_density ")
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=3, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test)
 
 		# Metrics Calibration
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics3, pos, key_before)
-
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics3, pos, key_after)
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration Test
 			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics3_test, pos, key_before)
-
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics3_test, pos, key_after)
 
 		break
@@ -763,7 +757,6 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 		df.to_csv(output_csv_name)
 
 
-
 def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_batch=25, position = 0, idTest=0, method=2, test_homography=None, bck=None):
 
 	#-------------- para un id_batch ----------------------
@@ -785,9 +778,9 @@ def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_ba
 		print("***** alpha: ", alpha)
 		# Obtenemos el fa con el metodo conformal
 		if method==2:
-			Sa = calibration_pdf22(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion
+			Sa = calibration_density(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion
 		elif method==3:
-			Sa = calibration_pdf32(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion
+			Sa = calibration_relative_density(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion
 		else:
 			print("Método incorrecto, valores posibles 2 o 3.")
 			return -1
