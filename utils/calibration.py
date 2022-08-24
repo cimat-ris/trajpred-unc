@@ -410,13 +410,46 @@ def get_samples_pdfWeight(pdf,num_sample):
 	# Muestreamos de la nueva función de densidad pesada
 	return pdf.resample(num_sample)
 
-def get_conformal_cal_uncal_pcts():
+def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alpha, fa, method, position=0, idTest=0, gaussian=False):
 	"""
 	Args:
 	Returns:
 		- calibrated percentages for conformal calibration
 		- uncalibrated percentages for conformal calibration
 	"""
+	perc_within_cal = []
+	perc_within_unc = []
+	for i in range(tpred_samples.shape[1]):
+		kde, sample_kde = get_kde(tpred_samples, data, target2, i, sigmas_samples, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, pdf_flag=True)
+
+		# Steps to compute HDRs fa
+		# Evaluate these samples on the p.d.f.
+		sample_pdf = kde.pdf(sample_kde)
+
+		# Sort samples
+		orden = sorted(sample_pdf, reverse=True)
+		ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
+		if ind==len(orden):
+			fa_unc = 0.0
+		else:
+			fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
+
+		if gaussian:
+			gt = target2[i,position,:].cpu()
+		else:
+			gt = target[i,position,:].cpu()
+		# GT evaluation
+		f_pdf = kde.pdf(gt)
+
+		if method==2:
+			perc_within_cal.append(f_pdf >= fa)
+		elif method==3:
+			perc_within_cal.append(f_pdf >= sample_pdf.max()*fa)
+
+		perc_within_unc.append(f_pdf >= fa_unc)
+
+	return perc_within_cal, perc_within_unc
+
 
 def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None):
 	# Alpha values
@@ -440,80 +473,15 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 			print("Método incorrecto, valores posibles 2 o 3.")
 			return -1
 
-		perc_within_cal = []
-		perc_within_unc = []
-		for i in range(tpred_samples_cal.shape[1]):
-			kde, sample_kde = get_kde(tpred_samples_cal, data_cal, target_cal2, i, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, pdf_flag=True)
-
-			# Pasos para calcular fa del HDR
-			# Evaluamos la muestra en la pdf
-			sample_pdf = kde.pdf(sample_kde)
-
-			# Ordenamos las muestras
-			orden = sorted(sample_pdf, reverse=True) # Ordenamos
-			##print(orden[:30])
-			ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
-			if ind==len(orden):
-				fa_unc = 0.0
-			else:
-				fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
-
-			if gaussian:
-				gt = target_cal2[i,position,:].cpu()
-			else:
-				gt = target_cal[i,position,:].cpu()
-			# Evaluamos el Ground truth
-			f_pdf = kde.pdf(gt)
-
-			if method==2:
-				perc_within_cal.append(f_pdf >= fa)
-			elif method==3:
-				perc_within_cal.append(f_pdf >= sample_pdf.max()*fa)
-
-			perc_within_unc.append(f_pdf >= fa_unc)
-
-		# Guardamos los resultados de todo el batch para un alpha especifico
+		perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, alpha, fa, method, position=position, idTest=idTest, gaussian=gaussian)
+		# Save batch results for an specific alpha
 		cal_pcts.append(np.mean(perc_within_cal))
 		unc_pcts.append(np.mean(perc_within_unc))
 
 		if tpred_samples_test is not None:
-			print("-- procesamos el datatest...")
-
-			perc_within_cal = []
-			perc_within_unc = []
-			for i in range(tpred_samples_test.shape[1]):
-				kde, sample_kde = get_kde(tpred_samples_test, data_test, target_test2, i, sigmas_samples_test, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, pdf_flag=True)
-
-				# Pasos para calcular fa del HDR
-				# Evaluamos la muestra en la pdf
-				sample_pdf = kde.pdf(sample_kde)
-
-				# Ordenamos las muestras
-				orden = sorted(sample_pdf, reverse=True) # Ordenamos
-				##print(orden[:30])
-				ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
-				if ind==len(orden):
-					fa_unc = 0
-				else:
-					fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
-
-				if gaussian:
-					gt = target_test2[i,position,:].cpu()
-				else:
-					# Ground Truth
-					gt = target_test[i,position,:].cpu()
-				# Evaluamos el Ground truth
-				f_pdf = kde.pdf(gt)
-
-				if method==2:
-					perc_within_cal.append(f_pdf >= fa)
-				elif method==3:
-					perc_within_cal.append(f_pdf >= sample_pdf.max()*fa)
-
-				perc_within_unc.append(f_pdf >= fa_unc)
-				#-----
-
-			# Guardamos los resultados de todo el batch para un alpha especifico
+			print("-- Datatest processing ...")
+			perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_test, data_test, target_test, target_test2, sigmas_samples_test, alpha, fa, method, position=position, idTest=idTest, gaussian=gaussian)
+			# Save batch results for an specific alpha
 			cal_pcts2.append(np.mean(perc_within_cal))
 			unc_pcts2.append(np.mean(perc_within_unc))
 
