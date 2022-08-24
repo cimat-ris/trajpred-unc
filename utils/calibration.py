@@ -410,10 +410,17 @@ def get_samples_pdfWeight(pdf,num_sample):
 	# Muestreamos de la nueva función de densidad pesada
 	return pdf.resample(num_sample)
 
-def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None):
-	#----------------
+def get_conformal_cal_uncal_pcts():
+	"""
+	Args:
+	Returns:
+		- calibrated percentages for conformal calibration
+		- uncalibrated percentages for conformal calibration
+	"""
 
-	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05) # Valores de alpha
+def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None):
+	# Alpha values
+	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05)
 
 	unc_pcts = []
 	cal_pcts = []
@@ -436,20 +443,9 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 		perc_within_cal = []
 		perc_within_unc = []
 		for i in range(tpred_samples_cal.shape[1]):
+			kde, sample_kde = get_kde(tpred_samples_cal, data_cal, target_cal2, i, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, pdf_flag=True)
 
-			if gaussian:
-				# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-				kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal2, i, position, resample_size=1000, display=False, idTest=2)
-			else:
-				# Estimamos la pdf
-				sample_kde = tpred_samples_cal[:, i, position, :].T # Seleccionamos las muestras de una trayectoria
-				# Creamos la pdf para la muestra
-				kde = gaussian_kde(sample_kde)
-				sample_kde = kde.resample(1000,0)
-
-			#--------
 			# Pasos para calcular fa del HDR
-
 			# Evaluamos la muestra en la pdf
 			sample_pdf = kde.pdf(sample_kde)
 
@@ -461,15 +457,10 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 				fa_unc = 0.0
 			else:
 				fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
-			##print("alpha: ", alpha)
-			##print("ind: ", ind)
-			##print("fa_unc encontrado: ", fa_unc)
 
 			if gaussian:
-				# Ground Truth
 				gt = target_cal2[i,position,:].cpu()
 			else:
-				# Ground Truth
 				gt = target_cal[i,position,:].cpu()
 			# Evaluamos el Ground truth
 			f_pdf = kde.pdf(gt)
@@ -480,7 +471,6 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 				perc_within_cal.append(f_pdf >= sample_pdf.max()*fa)
 
 			perc_within_unc.append(f_pdf >= fa_unc)
-			#-----
 
 		# Guardamos los resultados de todo el batch para un alpha especifico
 		cal_pcts.append(np.mean(perc_within_cal))
@@ -488,29 +478,13 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 
 		if tpred_samples_test is not None:
 			print("-- procesamos el datatest...")
-			##print(tpred_samples_test.shape)
-			##print(data_test.shape)
-			##print(target_test.shape)
-			#aaaa
 
 			perc_within_cal = []
 			perc_within_unc = []
-			ll = 0.0
 			for i in range(tpred_samples_test.shape[1]):
+				kde, sample_kde = get_kde(tpred_samples_test, data_test, target_test2, i, sigmas_samples_test, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, pdf_flag=True)
 
-				if gaussian:
-					# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-					kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test2, i, position, resample_size=1000, display=False, idTest=2)
-				else:
-					# Estimamos la pdf
-					sample_kde = tpred_samples_test[:, i, position, :].T # Seleccionamos las muestras de una trayectoria
-					# Creamos la pdf para la muestra
-					kde = gaussian_kde(sample_kde)
-					sample_kde = kde.resample(1000,0)
-
-				#--------
 				# Pasos para calcular fa del HDR
-
 				# Evaluamos la muestra en la pdf
 				sample_pdf = kde.pdf(sample_kde)
 
