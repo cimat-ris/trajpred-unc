@@ -12,7 +12,7 @@ from scipy.stats import multivariate_normal
 from sklearn.metrics import auc
 from sklearn.isotonic import IsotonicRegression
 
-from utils.plot_utils import plot_calibration_curves, plot_HDR_curves, plot_traj_world, plot_traj_img_kde
+from utils.plot_utils import plot_calibration_curves, plot_HDR_curves, plot_calibration_pdf, plot_calibration_pdf_traj, plot_traj_world, plot_traj_img_kde
 # Local utils helpers
 from utils.directory_utils import mkdir_p
 # Local constants
@@ -86,7 +86,7 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
 
 	return multivariate_normal(mean_mix, cov_mix), sample_pdf
 
-def get_kde(tpred_samples, data, target, i, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000):
+def get_kde(tpred_samples, data, target, i, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000, pdf_flag=False):
 	"""
 	Args:
 	Returns:
@@ -100,7 +100,10 @@ def get_kde(tpred_samples, data, target, i, sigmas_samples, position=0, idTest=0
 	else:
 		# TODO: Here also, the coordinates may be absolute or relative
 		# depending on the prediction method
-		sample_kde = tpred_samples[:, i, position, :] + np.array([data[i,:,:][-1].numpy()])
+		if pdf_flag:
+			sample_kde = tpred_samples[:, i, position, :]
+		else:
+			sample_kde = tpred_samples[:, i, position, :] + np.array([data[i,:,:][-1].numpy()])
 		# Use KDE to get a representation of the p.d.f.
 		# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
 		kde        = gaussian_kde(sample_kde.T)
@@ -277,210 +280,118 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	return 1-conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, isotonic
 
 
-def calibration_pdf22(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
+def gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=False, fk_max=1.0):
+	"""
+	GT evaluation
+	"""
+	if gaussian:
+		gt = target_test2[k,position,:].detach().numpy()
+		fk_yi = np.array([fk.pdf(gt)])
+		s_xk_yk.append(np.array([fk_yi/fk_max]))
+	else:
+		gt = target_test[k,position,:].detach().numpy()
+		fk_yi = fk.pdf(gt)
+		s_xk_yk.append(fk_yi/fk_max)
+
+def calibration_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
 
 	list_fk = []
 	s_xk_yk = []
-	# Creamos un KDE density con las muestras # tpred_samples[ind_ensemble, id_batch, position, xy]
-	for k in range(tpred_samples.shape[1]): # Recorremos cada trayectoria del batch
-
-		if gaussian:
-			# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-			fk, yi = gaussian_kde2(tpred_samples, sigmas_samples, data_test, target_test2, k, position, resample_size=1000, display=False, idTest=2)
-		else:
-			# Muestra de la distribución bayessiana
-			yi = tpred_samples[:, k, position, :].T
-
-			# Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-			fk = gaussian_kde(yi)
-			yi = fk.resample(1000,0)
-
-		# Evaluamos el GT
-		if gaussian:
-			gt = target_test2[k,position,:].detach().numpy()
-			fk_yi = np.array([fk.pdf(gt)])
-
-			# Guardamos en una lista
-			s_xk_yk.append(np.array([fk_yi]))
-		else:
-			gt = target_test[k,position,:].detach().numpy()
-			fk_yi = fk.pdf(gt)
-
-			# Guardamos en una lista
-			s_xk_yk.append(fk_yi)
+	# KDE density creation using provided samples 
+	for k in range(tpred_samples.shape[1]):
+		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, pdf_flag=True)
+		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian)
 		list_fk.append(fk)
 
-	# Ordenamos las muestras
-	orden = sorted(s_xk_yk, reverse=True) # Ordenamos
-	#print(orden[:30])
-	#print(type(orden))
-
-	ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
-	#print(ind)
+	# Sort samples
+	orden = sorted(s_xk_yk, reverse=True)
+	# Index of alpha-th sample
+	ind = int(len(orden)*alpha)
 	if ind==len(orden):
 		Sa = 0.0
 	else:
 		Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
-	#print("alpha: ", alpha)
-	#print("ind: ", ind)
-	#print("Sa encontrado: ", Sa)
 
-	#--------------------------------------------------
 	if draw:
-		#-------------- para un id_batch ----------------------
-		# Encontramos el alpha correspondiente al nuevo Sa en la funcion de densidad
-		# Obtenemos la muestra de interes
-		yi = tpred_samples[:, id_batch, position, :].T # Seleccionamos las muestras de una trayectoria
+		#-------------- For an specific id_batch ----------------------
+		# Compute alpha that relates the new Sa in p.d.f.
+		# Get sample of interest
+		yi = tpred_samples[:, id_batch, position, :].T
 		gt = target_test[id_batch, position,:].detach().numpy()
-		#print("yi: ", yi)
-		#print("gt: ", gt)
 
-		# Creamos la pdf para la muestra
+		# p.d.f creation and sample evaluation in it
 		fk = gaussian_kde(yi.T)
-		# Evaluamos la muestra en la pdf
-		fk_yi = fk.pdf(yi.T) # Evaluamos en la funcion de densidad
-		fk_gt = fk.pdf(gt.T)[0]
-		#print("f(GT)", fk_gt)
-		#print("f(GT) > Sa: ", fk_gt>Sa)
+		fk_yi = fk.pdf(yi.T)
 
-		# Ordenamos las muestras
-		orden = sorted(fk_yi, reverse=True) # Ordenamos
-		#print(orden)
+		# Sort samples
+		orden = sorted(fk_yi, reverse=True)
 		ind = np.where(np.array(orden) >= Sa)[0]
 		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
-		#print("ind_pdf: ", ind)
 		alpha_fk = float(ind)/len(orden)
-		#print("alpha_fk: ", alpha_fk)
 
-		#--------------------------------------------------
-		# Visualizamos la distribucion
+		# Create HDR1 directory if does not exists
+		output_hdr_dir = os.path.join(IMAGES_DIR, "HDR1")
+		mkdir_p(output_hdr_dir)
+		output_image_name = os.path.join(output_hdr_dir , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		# Distribution visualization
+		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
-		plt.figure()
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], label='KDE')
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[1-alpha], label=r'$\alpha$'+"=%.2f"%(alpha)) # Para colocar bien el Sa debemos usar el alpha
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[1-alpha_fk], label=r'$\alpha_{new}$'+"=%.2f"%(alpha_fk))
-		plt.scatter(gt[0], gt[1], marker='^', color="blue", linewidth=3, label="GT")
-
-		plt.legend()
-		plt.xlabel('x-position')
-		plt.ylabel('y-position')
-		plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
-		plt.savefig("images/HDR1/plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
-		plt.close()
-
-		# Visualizamos la distribucion sobre la trayectoria
-		yi = tpred_samples[:, id_batch, position, :]  + data_test[id_batch,-1,:].numpy() # Seleccionamos las muestras de una trayectoria
-
-		plt.figure()
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], label='KDE', fill=True, cmap="viridis_r", alpha=0.8)
+		yi = tpred_samples[:, id_batch, position, :]  + data_test[id_batch,-1,:].numpy()
 		target_test_world = target_test[id_batch, :, :] + data_test[id_batch,-1,:].numpy()
 
-		plt.plot(data_test[id_batch,:,0].numpy(),data_test[id_batch,:,1].numpy(),"-b", linewidth=2, label="Observations") # Observations
-		plt.plot(target_test_world[:, 0], target_test_world[:, 1], '-*r', linewidth=2, label="Ground truth") # GT
-		plt.legend()
-
-		plt.legend()
-		plt.xlabel('x-position')
-		plt.ylabel('y-position')
-		plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
-		plt.savefig("images/trajectories_kde/trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+".pdf")
-		plt.close()
-		#--------------------------------------------------
-
+		# Create trajectory directory if does not exists
+		output_traj_dir = os.path.join(IMAGES_DIR, "trajectories_kde")
+		mkdir_p(output_traj_dir)
+		output_image_name = os.path.join(output_traj_dir , "trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+".pdf")
+		# Distribution visualization along trajectory
+		plot_calibration_pdf_traj(yi, data_test, id_batch, target_test_world, Sa, output_image_name)
 
 	return Sa
 
-def calibration_pdf32(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
+def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
 
 	list_fk = []
 	s_xk_yk = []
-	# Creamos un KDE density con las muestras # tpred_samples[ind_ensemble, id_batch, position, xy]
-	for k in range(tpred_samples.shape[1]): # Recorremos cada trayectoria del batch
-
-		if gaussian:
-			# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-			fk, yi = gaussian_kde2(tpred_samples, sigmas_samples, data_test, target_test2, k, position, resample_size=1000, display=False, idTest=2)
-		else:
-			# Muestra de la distribución bayessiana
-			yi = tpred_samples[:, k, position, :].T
-
-			# Creamos la función de densidad con KDE, references: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-			fk = gaussian_kde(yi)
-			yi = fk.resample(1000,0)
-
-		# Evaluamos el GT
+	# KDE density creation using provided samples
+	for k in range(tpred_samples.shape[1]):
+		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, pdf_flag=True)
 		fk_max = fk.pdf(yi).max()
-		if gaussian:
-			# Evaluamos el GT
-			gt = target_test2[k,position,:].detach().numpy()
-			fk_yi = np.array([fk.pdf(gt)])
-
-			# Guardamos en una lista
-			s_xk_yk.append(np.array([fk_yi/fk_max]))
-		else:
-			# Evaluamos el GT
-			gt = target_test[k,position,:].detach().numpy()
-			fk_yi = fk.pdf(gt)
-
-			# Guardamos en una lista
-			s_xk_yk.append(fk_yi/fk_max)
-		# Guardamos en una lista
+		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
 		list_fk.append(fk)
 
-	# Ordenamos las muestras
-	orden = sorted(s_xk_yk, reverse=True) # Ordenamos
-	#print(orden[:30])
-	ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
+	# Sort samples
+	orden = sorted(s_xk_yk, reverse=True)
+	#  Index of alpha-th sample
+	ind = int(len(orden)*alpha)
 	if ind==len(orden):
 		Sa = 0.0
 	else:
 		Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
-	#print("alpha: ", alpha)
-	#print("ind: ", ind)
-	#print("Sa encontrado: ", Sa)
 
-
-	#--------------------------------------------------
 	if draw:
-		#-------------- para un id_batch ----------------------
-		# Encontramos el alpha correspondiente al nuevo Sa en la funcion de densidad
-		# Obtenemos la muestra de interes
+		#-------------- For an specific id_batch ----------------------
+		# Compute alpha that relates the new Sa in p.d.f.
+		# Get sample of interest
 		yi = tpred_samples[:, id_batch, position, :] # Seleccionamos las muestras de una trayectoria
 		gt = target_test[id_batch, position,:].detach().numpy()
 
-		# Creamos la pdf para la muestra
+		# p.d.f creation and sample evaluation in it
 		fk = gaussian_kde(yi.T)
-		# Evaluamos la muestra en la pdf
-		fk_yi = fk.pdf(yi.T) # Evaluamos en la funcion de densidad
+		fk_yi = fk.pdf(yi.T)
 		fk_max = fk_yi.max()
-		fk_gt = fk.pdf(gt.T)[0]
-		#print("f(GT)", fk_gt)
-		#print("f(GT) > Sa: ", fk_gt > (fk_max*Sa))
 
-		# Ordenamos las muestras
-		orden = sorted(fk_yi, reverse=True) # Ordenamos
-		print(orden)
+		# Sort samples
+		orden = sorted(fk_yi, reverse=True)
 		ind = np.where(np.array(orden) >= (fk_max*Sa))[0]
 		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
-		#print("ind_pdf: ", ind)
 		alpha_fk = float(ind)/len(orden)
-		#print("alpha_fk: ", alpha_fk)
 
-		#--------------------------------------------------
-		# Visualizamos la distribucion
-
-		plt.figure()
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], label='KDE')
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[1-alpha], label=r'$\alpha$'+"=%.2f"%(alpha)) # Para colocar bien el Sa debemos usar el alpha
-		sns.kdeplot(x=yi[:,0], y=yi[:,1], levels=[1-alpha_fk], label=r'$\alpha_{new}$'+"=%.2f"%(alpha_fk))
-		plt.scatter(gt[0], gt[1], marker='^', color="blue", linewidth=3, label="GT")
-
-		plt.legend()
-		plt.xlabel('x-position')
-		plt.ylabel('y-position')
-		plt.title("Conformal Highest Density Regions with GT, S"+r'$_\alpha$'+"=%.2f"%(Sa)+", id_batch=" + str(id_batch))
-		plt.savefig("images/HDR2/plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
-		plt.close()
+		# Create HDR2 directory if does not exists
+		output_hdr_dir = os.path.join(IMAGES_DIR, "HDR2")
+		mkdir_p(output_hdr_dir)
+		output_image_name = os.path.join(output_hdr_dir , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		# Distribution visualization
+		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
 	return Sa
 
@@ -515,9 +426,9 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 		print("***** alpha: ", alpha)
 		# Obtenemos el fa con el metodo conformal
 		if method==2:
-			fa = calibration_pdf22(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
+			fa = calibration_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
 		elif method==3:
-			fa = calibration_pdf32(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
+			fa = calibration_relative_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
 		else:
 			print("Método incorrecto, valores posibles 2 o 3.")
 			return -1
@@ -702,14 +613,12 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 
 		# Calibration metrics
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics_calibration_data, position, key_before)
-
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics_calibration_data, position, key_after)
 
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration on testing data
 			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics_test_data, position, key_before)
-
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics_test_data, position, key_after)
 
 		break
@@ -798,32 +707,28 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 		gt = np.cumsum(targetrel_cal, axis=1)
 		gt_test = np.cumsum(targetrel_test, axis=1)
 		# HDR y Calibracion
-		print("------- calibration_pdf2 ")
+		print("------- calibration_density")
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test)
 
 		# Metrics Calibration
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics2, pos, key_before)
-
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics2, pos, key_after)
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration Test
 			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics2_test, pos, key_before)
-
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics2_test, pos, key_after)
 
-		print("------- calibration_pdf3 ")
+		print("------- calibration_relative_density ")
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=3, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test)
 
 		# Metrics Calibration
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics3, pos, key_before)
-
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics3, pos, key_after)
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration Test
 			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics3_test, pos, key_before)
-
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics3_test, pos, key_after)
 
 		break
@@ -852,7 +757,6 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 		df.to_csv(output_csv_name)
 
 
-
 def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_batch=25, position = 0, idTest=0, method=2, test_homography=None, bck=None):
 
 	#-------------- para un id_batch ----------------------
@@ -874,9 +778,9 @@ def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_ba
 		print("***** alpha: ", alpha)
 		# Obtenemos el fa con el metodo conformal
 		if method==2:
-			Sa = calibration_pdf22(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion
+			Sa = calibration_density(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion
 		elif method==3:
-			Sa = calibration_pdf32(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion
+			Sa = calibration_relative_density(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion
 		else:
 			print("Método incorrecto, valores posibles 2 o 3.")
 			return -1
