@@ -410,10 +410,50 @@ def get_samples_pdfWeight(pdf,num_sample):
 	# Muestreamos de la nueva función de densidad pesada
 	return pdf.resample(num_sample)
 
-def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None):
-	#----------------
+def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alpha, fa, method, position=0, idTest=0, gaussian=False):
+	"""
+	Args:
+	Returns:
+		- calibrated percentages for conformal calibration
+		- uncalibrated percentages for conformal calibration
+	"""
+	perc_within_cal = []
+	perc_within_unc = []
+	for i in range(tpred_samples.shape[1]):
+		kde, sample_kde = get_kde(tpred_samples, data, target2, i, sigmas_samples, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, pdf_flag=True)
 
-	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05) # Valores de alpha
+		# Steps to compute HDRs fa
+		# Evaluate these samples on the p.d.f.
+		sample_pdf = kde.pdf(sample_kde)
+
+		# Sort samples
+		orden = sorted(sample_pdf, reverse=True)
+		ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
+		if ind==len(orden):
+			fa_unc = 0.0
+		else:
+			fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
+
+		if gaussian:
+			gt = target2[i,position,:].cpu()
+		else:
+			gt = target[i,position,:].cpu()
+		# GT evaluation
+		f_pdf = kde.pdf(gt)
+
+		if method==2:
+			perc_within_cal.append(f_pdf >= fa)
+		elif method==3:
+			perc_within_cal.append(f_pdf >= sample_pdf.max()*fa)
+
+		perc_within_unc.append(f_pdf >= fa_unc)
+
+	return perc_within_cal, perc_within_unc
+
+
+def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None):
+	# Alpha values
+	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05)
 
 	unc_pcts = []
 	cal_pcts = []
@@ -433,151 +473,29 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 			print("Método incorrecto, valores posibles 2 o 3.")
 			return -1
 
-		perc_within_cal = []
-		perc_within_unc = []
-		for i in range(tpred_samples_cal.shape[1]):
-
-			if gaussian:
-				# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-				kde, sample_kde = gaussian_kde2(tpred_samples_cal, sigmas_samples_cal, data_cal, target_cal2, i, position, resample_size=1000, display=False, idTest=2)
-			else:
-				# Estimamos la pdf
-				sample_kde = tpred_samples_cal[:, i, position, :].T # Seleccionamos las muestras de una trayectoria
-				# Creamos la pdf para la muestra
-				kde = gaussian_kde(sample_kde)
-				sample_kde = kde.resample(1000,0)
-
-			#--------
-			# Pasos para calcular fa del HDR
-
-			# Evaluamos la muestra en la pdf
-			sample_pdf = kde.pdf(sample_kde)
-
-			# Ordenamos las muestras
-			orden = sorted(sample_pdf, reverse=True) # Ordenamos
-			##print(orden[:30])
-			ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
-			if ind==len(orden):
-				fa_unc = 0.0
-			else:
-				fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
-			##print("alpha: ", alpha)
-			##print("ind: ", ind)
-			##print("fa_unc encontrado: ", fa_unc)
-
-			if gaussian:
-				# Ground Truth
-				gt = target_cal2[i,position,:].cpu()
-			else:
-				# Ground Truth
-				gt = target_cal[i,position,:].cpu()
-			# Evaluamos el Ground truth
-			f_pdf = kde.pdf(gt)
-
-			if method==2:
-				perc_within_cal.append(f_pdf >= fa)
-			elif method==3:
-				perc_within_cal.append(f_pdf >= sample_pdf.max()*fa)
-
-			perc_within_unc.append(f_pdf >= fa_unc)
-			#-----
-
-		# Guardamos los resultados de todo el batch para un alpha especifico
+		perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, alpha, fa, method, position=position, idTest=idTest, gaussian=gaussian)
+		# Save batch results for an specific alpha
 		cal_pcts.append(np.mean(perc_within_cal))
 		unc_pcts.append(np.mean(perc_within_unc))
 
 		if tpred_samples_test is not None:
-			print("-- procesamos el datatest...")
-			##print(tpred_samples_test.shape)
-			##print(data_test.shape)
-			##print(target_test.shape)
-			#aaaa
-
-			perc_within_cal = []
-			perc_within_unc = []
-			ll = 0.0
-			for i in range(tpred_samples_test.shape[1]):
-
-				if gaussian:
-					# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-					kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test2, i, position, resample_size=1000, display=False, idTest=2)
-				else:
-					# Estimamos la pdf
-					sample_kde = tpred_samples_test[:, i, position, :].T # Seleccionamos las muestras de una trayectoria
-					# Creamos la pdf para la muestra
-					kde = gaussian_kde(sample_kde)
-					sample_kde = kde.resample(1000,0)
-
-				#--------
-				# Pasos para calcular fa del HDR
-
-				# Evaluamos la muestra en la pdf
-				sample_pdf = kde.pdf(sample_kde)
-
-				# Ordenamos las muestras
-				orden = sorted(sample_pdf, reverse=True) # Ordenamos
-				##print(orden[:30])
-				ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
-				if ind==len(orden):
-					fa_unc = 0
-				else:
-					fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
-
-				if gaussian:
-					gt = target_test2[i,position,:].cpu()
-				else:
-					# Ground Truth
-					gt = target_test[i,position,:].cpu()
-				# Evaluamos el Ground truth
-				f_pdf = kde.pdf(gt)
-
-				if method==2:
-					perc_within_cal.append(f_pdf >= fa)
-				elif method==3:
-					perc_within_cal.append(f_pdf >= sample_pdf.max()*fa)
-
-				perc_within_unc.append(f_pdf >= fa_unc)
-				#-----
-
-			# Guardamos los resultados de todo el batch para un alpha especifico
+			print("-- Datatest processing ...")
+			perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_test, data_test, target_test, target_test2, sigmas_samples_test, alpha, fa, method, position=position, idTest=idTest, gaussian=gaussian)
+			# Save batch results for an specific alpha
 			cal_pcts2.append(np.mean(perc_within_cal))
 			unc_pcts2.append(np.mean(perc_within_unc))
-
-
-
-
-
-	plt.figure(figsize=(10,7))
-	plt.plot([0,1],[0,1],'--', color='grey')
-	plt.plot(conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
-	plt.plot(conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
-	plt.legend(fontsize=14)
-	#plt.title('Calibration Plot on Calibration Data ('+str(idTest)+')', fontsize=17)
-	plt.xlabel(r'$\alpha$', fontsize=17)
-	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
 
 	# Create confidence level directory if does not exists
 	output_confidence_dir = os.path.join(IMAGES_DIR, "calibration", "confidence_level")
 	mkdir_p(output_confidence_dir)
 
 	output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
-	plt.savefig(output_image_name)
-	plt.show()
+	plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, cal_conformal=True)
 
 	if tpred_samples_test is not None:
-		plt.figure(figsize=(10,7))
-		plt.plot([0,1],[0,1],'--', color='grey')
-		plt.plot(conf_levels, unc_pcts2, '-o', color='purple', label='Uncalibrated')
-		plt.plot(conf_levels, cal_pcts2, '-o', color='red', label='Calibrated')
-		plt.legend(fontsize=14)
-		#plt.title('Calibration Plot on Test Data ('+str(idTest)+')', fontsize=17)
-		plt.xlabel(r'$\alpha$', fontsize=17)
-		plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
-
 		output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
-		plt.savefig(output_image_name)
-		plt.show()
-	#----------------------------------------------------------------------
+		plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, cal_conformal=True)
+
 	return conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2
 
 def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, position, key):
