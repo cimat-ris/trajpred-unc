@@ -11,7 +11,6 @@ sys.path.append('.')
 
 import math,numpy as np
 import matplotlib as mpl
-mpl.use('TkAgg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -24,7 +23,6 @@ from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import calibration
 from utils.calibration import miscalibration_area, mean_absolute_calibration_error, root_mean_squared_calibration_error
 import torch.optim as optim
 # Local constants
