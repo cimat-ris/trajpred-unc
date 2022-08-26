@@ -14,7 +14,7 @@ from sklearn.isotonic import IsotonicRegression
 
 from utils.plot_utils import plot_calibration_curves, plot_HDR_curves, plot_calibration_pdf, plot_calibration_pdf_traj, plot_traj_world, plot_traj_img_kde
 # Local utils helpers
-from utils.directory_utils import mkdir_p
+from utils.directory_utils import Output_directories
 # Local constants
 from utils.constants import IMAGES_DIR
 # HDR utils
@@ -23,7 +23,7 @@ from utils.hdr import sort_sample, get_alpha
 from utils.calibration_metrics import miscalibration_area,mean_absolute_calibration_error,root_mean_squared_calibration_error
 
 
-def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, resample_size=0 , display=False, idTest=0):
+def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, resample_size=0 , display=False, idTest=0, output_dirs=None):
 
 	# Estimamos la gaussiana con los parametros que salen del modelo
 	param_gaussiana = []
@@ -72,15 +72,13 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
 
 
 	sample_pdf = np.random.multivariate_normal(mean_mix, cov_mix, resample_size)
-	# Create directory if does not exists
-	output_dir = os.path.join(IMAGES_DIR, "trajectories")
-	mkdir_p(output_dir)
 
 	if display:
 		label5, = plt.plot(sample_pdf[:,0], sample_pdf[:,1], ".", color="blue", alpha=0.2, label = "Gaussian Mix Samples")
 		plt.title("Trajectory Plot")
 		plt.legend(handles=[label1, label2, label3, label4, label5 ])
-		plt.savefig(os.path.join(output_dir , "traj_samples_cov_"+str(idTest)+"_"+str(i)+".pdf"))
+		image_output_name = os.path.join(output_dirs.trajectories, "traj_samples_cov_"+str(idTest)+"_"+str(i)+".pdf")
+		plt.savefig(image_output_name)
 		#plt.show()
 		plt.close()
 
@@ -146,27 +144,23 @@ def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_ca
 	return predicted_hdr
 
 
-def save_calibration_curves(output_calibration_dir, tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=False, idTest=0, position=0):
+def save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=False, idTest=0, position=0, output_dirs=None):
 	"""
 	Save calibration curves
 	"""
-	# Create confidence level directory if does not exists
-	output_confidence_dir = os.path.join(output_calibration_dir, "confidence_level")
-	mkdir_p(output_confidence_dir)
-
 	if gaussian:
-		output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
+		output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
 		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name)
 	else:
-		output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
+		output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
 		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name)
 
 	if tpred_samples_test is not None:
 		if gaussian:
-			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
+			output_image_name = os.path.join(output_dirs.confidence, "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
 			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name)
 		else:
-			output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
+			output_image_name = os.path.join(output_dirs.confidence, "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
 			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name)
 
 
@@ -234,7 +228,7 @@ def get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples, targe
 	return cal_pcts, unc_pcts
 
 
-def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000):
+def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000, output_dirs=None):
 
 	predicted_hdr = get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
 
@@ -244,12 +238,8 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 		# TODO: check whether < or <=
 		empirical_hdr[i] = np.sum(predicted_hdr <= p)/len(predicted_hdr)
 
-	# Create calibration directory if does not exists
-	output_calibration_dir = os.path.join(IMAGES_DIR, "calibration")
-	mkdir_p(output_calibration_dir)
-
 	#Visualization: Estimating HDR of Forecast
-	output_image_name = os.path.join(output_calibration_dir , "plot_uncalibrate_"+str(idTest)+".pdf")
+	output_image_name = os.path.join(output_dirs.calibration, "plot_uncalibrate_"+str(idTest)+".pdf")
 	title = "Estimating HDR of Forecast"
 	plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title)
 
@@ -260,7 +250,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	isotonic.fit(empirical_hdr, predicted_hdr)
 
 	# Visualization: Calibration with Isotonic Regression
-	output_image_name = os.path.join(output_calibration_dir , "plot_calibrate_"+str(idTest)+".pdf")
+	output_image_name = os.path.join(output_dirs.calibration, "plot_calibrate_"+str(idTest)+".pdf")
 	title = "Calibration with Isotonic Regression"
 	plot_HDR_curves(predicted_hdr, isotonic.predict(empirical_hdr), output_image_name, title)
 
@@ -275,7 +265,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	if tpred_samples_test is not None:
 		cal_pcts2, unc_pcts2 = get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples_test, target_test, data_test, sigmas_samples_test, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
 
-	save_calibration_curves(output_calibration_dir, tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=gaussian, idTest=idTest, position=position)
+	save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=gaussian, idTest=idTest, position=position, output_dirs=output_dirs)
 
 	return 1-conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, isotonic
 
@@ -293,7 +283,7 @@ def gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=
 		fk_yi = fk.pdf(gt)
 		s_xk_yk.append(fk_yi/fk_max)
 
-def calibration_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
+def calibration_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
 
 	list_fk = []
 	s_xk_yk = []
@@ -329,26 +319,20 @@ def calibration_density(tpred_samples, data_test, target_test, target_test2, sig
 		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
 		alpha_fk = float(ind)/len(orden)
 
-		# Create HDR1 directory if does not exists
-		output_hdr_dir = os.path.join(IMAGES_DIR, "HDR1")
-		mkdir_p(output_hdr_dir)
-		output_image_name = os.path.join(output_hdr_dir , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		output_image_name = os.path.join(output_dirs.hdr, "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
 		# Distribution visualization
 		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
 		yi = tpred_samples[:, id_batch, position, :]  + data_test[id_batch,-1,:].numpy()
 		target_test_world = target_test[id_batch, :, :] + data_test[id_batch,-1,:].numpy()
 
-		# Create trajectory directory if does not exists
-		output_traj_dir = os.path.join(IMAGES_DIR, "trajectories_kde")
-		mkdir_p(output_traj_dir)
-		output_image_name = os.path.join(output_traj_dir , "trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+".pdf")
+		output_image_name = os.path.join(output_dirs.trajectories_kde, "trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+".pdf")
 		# Distribution visualization along trajectory
 		plot_calibration_pdf_traj(yi, data_test, id_batch, target_test_world, Sa, output_image_name)
 
 	return Sa
 
-def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False):
+def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
 
 	list_fk = []
 	s_xk_yk = []
@@ -386,10 +370,7 @@ def calibration_relative_density(tpred_samples, data_test, target_test, target_t
 		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
 		alpha_fk = float(ind)/len(orden)
 
-		# Create HDR2 directory if does not exists
-		output_hdr_dir = os.path.join(IMAGES_DIR, "HDR2")
-		mkdir_p(output_hdr_dir)
-		output_image_name = os.path.join(output_hdr_dir , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		output_image_name = os.path.join(output_dirs.hdr2 , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
 		# Distribution visualization
 		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
@@ -451,7 +432,7 @@ def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alp
 	return perc_within_cal, perc_within_unc
 
 
-def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None):
+def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None, output_dirs=None):
 	# Alpha values
 	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05)
 
@@ -485,15 +466,11 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 			cal_pcts2.append(np.mean(perc_within_cal))
 			unc_pcts2.append(np.mean(perc_within_unc))
 
-	# Create confidence level directory if does not exists
-	output_confidence_dir = os.path.join(IMAGES_DIR, "calibration", "confidence_level")
-	mkdir_p(output_confidence_dir)
-
-	output_image_name = os.path.join(output_confidence_dir , "confidence_level_cal_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
+	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
 	plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, cal_conformal=True)
 
 	if tpred_samples_test is not None:
-		output_image_name = os.path.join(output_confidence_dir , "confidence_level_test_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
+		output_image_name = os.path.join(output_dirs.confidence , "confidence_level_test_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
 		plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, cal_conformal=True)
 
 	return conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2
@@ -518,13 +495,14 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 	metrics_test_data        = [["","MACE","RMSCE","MA"]]
 	key_before = "Before Recalibration"
 	key_after = "After Recalibration"
+	output_dirs = Output_directories()
 
 	# Recorremos cada posicion
 	positions_to_test = [11]
 	for position in positions_to_test:
 		logging.info("Calibration metrics at position: {}".format(position))
 		# Apply isotonic regression
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test)
+		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
 
 		# TODO: move?
 		plt.show()
@@ -544,17 +522,13 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 	# Save the metrics results: on calibration dataset
 	df = pd.DataFrame(metrics_calibration_data)
 
-	# Create metrics directory if does not exists
-	output_metrics_dir = os.path.join(IMAGES_DIR, "calibration", "metrics")
-	mkdir_p(output_metrics_dir)
-
-	output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
+	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
 	df.to_csv(output_csv_name)
 
 	if tpred_samples_test is not None:
 		# Save the metrics results: on test dataset
 		df = pd.DataFrame(metrics_test_data)
-		output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
+		output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
 		df.to_csv(output_csv_name)
 
 	# Evaluation of NLL
@@ -603,7 +577,7 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 	nll_uncal = statistics.median(ll_uncal)
 
 	df = pd.DataFrame([["calibrated", "uncalibrated"],[nll_cal, nll_uncal]])
-	output_csv_name = os.path.join(output_metrics_dir, "nll_IsotonicRegresion_"+str(id_test)+".csv")
+	output_csv_name = os.path.join(output_dirs.calibration, "nll_IsotonicRegresion_"+str(id_test)+".csv")
 	df.to_csv(output_csv_name)
 	print(df)
 
@@ -617,6 +591,7 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 	metrics3_test = [["","MACE","RMSCE","MA"]]
 	key_before = "Before Recalibration"
 	key_after = "After Recalibration"
+	output_dirs = Output_directories()
 	# Recorremos cada posicion para calibrar
 	for pos in range(tpred_samples_cal.shape[2]):
 		pos = 11
@@ -626,7 +601,7 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 		gt_test = np.cumsum(targetrel_test, axis=1)
 		# HDR y Calibracion
 		print("------- calibration_density")
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test)
+		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
 
 		# Metrics Calibration
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics2, pos, key_before)
@@ -638,7 +613,7 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics2_test, pos, key_after)
 
 		print("------- calibration_relative_density ")
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=3, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test)
+		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=3, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
 
 		# Metrics Calibration
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics3, pos, key_before)
@@ -651,27 +626,23 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 
 		break
 
-	# Create metrics directory if does not exists
-	output_metrics_dir = os.path.join(IMAGES_DIR, "calibration", "metrics")
-	mkdir_p(output_metrics_dir)
-
 	# Guardamos los resultados de las metricas
 	df = pd.DataFrame(metrics2)
-	output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_cal_conformal2_"+str(id_test)+".csv")
+	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_cal_conformal2_"+str(id_test)+".csv")
 	df.to_csv(output_csv_name)
 
 	df = pd.DataFrame(metrics3)
-	output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_cal_conformal3_"+str(id_test)+".csv")
+	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_cal_conformal3_"+str(id_test)+".csv")
 	df.to_csv(output_csv_name)
 
 	if tpred_samples_test is not None:
 		# Guardamos los resultados de las metricas de Test
 		df = pd.DataFrame(metrics2_test)
-		output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_test_conformal2_"+str(id_test)+".csv")
+		output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_conformal2_"+str(id_test)+".csv")
 		df.to_csv(output_csv_name)
 
 		df = pd.DataFrame(metrics3_test)
-		output_csv_name = os.path.join(output_metrics_dir, "metrics_calibration_test_conformal3_"+str(id_test)+".csv")
+		output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_conformal3_"+str(id_test)+".csv")
 		df.to_csv(output_csv_name)
 
 
