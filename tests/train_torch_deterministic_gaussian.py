@@ -7,11 +7,11 @@
 # Imports
 import time
 import sys,os,logging, argparse
+
 sys.path.append('.')
 
 import math,numpy as np
 import matplotlib as mpl
-#mpl.use('TkAgg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -23,12 +23,12 @@ import torch.optim as optim
 from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.train_utils import train
-from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_one_batch_test
-from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
+from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
+from utils.calibration import generate_one_batch_test
+from utils.calibration_utils import save_data_for_calibration
 import torch.optim as optim
 # Local constants
-from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, TEST_DETERMINISTIC_GAUSSIAN
 
 
 # Parser arguments
@@ -170,27 +170,9 @@ def main():
         print(tpred_samples.shape)
         print(sigmas_samples.shape)
 
-
-        # ---------------------------------- Calibration HDR cap libro -------------------------------------------------
-        print("**********************************************")
-        print("***** Calibracion con Isotonic Regresion *****")
-        print("**********************************************")
-
-        #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=False)
-        print("probamos con test...")
-
-        generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-
-        #--------------------------------------------------------------------------------------------------
-
-        #--------------------- Calculamos las metricas de calibracion ---------------------------------
-        #generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, args.id_test)
-        #generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-        #--------------------------------------------------------------------------------------------------
-
+        save_data_for_calibration(TEST_DETERMINISTIC_GAUSSIAN, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test, gaussian=True)
         # Solo se ejecuta para un batch y es usado como dataset de calibración
         break
-
 
 
 if __name__ == "__main__":

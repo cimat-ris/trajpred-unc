@@ -15,9 +15,13 @@ TRAIN_DATA_STR = '/training_data_'
 TEST_DATA_STR  = '/test_data_'
 VAL_DATA_STR   = '/validation_data_'
 
+# test names strings used for calibration
+TEST_DETERMINISTIC_GAUSSIAN = 'test_deterministic_gaussian'
+
 # Training checkpoints dir
 TRAINING_CKPT_DIR = 'training_checkpoints'
-
+# Pickle dir
+PICKLE_DIR = 'pickle'
 # Images dir
 IMAGES_DIR = 'images'
 # Images and data helpers
