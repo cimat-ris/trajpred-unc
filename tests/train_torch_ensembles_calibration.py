@@ -7,6 +7,8 @@
 # Imports
 import time
 import sys,os,logging, argparse
+
+from utils.calibration_utils import save_data_for_calibration
 sys.path.append('bayesian-torch')
 sys.path.append('.')
 
@@ -29,7 +31,7 @@ from utils.calibration import generate_metrics_calibration_IsotonicReg, generate
 from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
 import torch.optim as optim
 # Local constants
-from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TEST_ENSEMBLES_CALIBRATION, TRAINING_CKPT_DIR
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -176,35 +178,7 @@ def main():
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
 
-
-        # ---------------------------------- Calibration HDR cap libro -------------------------------------------------
-        print("**********************************************")
-        print("***** Calibracion con Isotonic Regresion *****")
-        print("**********************************************")
-
-        #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=False)
-        #print("probamos con test...")
-
-        generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-
-        #--------------------------------------------------------------------------------------------------
-
-
-        # ---------------------------------- Calibration Conformal  -------------------------------------------------
-        print("**********************************************")
-        print("********    Calibration Conformal    *********")
-        print("**********************************************")
-
-        # Generar KDE sobre Imagen
-        # pos = 10 # borrar despues de probar
-        # id_batch = 25 # borrar despues de probar
-        # gt = np.cumsum(targetrel_test, axis=1)
-        # generate_newKDE(tpred_samples, data_test, gt, target_test, id_batch=id_batch, position = pos, method=2, test_homography=test_homography, bck=bck)
-
-        #--------------------- Calculamos las metricas de calibracion ---------------------------------
-        #generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, args.id_test)
-        ##generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, args.id_test, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-        #--------------------------------------------------------------------------------------------------
+        save_data_for_calibration(TEST_ENSEMBLES_CALIBRATION, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test, gaussian=True)
 
         # Solo se ejecuta para un batch y es usado como dataset de calibración
         break
