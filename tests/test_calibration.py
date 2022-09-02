@@ -2,6 +2,7 @@
 # train_torch_deterministic_gaussian: IsotonicReg with gaussian=True
 # train_torch_ensembles_calibration: IsotonicReg with gaussian=True
 # train_torch_dropout_calibration: IsotonicReg with gaussian=False, Conformal with gaussian=True
+# train_torch_bitrap_BT: IsotonicReg with gaussian=False, Conformal with gaussian=False
 
 import argparse
 import logging, sys
@@ -15,10 +16,9 @@ from utils.constants import TEST_BITRAP_BT, TEST_DETERMINISTIC_GAUSSIAN, TEST_DR
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--calibration-conformal', action='store_true', help='generates metrics using calibration conformal')
-parser.add_argument('--gaussian-isotonic', type=bool, default=True, help='gaussian var to be used to compute Isotonic Regression calibration metrics')
-parser.add_argument('--gaussian-conformal', type=bool, default=True, help='gaussian var to be used to compute Conformal calibration metrics')
-parser.add_argument('--test-name', type=str, default='deterministicGaussian', metavar='N',
-                    help='Test data to be load (default: deterministic gaussian test)')
+parser.add_argument('--gaussian-isotonic', default=False, action='store_true', help='gaussian var to be used to compute Isotonic Regression calibration metrics')
+parser.add_argument('--gaussian-conformal', default=False, action='store_true', help='gaussian var to be used to compute Conformal calibration metrics')
+parser.add_argument('--test-name', type=str, default='deterministicGaussian', help='Test data to be load (default: deterministic gaussian test)')
 args = parser.parse_args()
 
 def get_test_name():

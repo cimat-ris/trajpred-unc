@@ -27,8 +27,7 @@ from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_one_batch_test
-from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
+from utils.calibration import generate_one_batch_test
 import torch.optim as optim
 # Local constants
 from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TEST_ENSEMBLES_CALIBRATION, TRAINING_CKPT_DIR

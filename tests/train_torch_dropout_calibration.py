@@ -33,8 +33,7 @@ import torch.optim as optim
 from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_one_batch_test
-from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
+from utils.calibration import generate_one_batch_test
 
 import torch.optim as optim
 
@@ -256,7 +255,7 @@ def main():
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
 
-        save_data_for_calibration(TEST_DROPOUT_CALIBRATION, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test, gaussian=True)
+        save_data_for_calibration(TEST_DROPOUT_CALIBRATION, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
 
         # Solo se ejecuta para un batch
         break
