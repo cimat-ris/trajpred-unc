@@ -178,7 +178,7 @@ def main():
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
 
-        save_data_for_calibration(TEST_ENSEMBLES_CALIBRATION, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test, gaussian=True)
+        save_data_for_calibration(TEST_ENSEMBLES_CALIBRATION, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
 
         # Solo se ejecuta para un batch y es usado como dataset de calibración
         break

@@ -170,7 +170,7 @@ def main():
         print(tpred_samples.shape)
         print(sigmas_samples.shape)
 
-        save_data_for_calibration(TEST_DETERMINISTIC_GAUSSIAN, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test, gaussian=True)
+        save_data_for_calibration(TEST_DETERMINISTIC_GAUSSIAN, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
         # Solo se ejecuta para un batch y es usado como dataset de calibración
         break
 
