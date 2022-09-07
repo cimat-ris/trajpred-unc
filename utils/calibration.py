@@ -84,9 +84,10 @@ def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, res
 
 	return multivariate_normal(mean_mix, cov_mix), sample_pdf
 
-def get_kde(tpred_samples, data, target, i, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000, pdf_flag=False):
+def get_kde(tpred_samples, data, target, i, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
 	"""
 	Args:
+		- relative_coords_flag: to specify how the coordinates are going to be computed, relative (True) or absolute (False)
 	Returns:
 		- kde: PDF estimation
 		- sample_kde: Sampled points (x,y) from PDF
@@ -96,9 +97,7 @@ def get_kde(tpred_samples, data, target, i, sigmas_samples, position=0, idTest=0
 		# p.d.f. estimation. Sampling points (x,y) from PDF
 		kde, sample_kde = gaussian_kde2(tpred_samples, sigmas_samples, data, target, i, position, resample_size=resample_size, display=False, idTest=idTest)
 	else:
-		# TODO: Here also, the coordinates may be absolute or relative
-		# depending on the prediction method
-		if pdf_flag:
+		if relative_coords_flag:
 			sample_kde = tpred_samples[:, i, position, :]
 		else:
 			sample_kde = tpred_samples[:, i, position, :] + np.array([data[i,:,:][-1].numpy()])
@@ -289,7 +288,7 @@ def calibration_density(tpred_samples, data_test, target_test, target_test2, sig
 	s_xk_yk = []
 	# KDE density creation using provided samples 
 	for k in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, pdf_flag=True)
+		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian)
 		list_fk.append(fk)
 
@@ -338,7 +337,7 @@ def calibration_relative_density(tpred_samples, data_test, target_test, target_t
 	s_xk_yk = []
 	# KDE density creation using provided samples
 	for k in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, pdf_flag=True)
+		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 		fk_max = fk.pdf(yi).max()
 		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
 		list_fk.append(fk)
@@ -401,7 +400,7 @@ def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alp
 	perc_within_cal = []
 	perc_within_unc = []
 	for i in range(tpred_samples.shape[1]):
-		kde, sample_kde = get_kde(tpred_samples, data, target2, i, sigmas_samples, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, pdf_flag=True)
+		kde, sample_kde = get_kde(tpred_samples, data, target2, i, sigmas_samples, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 
 		# Steps to compute HDRs fa
 		# Evaluate these samples on the p.d.f.
@@ -504,9 +503,6 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		# Apply isotonic regression
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
 
-		# TODO: move?
-		plt.show()
-
 		# Calibration metrics
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics_calibration_data, position, key_before)
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics_calibration_data, position, key_after)
@@ -539,17 +535,7 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 	for i in range(tpred_samples_test.shape[1]):
 		# Ground Truth
 		gt = target_test[i,position,:].cpu()
-
-		# TODO: here, it depends on the predition system whether the output is
-		# TODO: relative or absolute
-		this_pred_out_abs = tpred_samples_test[:, i, position, :] + np.array([data_test[i,:,:][-1].numpy()]) # ABSOLUTE?
-		if gaussian:
-			# Estimamos la pdf y muestreamos puntos (x,y) de la pdf
-			kde, sample_kde = gaussian_kde2(tpred_samples_test, sigmas_samples_test, data_test, target_test, i, position, resample_size=1000, display=False, idTest=id_test)
-		else:
-			sample_kde = this_pred_out_abs.T
-			kde = gaussian_kde(sample_kde)
-			sample_kde = kde.resample(1000,0)
+		kde, sample_kde = get_kde(tpred_samples_test, data_test, target_test, i, sigmas_samples_test, position=position, idTest=id_test, gaussian=gaussian, resample_size=1000)
 
 		# Evaluamos la muestra en la pdf
 		sample_pdf = kde.pdf(sample_kde)
