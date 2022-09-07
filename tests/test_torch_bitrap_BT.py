@@ -1,6 +1,8 @@
 import pdb
 import os
 import sys
+
+from utils.calibration_utils import save_data_for_calibration
 sys.path.append(os.path.realpath('.'))
 sys.path.append('../bidireaction-trajectory-prediction/')
 sys.path.append('../bidireaction-trajectory-prediction/datasets')
@@ -15,13 +17,10 @@ from bitrap.modeling import make_model
 from bitrap.utils.dataset_utils import restore
 from bitrap.engine.utils import print_info, post_process
 
-from utils.calibration import generate_metrics_calibration_IsotonicReg
-from utils.calibration import generate_metrics_calibration_conformal
-
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset_bitrap
 import logging
 # Local constants
-from utils.constants import OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_NEIGHBORS, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, TRAINING_CKPT_DIR, REFERENCE_IMG
+from utils.constants import OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_NEIGHBORS, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, TEST_BITRAP_BT, TRAINING_CKPT_DIR, REFERENCE_IMG
 
 import argparse
 from configs import cfg
@@ -234,18 +233,4 @@ if __name__ == '__main__':
         targetrel_test     =  torch.tensor(gt2_traj[:256,:,:])
         targetrel_test_full=  torch.tensor(gt2_traj[256:,:,:])
 
-        # ---------------------------------- Calibration HDR cap libro -------------------------------------------------
-        print("**********************************************")
-        print("***** Calibracion con Isotonic Regresion *****")
-        print("**********************************************")
-
-        print("probamos con test...")
-
-        generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, None, 2, gaussian=False, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=None)
-
-        #--------------------------------------------------------------------------------------------------
-
-        #--------------------- Calculamos las metricas de calibracion ---------------------------------
-
-        generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, None, 2, gaussian=False, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=None)
-        #--------------------------------------------------------------------------------------------------
+        save_data_for_calibration(TEST_BITRAP_BT, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, None, None, args.id_test)

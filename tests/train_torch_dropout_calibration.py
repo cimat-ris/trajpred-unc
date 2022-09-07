@@ -7,6 +7,8 @@
 # Cargamos las librerias
 import time
 import sys,os,logging, argparse
+
+from utils.calibration_utils import save_data_for_calibration
 ''' TF_CPP_MIN_LOG_LEVEL
 0 = all messages are logged (default behavior)
 1 = INFO messages are not printed
@@ -31,13 +33,12 @@ import torch.optim as optim
 from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_one_batch_test
-from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
+from utils.calibration import generate_one_batch_test
 
 import torch.optim as optim
 
 # Local constants
-from utils.constants import OBS_TRAJ, OBS_TRAJ_VEL, PRED_TRAJ, PRED_TRAJ_VEL, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ, OBS_TRAJ_VEL, PRED_TRAJ, PRED_TRAJ_VEL, TEST_DROPOUT_CALIBRATION, TRAINING_CKPT_DIR
 
 
 # Parser arguments
@@ -254,22 +255,7 @@ def main():
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
 
-        # ---------------------------------- Calibration HDR cap libro -------------------------------------------------
-        print("**********************************************")
-        print("***** Calibracion con Isotonic Regresion *****")
-        print("**********************************************")
-
-        #generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, args.id_test, gaussian=False)
-        print("probamos con test...")
-        generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, idTest, gaussian=False, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-
-        #--------------------------------------------------------------------------------------------------
-
-        #--------------------- Calculamos las metricas de calibracion ---------------------------------
-        print("probamos calibration conformal...")
-        #generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, args.id_test)
-        generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, idTest, gaussian=True, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
-        #--------------------------------------------------------------------------------------------------
+        save_data_for_calibration(TEST_DROPOUT_CALIBRATION, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
 
         # Solo se ejecuta para un batch
         break
