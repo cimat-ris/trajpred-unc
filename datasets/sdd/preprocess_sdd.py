@@ -22,6 +22,7 @@ sdd_data = {key: pd.DataFrame() for key in scenes.keys() }
 
 for scene_name, total_videos_per_scene in scenes.items():
     scene_video_ids = ['video'+str(i) for i in range(total_videos_per_scene)]
+    traj_datasets_per_scene = []
 
     for scene_video_id in scene_video_ids:
         annot_file = os.path.join(sdd_root, scene_name, scene_video_id, 'annotations.txt')
@@ -33,10 +34,8 @@ for scene_name, total_videos_per_scene in scenes.items():
 
         itraj_dataset = load_sdd(annot_file, scale=scale, scene_id=scene_name + '-' + scene_video_id,
                         drop_lost_frames=False, use_kalman=False, label='Pedestrian')
+        traj_datasets_per_scene.append(itraj_dataset.data)
 
-        traj_dataset = pd.concat([sdd_data[scene_name], itraj_dataset.data])
-        sdd_data[scene_name] = traj_dataset
-
-pickle_out = open('sdd_data.pickle',"wb")
-pickle.dump(sdd_data, pickle_out, protocol=2)
-pickle_out.close()
+    pickle_out = open(scene_name+'.pickle',"wb")
+    pickle.dump(pd.concat(traj_datasets_per_scene), pickle_out, protocol=2)
+    pickle_out.close()
