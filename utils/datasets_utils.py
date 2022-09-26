@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 import tensorflow as tf
 import torch
+from tqdm import tqdm
 from torch.utils.data import Dataset
 from utils.constants import (
     FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,
@@ -163,7 +164,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd):
                 raw_traj_data_per_ped[ped]=pv
         counter = 0
         # Iterate over the frames to define sequences
-        for idx, frame in enumerate(frame_ids):
+        for idx, frame in enumerate(tqdm(frame_ids, desc='Defining sequences for scene '+dataset_name)):
             if idx+seq_len>=len(frame_ids):
                 break
             frame_max      = frame_ids[idx+seq_len]
@@ -218,9 +219,11 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd):
                     neighbor_seq_data_mod  = neighbor_seq_data_full[(neighbor_seq_data_full[:,0]>=frame) & (neighbor_seq_data_full[:,0]<frame_max)]
                     neighbor_data          = np.zeros((obs_len, 6), dtype="float32")
                     for (n_idx,frame_id) in enumerate(np.unique(neighbor_seq_data_mod[:,0]).tolist()):
-                        idx             = np.where(ped_seq_data_mod[:,0]==frame_id)[0][0]
-                        if idx<obs_len:
-                            neighbor_data[idx,:] = neighbor_seq_data_mod[n_idx,1:]
+                        temp = np.where(ped_seq_data_mod[:,0]==frame_id)
+                        if temp[0].size != 0:
+                            idx             = temp[0][0]
+                            if idx<obs_len:
+                                neighbor_data[idx,:] = neighbor_seq_data_mod[n_idx,1:]
                     neighbors_ped_seq.append(neighbor_data)
                 # Contains the neighbor data per sequence
                 neighbors_data.append(neighbors_ped_seq)

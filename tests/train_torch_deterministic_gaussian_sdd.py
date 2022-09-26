@@ -37,7 +37,7 @@ parser.add_argument('--examples',
                     help='number of examples to exhibit (default: 1)')
 parser.add_argument('--id-test',
                     type=int, default=7, metavar='N',
-                    help='id of the dataset to use as test in SDD (default: 7)')
+                    help='id of the dataset to use as test in SDD (default: 2)')
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
@@ -85,7 +85,7 @@ def main():
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
     batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
-
+ 
     # Seed for RNG
     seed = 1
     num_ensembles = 1
