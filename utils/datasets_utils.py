@@ -6,6 +6,7 @@ import numpy as np
 import cv2
 import tensorflow as tf
 import torch
+from tqdm import tqdm
 from torch.utils.data import Dataset
 from utils.constants import (
     FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,
@@ -90,7 +91,24 @@ def get_testing_batch_synthec(testing_data,testing_data_path):
     for element in filtered_data.as_numpy_iterator():
         return element
 
-def prepare_data(datasets_path, datasets_names, parameters):
+def get_raw_data(datasets_path, dataset_name, delim, sdd):
+    if sdd:
+        traj_data_path = os.path.join(datasets_path, dataset_name)
+        logging.info("Reading "+traj_data_path+'.pickle')
+         # Unpickle raw datasets
+        logging.info("Unpickling raw data...")
+        pickle_in = open(traj_data_path+'.pickle',"rb")
+        raw_traj_data = pickle.load(pickle_in)
+        raw_traj_data = raw_traj_data.to_numpy()
+    else:
+        traj_data_path       = os.path.join(datasets_path+dataset_name, MUN_POS_CSV)
+        logging.info("Reading "+traj_data_path)
+        # Raw trajectory coordinates
+        raw_traj_data = np.genfromtxt(traj_data_path, delimiter= delim)
+
+    return raw_traj_data
+
+def prepare_data(datasets_path, datasets_names, parameters, sdd):
     datasets = range(len(datasets_names))
     datasets = list(datasets)
 
@@ -112,11 +130,8 @@ def prepare_data(datasets_path, datasets_names, parameters):
 
     # Scan all the datasets
     for idx,dataset_name in enumerate(datasets_names):
-        traj_data_path       = os.path.join(datasets_path+dataset_name, MUN_POS_CSV)
-        logging.info("Reading "+traj_data_path)
-
         # Raw trajectory coordinates
-        raw_traj_data = np.genfromtxt(traj_data_path, delimiter= parameters.delim)
+        raw_traj_data = get_raw_data(datasets_path, dataset_name, parameters.delim, sdd=sdd)
 
         # We suppose that the frame ids are in ascending order
         frame_ids = np.unique(raw_traj_data[:, 0]).tolist()
@@ -149,7 +164,7 @@ def prepare_data(datasets_path, datasets_names, parameters):
                 raw_traj_data_per_ped[ped]=pv
         counter = 0
         # Iterate over the frames to define sequences
-        for idx, frame in enumerate(frame_ids):
+        for idx, frame in enumerate(tqdm(frame_ids, desc='Defining sequences for scene '+dataset_name)):
             if idx+seq_len>=len(frame_ids):
                 break
             frame_max      = frame_ids[idx+seq_len]
@@ -204,9 +219,11 @@ def prepare_data(datasets_path, datasets_names, parameters):
                     neighbor_seq_data_mod  = neighbor_seq_data_full[(neighbor_seq_data_full[:,0]>=frame) & (neighbor_seq_data_full[:,0]<frame_max)]
                     neighbor_data          = np.zeros((obs_len, 6), dtype="float32")
                     for (n_idx,frame_id) in enumerate(np.unique(neighbor_seq_data_mod[:,0]).tolist()):
-                        idx             = np.where(ped_seq_data_mod[:,0]==frame_id)[0][0]
-                        if idx<obs_len:
-                            neighbor_data[idx,:] = neighbor_seq_data_mod[n_idx,1:]
+                        temp = np.where(ped_seq_data_mod[:,0]==frame_id)
+                        if temp[0].size != 0:
+                            idx             = temp[0][0]
+                            if idx<obs_len:
+                                neighbor_data[idx,:] = neighbor_seq_data_mod[n_idx,1:]
                     neighbors_ped_seq.append(neighbor_data)
                 # Contains the neighbor data per sequence
                 neighbors_data.append(neighbors_ped_seq)
@@ -271,7 +288,7 @@ def prepare_data(datasets_path, datasets_names, parameters):
     }
     return data
 
-def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_parameters,use_neighbors=False,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1):
+def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_parameters,use_neighbors=False,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1, sdd=False):
     # Dataset to be tested
     testing_datasets_names  = [ds_names[leave_id]]
     training_datasets_names = ds_names[:leave_id]+ds_names[leave_id+1:]
@@ -280,8 +297,8 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
     if not use_pickled_data:
         # Process data specified by the path to get the trajectories with
         logging.info('Extracting data from the datasets')
-        test_data  = prepare_data(ds_path, testing_datasets_names, experiment_parameters)
-        train_data = prepare_data(ds_path, training_datasets_names, experiment_parameters)
+        test_data  = prepare_data(ds_path, testing_datasets_names, experiment_parameters, sdd=sdd)
+        train_data = prepare_data(ds_path, training_datasets_names, experiment_parameters, sdd=sdd)
 
         # Count how many data we have (sub-sequences of length 8, in pred_traj)
         n_test_data  = len(test_data[list(test_data.keys())[2]])
@@ -357,7 +374,10 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
     logging.info("Test data: "+ str(len(test_data[list(test_data.keys())[0]])))
     logging.info("Validation data: "+ str(len(validation_data[list(validation_data.keys())[0]])))
 
-    # Load the homography corresponding to this dataset
-    homography_file = os.path.join(ds_path+testing_datasets_names[0]+'/H.txt')
-    test_homography = np.genfromtxt(homography_file)
+    if sdd:
+        test_homography = {}
+    else:
+        # Load the homography corresponding to this dataset
+        homography_file = os.path.join(ds_path+testing_datasets_names[0]+'/H.txt')
+        test_homography = np.genfromtxt(homography_file)
     return training_data,validation_data,test_data,test_homography
