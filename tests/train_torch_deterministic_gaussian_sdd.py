@@ -75,7 +75,7 @@ def main():
     model_name    = "deterministic_gaussian_sdd"
 
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, _ = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, sdd=True)
+    training_data, validation_data, test_data, _ = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, sdd=True, compute_neighbors=False)
     # Torch dataset
     train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
     val_data   = traj_dataset(validation_data[OBS_TRAJ_VEL], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
