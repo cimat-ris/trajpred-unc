@@ -108,7 +108,7 @@ def get_raw_data(datasets_path, dataset_name, delim, sdd):
 
     return raw_traj_data
 
-def prepare_data(datasets_path, datasets_names, parameters, sdd):
+def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbors=True):
     datasets = range(len(datasets_names))
     datasets = list(datasets)
 
@@ -206,27 +206,28 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd):
                     # We do not have enough observations for this person
                     continue
 
-                # To keep neighbors data for the person ped_id
-                neighbors_ped_seq = []
-                # For all the persons in the sequence
-                for neighbor_ped_idx,neighbor_ped_id in enumerate(peds_in_seq):
-                    # Get
-                    if (not (neighbor_ped_id in raw_traj_data_per_ped.keys())):
-                        continue
-                    if (neighbor_ped_id==ped_id):
-                        continue
-                    neighbor_seq_data_full = raw_traj_data_per_ped[neighbor_ped_id]
-                    neighbor_seq_data_mod  = neighbor_seq_data_full[(neighbor_seq_data_full[:,0]>=frame) & (neighbor_seq_data_full[:,0]<frame_max)]
-                    neighbor_data          = np.zeros((obs_len, 6), dtype="float32")
-                    for (n_idx,frame_id) in enumerate(np.unique(neighbor_seq_data_mod[:,0]).tolist()):
-                        temp = np.where(ped_seq_data_mod[:,0]==frame_id)
-                        if temp[0].size != 0:
-                            idx             = temp[0][0]
-                            if idx<obs_len:
-                                neighbor_data[idx,:] = neighbor_seq_data_mod[n_idx,1:]
-                    neighbors_ped_seq.append(neighbor_data)
-                # Contains the neighbor data per sequence
-                neighbors_data.append(neighbors_ped_seq)
+                if compute_neighbors:
+                    # To keep neighbors data for the person ped_id
+                    neighbors_ped_seq = []
+                    # For all the persons in the sequence
+                    for neighbor_ped_idx,neighbor_ped_id in enumerate(peds_in_seq):
+                        # Get
+                        if (not (neighbor_ped_id in raw_traj_data_per_ped.keys())):
+                            continue
+                        if (neighbor_ped_id==ped_id):
+                            continue
+                        neighbor_seq_data_full = raw_traj_data_per_ped[neighbor_ped_id]
+                        neighbor_seq_data_mod  = neighbor_seq_data_full[(neighbor_seq_data_full[:,0]>=frame) & (neighbor_seq_data_full[:,0]<frame_max)]
+                        neighbor_data          = np.zeros((obs_len, 6), dtype="float32")
+                        for (n_idx,frame_id) in enumerate(np.unique(neighbor_seq_data_mod[:,0]).tolist()):
+                            temp = np.where(ped_seq_data_mod[:,0]==frame_id)
+                            if temp[0].size != 0:
+                                idx             = temp[0][0]
+                                if idx<obs_len:
+                                    neighbor_data[idx,:] = neighbor_seq_data_mod[n_idx,1:]
+                        neighbors_ped_seq.append(neighbor_data)
+                    # Contains the neighbor data per sequence
+                    neighbors_data.append(neighbors_ped_seq)
 
                 # Absolute x,y and velocities for all person_id
                 pos_seq_data[ped_count, :, :] = ped_seq_data_mod[:,1:3]
@@ -288,7 +289,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd):
     }
     return data
 
-def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_parameters,use_neighbors=False,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1, sdd=False):
+def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_parameters,use_neighbors=False,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1, sdd=False, compute_neighbors=True):
     # Dataset to be tested
     testing_datasets_names  = [ds_names[leave_id]]
     training_datasets_names = ds_names[:leave_id]+ds_names[leave_id+1:]
@@ -297,8 +298,8 @@ def setup_loo_experiment(experiment_name,ds_path,ds_names,leave_id,experiment_pa
     if not use_pickled_data:
         # Process data specified by the path to get the trajectories with
         logging.info('Extracting data from the datasets')
-        test_data  = prepare_data(ds_path, testing_datasets_names, experiment_parameters, sdd=sdd)
-        train_data = prepare_data(ds_path, training_datasets_names, experiment_parameters, sdd=sdd)
+        test_data  = prepare_data(ds_path, testing_datasets_names, experiment_parameters, sdd=sdd, compute_neighbors=compute_neighbors)
+        train_data = prepare_data(ds_path, training_datasets_names, experiment_parameters, sdd=sdd, compute_neighbors=compute_neighbors)
 
         # Count how many data we have (sub-sequences of length 8, in pred_traj)
         n_test_data  = len(test_data[list(test_data.keys())[2]])
