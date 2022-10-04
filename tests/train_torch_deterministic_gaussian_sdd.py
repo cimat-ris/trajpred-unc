@@ -41,6 +41,9 @@ parser.add_argument('--id-test',
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
+parser.add_argument('--validation-proportion', '--vp',
+                    type=float, default=0.1, metavar='N',
+                    help='validation proportion out of training set (default: 0.1)')
 parser.add_argument('--no-retrain',
                     action='store_true',
                     help='do not retrain the model')
@@ -75,7 +78,7 @@ def main():
     model_name    = "deterministic_gaussian_sdd"
 
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, _ = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, sdd=True, compute_neighbors=False)
+    training_data, validation_data, test_data, _ = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, validation_proportion=args.validation_proportion, sdd=True, compute_neighbors=False)
     # Torch dataset
     train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
     val_data   = traj_dataset(validation_data[OBS_TRAJ_VEL], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
