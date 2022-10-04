@@ -28,6 +28,8 @@ class Experiment_Parameters:
         self.delim        = ','
         # Delta time (time between two discrete time samples)
         self.dt = 0.4
+        # Maximal overlap between trajets
+        self.max_overlap = 20
 
 #  Trajectory dataset
 class traj_dataset(Dataset):
@@ -162,11 +164,16 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
                 ay = np.expand_dims(ay,axis=1)
                 pv = np.concatenate([t,np.expand_dims(px,axis=1),np.expand_dims(py,axis=1),vx,vy,ax,ay],axis=1)
                 raw_traj_data_per_ped[ped]=pv
-        counter = 0
+        counter    = 0
+        last_frame = -parameters.max_overlap
         # Iterate over the frames to define sequences
         for idx, frame in enumerate(tqdm(frame_ids, desc='Defining sequences for scene '+dataset_name)):
+            # We will not have enough frames
             if idx+seq_len>=len(frame_ids):
                 break
+            if frame<last_frame+parameters.max_overlap:
+                continue
+            last_frame     = frame
             frame_max      = frame_ids[idx+seq_len]
             # Consider frame sequences of size seq_len = obs+pred
             # id_frame, id_person, x, y por every person present in the frame
