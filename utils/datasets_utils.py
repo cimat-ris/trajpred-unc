@@ -17,7 +17,7 @@ import logging
 # Parameters
 # The only datasets that can use add_kp are PETS2009-S2L1, TOWN-CENTRE
 class Experiment_Parameters:
-    def __init__(self):
+    def __init__(self, max_overlap=1):
         # Maximum number of persons in a frame
         self.person_max =70
         # Observation length (trajlet size)
@@ -29,7 +29,7 @@ class Experiment_Parameters:
         # Delta time (time between two discrete time samples)
         self.dt = 0.4
         # Maximal overlap between trajets
-        self.max_overlap = 20
+        self.max_overlap = max_overlap
 
 #  Trajectory dataset
 class traj_dataset(Dataset):
