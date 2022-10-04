@@ -38,6 +38,9 @@ parser.add_argument('--examples',
 parser.add_argument('--id-test',
                     type=int, default=7, metavar='N',
                     help='id of the dataset to use as test in SDD (default: 2)')
+parser.add_argument('--max-overlap',
+                    type=int, default=1, metavar='N',
+                    help='Maximal overlap between trajets (default: 1)')
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
@@ -71,7 +74,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default parameters, TODO: review parameters for SDD dataset
-    experiment_parameters = Experiment_Parameters()
+    experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
     dataset_dir   = "datasets/sdd/sdd_data"
     dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
