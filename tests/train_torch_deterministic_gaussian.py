@@ -8,6 +8,8 @@
 import time
 import sys,os,logging, argparse
 
+from utils.directory_utils import mkdir_p
+
 sys.path.append('.')
 
 import math,numpy as np
@@ -28,7 +30,7 @@ from utils.calibration import generate_one_batch_test
 from utils.calibration_utils import save_data_for_calibration
 import torch.optim as optim
 # Local constants
-from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, TEST_DETERMINISTIC_GAUSSIAN
+from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, TEST_DETERMINISTIC_GAUSSIAN
 
 
 # Parser arguments
@@ -121,6 +123,9 @@ def main():
     ind_sample = np.random.randint(args.batch_size)
     bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test], REFERENCE_IMG))
 
+    output_dir = os.path.join(IMAGES_DIR)
+    mkdir_p(output_dir)
+
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
         fig, ax = plt.subplots(1,1,figsize=(12,12))
@@ -134,7 +139,7 @@ def main():
         plot_traj_world(pred[ind,:,:],data_test[ind,:,:],target_test[ind,:,:],ax)
         #plot_cov_world(pred[ind,:,:],sigmas[ind,:,:],data_test[ind,:,:],ax)
         plt.legend()
-        plt.savefig("images/pred_dropout.pdf")
+        plt.savefig(os.path.join(output_dir , "pred_dropout"+".pdf"))
         plt.close()
         # Not display more than args.examples
         if batch_idx==args.examples-1:
