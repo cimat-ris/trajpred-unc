@@ -34,7 +34,7 @@ for scene_name, total_videos_per_scene in scenes.items():
 
         itraj_dataset = load_sdd(annot_file, scale=scale, scene_id=scene_name + '-' + scene_video_id,
                         drop_lost_frames=False, use_kalman=False, label='Pedestrian')
-        traj_datasets_per_scene.append(itraj_dataset.data)
+        traj_datasets_per_scene.append(pd.concat([itraj_dataset.data.iloc[:, : 4], itraj_dataset.data.iloc[:, 8:9]], axis=1))
 
     pickle_out = open(scene_name+'.pickle',"wb")
     pickle.dump(pd.concat(traj_datasets_per_scene), pickle_out, protocol=2)
