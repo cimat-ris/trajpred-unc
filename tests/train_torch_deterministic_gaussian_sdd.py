@@ -2,8 +2,6 @@
 import time
 import sys,os,logging, argparse
 
-from utils.directory_utils import mkdir_p
-
 sys.path.append('.')
 
 import math,numpy as np
@@ -22,6 +20,7 @@ from utils.train_utils import train
 from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
 from utils.calibration import generate_one_batch_test
 from utils.calibration_utils import save_data_for_calibration
+from utils.directory_utils import mkdir_p
 import torch.optim as optim
 # Local constants
 from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, TEST_DETERMINISTIC_GAUSSIAN
