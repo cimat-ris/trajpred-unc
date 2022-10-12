@@ -115,3 +115,78 @@ def train(model,device,ind,train_data,val_data,args,model_name):
         plt.legend()
         plt.savefig(os.path.join(output_dir , str(ind)+"_"+str(args.id_test)+".pdf"))
         plt.show()
+
+# Function to train the models
+def train_variational(model,device,idTest,train_data,val_data,args,model_name):
+    # Optimizer
+    # optimizer = optim.SGD(model.parameters(), lr=initial_lr)
+    optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.8)
+    list_loss_train = []
+    list_loss_val   = []
+    min_val_error   = 1000.0
+
+    for epoch in range(args.epochs):
+        # Training
+        print("----- ")
+        print("epoch: ", epoch)
+        error = 0
+        total = 0
+        M     = len(train_data)
+        for batch_idx, (data, target, data_abs, target_abs) in enumerate(train_data):
+            # Step 1. Remember that Pytorch accumulates gradients.
+            # We need to clear them out before each instance
+            model.zero_grad()
+
+            if torch.cuda.is_available():
+                data  = data.to(device)
+                target=target.to(device)
+                data_abs  = data_abs.to(device)
+                target_abs=target_abs.to(device)
+
+            # Step 2. Run our forward pass and compute the losses
+            pred, nl_loss, kl_loss = model(data, target, data_abs , target_abs, num_mc=args.num_mctrain)
+            
+            # TODO: Divide by the batch size
+            loss   = nl_loss+ kl_loss/M
+            error += loss.detach().item()
+            total += len(target)
+
+            # Step 3. Compute the gradients, and update the parameters by
+            loss.backward()
+            optimizer.step()
+        print("Trn loss: ",error/total)
+        list_loss_train.append(error/total)
+
+        # Validation
+        error = 0
+        total = 0
+        M     = len(val_data)
+        for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
+            if torch.cuda.is_available():
+                data_val  = data_val.to(device)
+                target_val=target_val.to(device)
+                data_abs  = data_abs.to(device)
+                target_abs = target_abs.to(device)
+
+            pred_val, nl_loss, kl_loss = model(data_val, target_val, data_abs , target_abs)
+            pi     = (2.0**(M-batch_idx))/(2.0**M-1) # From Blundell
+            loss   = nl_loss+ pi*kl_loss
+            error += loss.detach().item()
+            total += len(target_val)
+
+        print("Val loss: ", error/total)
+        list_loss_val.append(error/total)
+        if (error/total)<min_val_error:
+            min_val_error = error/total
+            # Keep the model
+            print("Saving model")
+            torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(args.id_test)+".pth")
+
+    
+    # Visualizamos los errores
+    plt.figure(figsize=(12,12))
+    plt.plot(list_loss_train, label="loss train")
+    plt.plot(list_loss_val, label="loss val")
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.legend()
