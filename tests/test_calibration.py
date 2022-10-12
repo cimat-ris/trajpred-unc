@@ -11,7 +11,7 @@ sys.path.append('.')
 
 from utils.calibration_utils import get_data_for_calibration
 from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_metrics_calibration_conformal
-from utils.constants import TEST_BITRAP_BT, TEST_DETERMINISTIC_GAUSSIAN, TEST_DROPOUT_CALIBRATION, TEST_ENSEMBLES_CALIBRATION
+from utils.constants import TEST_BITRAP_BT, TEST_DETERMINISTIC_GAUSSIAN, TEST_DROPOUT_CALIBRATION, TEST_ENSEMBLES_CALIBRATION, TEST_VARIATIONAL_CALIBRATION
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -33,7 +33,8 @@ def get_test_name():
         "deterministicGaussian": TEST_DETERMINISTIC_GAUSSIAN,
         "ensembles": TEST_ENSEMBLES_CALIBRATION,
         "dropout": TEST_DROPOUT_CALIBRATION,
-        "bitrap": TEST_BITRAP_BT
+        "bitrap": TEST_BITRAP_BT,
+        "variational": TEST_VARIATIONAL_CALIBRATION
         }
     if args.test_name not in valid_test_names.keys():
         return "ERROR: INVALID TEST NAME!!"
