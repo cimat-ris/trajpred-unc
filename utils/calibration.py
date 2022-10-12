@@ -194,8 +194,7 @@ def get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples, targe
 	cal_pcts = []
 	for alpha in conf_levels:
 		new_alpha = isotonic.transform([alpha])
-		print("alpha: ", alpha, " -- new_alpha: ", new_alpha)
-
+		logging.debug("alpha: {} -- new_alpha: {}".format(alpha,new_alpha))
 		perc_within_cal = []
 		perc_within_unc = []
 		for i in range(tpred_samples.shape[1]):
@@ -286,7 +285,7 @@ def calibration_density(tpred_samples, data_test, target_test, target_test2, sig
 
 	list_fk = []
 	s_xk_yk = []
-	# KDE density creation using provided samples 
+	# KDE density creation using provided samples
 	for k in range(tpred_samples.shape[1]):
 		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian)
@@ -484,8 +483,7 @@ def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, 
 	mace  = mean_absolute_calibration_error(exp_proportions, obs_proportions)
 	rmsce = root_mean_squared_calibration_error(exp_proportions, obs_proportions)
 	metrics_data.append([key + " pos " + str(position),mace,rmsce,ma])
-	print(key + ":  ", end="")
-	print("MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(mace,rmsce,ma))
+	logging.info("{}:  MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(key,mace,rmsce,ma))
 
 def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None):
 
@@ -493,22 +491,25 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 	metrics_calibration_data = [["","MACE","RMSCE","MA"]]
 	metrics_test_data        = [["","MACE","RMSCE","MA"]]
 	key_before = "Before Recalibration"
-	key_after = "After Recalibration"
+	key_after  = "After  Recalibration"
 	output_dirs = Output_directories()
 
 	# Recorremos cada posicion
 	positions_to_test = [11]
 	for position in positions_to_test:
 		logging.info("Calibration metrics at position: {}".format(position))
+		logging.info("Calibration method: Isotonic regression")
 		# Apply isotonic regression
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
 
 		# Calibration metrics
+		logging.info("Calibration metrics (Calibration dataset)")
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics_calibration_data, position, key_before)
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics_calibration_data, position, key_after)
 
 
 		if tpred_samples_test is not None:
+			logging.info("Calibration evaluation (Test dataset)")
 			# Metrics Calibration on testing data
 			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics_test_data, position, key_before)
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics_test_data, position, key_after)
@@ -650,7 +651,7 @@ def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_ba
 	n = len(orden)
 	for i in range(n):
 		alpha = (i+1)/n
-		print("***** alpha: ", alpha)
+		logginf.debug("***** alpha: {}".format(alpha))
 		# Obtenemos el fa con el metodo conformal
 		if method==2:
 			Sa = calibration_density(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion

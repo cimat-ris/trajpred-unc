@@ -19,6 +19,8 @@ parser.add_argument('--calibration-conformal', action='store_true', help='genera
 parser.add_argument('--gaussian-isotonic', default=False, action='store_true', help='gaussian var to be used to compute Isotonic Regression calibration metrics')
 parser.add_argument('--gaussian-conformal', default=False, action='store_true', help='gaussian var to be used to compute Conformal calibration metrics')
 parser.add_argument('--test-name', type=str, default='deterministicGaussian', help='Test data to be load (default: deterministic gaussian test)')
+parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
+parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
 args = parser.parse_args()
 
 def get_test_name():
@@ -58,4 +60,6 @@ def compute_calibration_metrics():
         generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, args.id_test, gaussian=args.gaussian_conformal, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
 
 if __name__ == "__main__":
+    # Loggin format
+    logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
     compute_calibration_metrics()
