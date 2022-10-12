@@ -741,7 +741,10 @@ def generate_one_batch_test(batched_test_data, model, num_samples, TRAINING_CKPT
 			datarel_test_full  = datarel_test_full.to(device)
 
 		# Model prediction obtained
-		pred, sigmas = model.predict(datarel_test_full, dim_pred=12)
+		if type == "variational":
+		    pred, kl, sigmas = model.predict(datarel_test_full, dim_pred=12)
+		else:
+		    pred, sigmas = model.predict(datarel_test_full, dim_pred=12)
 
 		# Sample saved
 		tpred_samples_full.append(pred)
