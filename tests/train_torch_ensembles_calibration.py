@@ -8,9 +8,9 @@
 import time
 import sys,os,logging, argparse
 
-from utils.calibration_utils import save_data_for_calibration
 sys.path.append('bayesian-torch')
 sys.path.append('.')
+from utils.calibration_utils import save_data_for_calibration
 
 import math,numpy as np
 import matplotlib as mpl
