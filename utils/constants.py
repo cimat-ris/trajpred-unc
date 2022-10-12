@@ -20,6 +20,7 @@ TEST_DETERMINISTIC_GAUSSIAN = 'test_deterministic_gaussian'
 TEST_ENSEMBLES_CALIBRATION = 'test_ensembles_calibration'
 TEST_DROPOUT_CALIBRATION = 'test_dropout_calibration'
 TEST_BITRAP_BT = 'test_bitrap_BT'
+TEST_VARIATIONAL_CALIBRATION = 'test_variational_calibration'
 
 # Training checkpoints dir
 TRAINING_CKPT_DIR = 'training_checkpoints'
