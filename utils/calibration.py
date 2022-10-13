@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import os, logging
+from tqdm import tqdm
 from matplotlib import pyplot as plt
 import seaborn as sns
 import statistics
@@ -192,7 +193,7 @@ def get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples, targe
 	"""
 	unc_pcts = []
 	cal_pcts = []
-	for alpha in conf_levels:
+	for i,alpha in enumerate(tqdm(conf_levels)):
 		new_alpha = isotonic.transform([alpha])
 		logging.debug("alpha: {} -- new_alpha: {}".format(alpha,new_alpha))
 		perc_within_cal = []
@@ -440,9 +441,8 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 	cal_pcts2 = []
 
 	#for alpha in conf_level_lower_bounds:
-	for alpha in conf_levels:
-
-		print("***** alpha: ", alpha)
+	for i,alpha in enumerate(tqdm(conf_levels)):
+		logging.debug("***** alpha: {}".format(alpha))
 		# Obtenemos el fa con el metodo conformal
 		if method==2:
 			fa = calibration_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
@@ -458,7 +458,6 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 		unc_pcts.append(np.mean(perc_within_unc))
 
 		if tpred_samples_test is not None:
-			print("-- Datatest processing ...")
 			perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_test, data_test, target_test, target_test2, sigmas_samples_test, alpha, fa, method, position=position, idTest=idTest, gaussian=gaussian)
 			# Save batch results for an specific alpha
 			cal_pcts2.append(np.mean(perc_within_cal))
@@ -485,7 +484,7 @@ def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, 
 	metrics_data.append([key + " pos " + str(position),mace,rmsce,ma])
 	logging.info("{}:  MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(key,mace,rmsce,ma))
 
-def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None):
+def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None, compute_nll=False):
 
 	#------------Calibration metrics-------------------
 	metrics_calibration_data = [["","MACE","RMSCE","MA"]]
@@ -528,45 +527,46 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
 		df.to_csv(output_csv_name)
 
-	# Evaluation of NLL
-	position = 11
-	ll_cal = []
-	ll_uncal = []
+	if compute_nll:
+		# Evaluation of NLL
+		position = 11
+		ll_cal = []
+		ll_uncal = []
 
-	for i in range(tpred_samples_test.shape[1]):
-		# Ground Truth
-		gt = target_test[i,position,:].cpu()
-		kde, sample_kde = get_kde(tpred_samples_test, data_test, target_test, i, sigmas_samples_test, position=position, idTest=id_test, gaussian=gaussian, resample_size=1000)
+		for i in tqdm(range(tpred_samples_test.shape[1])):
+			# Ground Truth
+			gt = target_test[i,position,:].cpu()
+			kde, sample_kde = get_kde(tpred_samples_test, data_test, target_test, i, sigmas_samples_test, position=position, idTest=id_test, gaussian=gaussian, resample_size=1000)
 
-		# Evaluamos la muestra en la pdf
-		sample_pdf = kde.pdf(sample_kde)
+			# Evaluamos la muestra en la pdf
+			sample_pdf = kde.pdf(sample_kde)
 
-		sorted_samples  = sort_sample(sample_pdf)
-		observed_alphas = np.array([get_alpha(sorted_samples,fk) for fk in sample_pdf ])
+			sorted_samples  = sort_sample(sample_pdf)
+			observed_alphas = np.array([get_alpha(sorted_samples,fk) for fk in sample_pdf ])
 
-		modified_alphas = isotonic.transform(observed_alphas)
-		fs_samples_new  = []
-		for alpha in modified_alphas:
-			fs_samples_new.append(get_falpha(sorted_samples,alpha))
-		fs_samples_new    = np.array(fs_samples_new)
-		sorted_samples_new= sort_sample(fs_samples_new)
-		importance_weights= fs_samples_new/sample_pdf
-		# TODO: sometimes transpose, someties not...
-		if (sample_kde.shape[0]==importance_weights.shape[0]):
-			sample_kde = sample_kde.T
-		kernel = gaussian_kde(sample_kde, weights=importance_weights)
-		ll_cal.append(kernel.logpdf(gt))
-		ll_uncal.append(kde.logpdf(gt))
-		#-----
+			modified_alphas = isotonic.transform(observed_alphas)
+			fs_samples_new  = []
+			for alpha in modified_alphas:
+				fs_samples_new.append(get_falpha(sorted_samples,alpha))
+			fs_samples_new    = np.array(fs_samples_new)
+			sorted_samples_new= sort_sample(fs_samples_new)
+			importance_weights= fs_samples_new/sample_pdf
+			# TODO: sometimes transpose, someties not...
+			if (sample_kde.shape[0]==importance_weights.shape[0]):
+				sample_kde = sample_kde.T
+			kernel = gaussian_kde(sample_kde, weights=importance_weights)
+			ll_cal.append(kernel.logpdf(gt))
+			ll_uncal.append(kde.logpdf(gt))
+			#-----
 
-	# Calculamos el Negative LogLikelihood
-	nll_cal   = statistics.median(ll_cal)
-	nll_uncal = statistics.median(ll_uncal)
+		# Calculamos el Negative LogLikelihood
+		nll_cal   = statistics.median(ll_cal)
+		nll_uncal = statistics.median(ll_uncal)
 
-	df = pd.DataFrame([["calibrated", "uncalibrated"],[nll_cal, nll_uncal]])
-	output_csv_name = os.path.join(output_dirs.calibration, "nll_IsotonicRegresion_"+str(id_test)+".csv")
-	df.to_csv(output_csv_name)
-	print(df)
+		df = pd.DataFrame([["calibrated", "uncalibrated"],[nll_cal, nll_uncal]])
+		output_csv_name = os.path.join(output_dirs.calibration, "nll_IsotonicRegresion_"+str(id_test)+".csv")
+		df.to_csv(output_csv_name)
+		print(df)
 
 
 
@@ -577,37 +577,40 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 	metrics2_test = [["","MACE","RMSCE","MA"]]
 	metrics3_test = [["","MACE","RMSCE","MA"]]
 	key_before = "Before Recalibration"
-	key_after = "After Recalibration"
+	key_after  = "After  Recalibration"
 	output_dirs = Output_directories()
 	# Recorremos cada posicion para calibrar
 	for pos in range(tpred_samples_cal.shape[2]):
 		pos = 11
-		print("--------------------------------")
-		print("Procesamos para posicion: ", pos)
+		logging.info("Calibration metrics at position: {}".format(pos))
 		gt = np.cumsum(targetrel_cal, axis=1)
 		gt_test = np.cumsum(targetrel_test, axis=1)
 		# HDR y Calibracion
-		print("------- calibration_density")
+		logging.info("Calibration method: Conformal approach with density values")
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
 
 		# Metrics Calibration
+		logging.info("Calibration metrics (Calibration dataset)")
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics2, pos, key_before)
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics2, pos, key_after)
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration Test
+			logging.info("Calibration evaluation (Test dataset)")
 			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics2_test, pos, key_before)
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics2_test, pos, key_after)
 
-		print("------- calibration_relative_density ")
+		logging.info("Calibration method: Conformal approach with relative density values")
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=3, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
 
 		# Metrics Calibration
+		logging.info("Calibration metrics (Calibration dataset)")
 		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics3, pos, key_before)
 		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics3, pos, key_after)
 
 		if tpred_samples_test is not None:
 			# Metrics Calibration Test
+			logging.info("Calibration evaluation (Test dataset)")
 			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics3_test, pos, key_before)
 			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics3_test, pos, key_after)
 
@@ -651,7 +654,7 @@ def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_ba
 	n = len(orden)
 	for i in range(n):
 		alpha = (i+1)/n
-		logginf.debug("***** alpha: {}".format(alpha))
+		logging.debug("***** alpha: {}".format(alpha))
 		# Obtenemos el fa con el metodo conformal
 		if method==2:
 			Sa = calibration_density(tpred_samples, data_test, targetrel_test, None, None, position, alpha=alpha) # NOTA: Es unico para todo el dataset de calibracion
