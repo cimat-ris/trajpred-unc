@@ -144,6 +144,10 @@ def main():
     model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(args.id_test)+".pth"))
     model.eval()
     
+    # Creamos la carpeta donde se guardaran las imagenes
+    if not os.path.exists("./images"):
+        os.makedirs("./images")
+  
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
         fig, ax = plt.subplots(1,1,figsize=(12,12))
