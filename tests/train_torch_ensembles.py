@@ -55,6 +55,8 @@ parser.add_argument('--no-retrain',
 parser.add_argument('--teacher-forcing',
                     action='store_true',
                     help='uses teacher forcing during training')
+parser.add_argument('--show-plot', default=False,
+                    action='store_true', help='show the test plots')
 parser.add_argument('--pickle',
                     action='store_true',
                     help='use previously made pickle files')
@@ -141,7 +143,8 @@ def main():
             plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:],ax)
         plt.legend()
         plt.title('Trajectory samples {}'.format(batch_idx))
-        plt.show()
+		if args.show_plot:
+        	plt.show()
         # Solo aplicamos a un elemento del batch
         break
 

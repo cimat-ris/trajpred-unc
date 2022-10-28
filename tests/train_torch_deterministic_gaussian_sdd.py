@@ -7,7 +7,6 @@ sys.path.append('.')
 import math,numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import pandas as pd
 
 import torch
 from torchvision import transforms
@@ -92,7 +91,7 @@ def main():
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
     batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
- 
+
     # Seed for RNG
     seed = 1
     num_ensembles = 1

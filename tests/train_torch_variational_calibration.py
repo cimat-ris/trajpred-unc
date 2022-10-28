@@ -57,6 +57,8 @@ parser.add_argument('--num-mctest',
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
+parser.add_argument('--show-plot', default=False,
+                    action='store_true', help='show the test plots')					
 parser.add_argument('--no-retrain',
                     action='store_true',
                     help='do not retrain the model')
@@ -101,7 +103,7 @@ def train(model,device,idTest,train_data,val_data):
 
             # Step 2. Run our forward pass and compute the losses
             pred, nl_loss, kl_loss = model(data, target, data_abs , target_abs, num_mc=args.num_mctrain)
-            
+
             # TODO: Divide by the batch size
             loss   = nl_loss+ kl_loss/M
             error += loss.detach().item()
@@ -138,7 +140,7 @@ def train(model,device,idTest,train_data,val_data):
             print("Saving model")
             torch.save(model.state_dict(), "training_checkpoints/model_variational_"+str(idTest)+".pth")
 
-    
+
     # Visualizamos los errores
     plt.figure(figsize=(12,12))
     plt.plot(list_loss_train, label="loss train")
@@ -192,7 +194,7 @@ def main():
         # Agregamos la semilla
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
-        
+
         # Instanciate the model
         model = lstm_encdec_variational(2,128,256,2,prior_mu,prior_sigma,posterior_mu_init,posterior_rho_init)
         model.to(device)
@@ -221,7 +223,7 @@ def main():
 
         # For each element of the ensemble
         for ind in range(args.num_mctest):
-            
+
             if torch.cuda.is_available():
                   datarel_test  = datarel_test.to(device)
 
@@ -232,7 +234,8 @@ def main():
             plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:], ax)
         plt.legend()
         plt.title('Trajectory samples')
-        plt.show()
+		if args.show_plot:
+        	plt.show()
         # Solo aplicamos a un elemento del batch
         break
 
@@ -243,7 +246,7 @@ def main():
     # Testing
     cont = 0
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-        
+
         tpred_samples = []
         sigmas_samples = []
         # Muestreamos con cada modelo
@@ -258,7 +261,7 @@ def main():
             sigmas_samples.append(sigmas)
 
         #plt.show()
-        
+
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
 

@@ -8,7 +8,6 @@ sys.path.append('.')
 
 import math,numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
 from datetime import datetime
 
 import torch
@@ -50,6 +49,8 @@ parser.add_argument('--teacher-forcing',
 parser.add_argument('--pickle',
                     action='store_true',
                     help='use previously made pickle files')
+parser.add_argument('--show-plot', default=False,
+                    action='store_true', help='show the test plots')
 parser.add_argument('--plot-losses',
                     action='store_true',
                     help='plot losses curves after training')
@@ -128,10 +129,12 @@ def main():
         plot_traj_img(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], test_homography, bck)
         plt.legend()
         plt.title('Trajectory samples {}'.format(batch_idx))
-        plt.show()
+        if args.show_plot:
+            plt.show()
         # Not display more than args.examples
         if batch_idx==args.examples-1:
             break
+
     # Testing: Quantitative
     ade  = 0
     fde  = 0

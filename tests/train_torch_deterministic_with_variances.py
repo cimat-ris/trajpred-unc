@@ -40,6 +40,8 @@ parser.add_argument('--epochs', '--e',
 parser.add_argument('--examples',
                     type=int, default=1, metavar='N',
                     help='number of examples to exhibit (default: 1)')
+parser.add_argument('--show-plot', default=False,
+                    action='store_true', help='show the test plots')
 parser.add_argument('--id-test',
                     type=int, default=2, metavar='N',
                     help='id of the dataset to use as test in LOO (default: 2)')
@@ -133,7 +135,8 @@ def main():
         plot_cov_world(pred[ind,:,:],sigmas[ind,:,:],data_test[ind,:,:],ax)
         plt.legend()
         plt.title('Trajectory samples {}'.format(batch_idx))
-        plt.show()
+		if args.show_plot:
+        	plt.show()
         # Not display more than args.examples
         if batch_idx==args.examples-1:
             break
