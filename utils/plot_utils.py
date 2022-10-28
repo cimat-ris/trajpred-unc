@@ -21,7 +21,7 @@ def draw_covariance_ellipse(mean_pos, cov_pos, ax=None, color=None, n_sigmas=2):
     e = Ellipse(mean_pos,n_sigmas*semi_w,n_sigmas*semi_h,angle,color=color)
     e.set_alpha(0.2)
     ax.add_patch(e)
-    
+
 # Image-to-world mapping
 def world_to_image_xy(world_xy,homography_to_img,flip=False):
     """
@@ -179,7 +179,7 @@ def plot_traj_img_kde(pred_traj, obs_traj_gt, pred_traj_gt, homography_to_world,
     plt.savefig("images/calibration/trajectories_with_kde/trajectories_kde_WORLD_"+str(id_batch)+"_"+str(pos)+".pdf")
     plt.close()
 
-def plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title, ax=None):
+def plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title, ax=None,show=False):
     """
     Plot HDR curves
     """
@@ -192,9 +192,10 @@ def plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title, ax=N
     plt.legend(fontsize=17)
     plt.grid("on")
     plt.savefig(output_image_name)
-    plt.show()
+    if show:
+        plt.show()
 
-def plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, cal_conformal=False):
+def plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, cal_conformal=False,show=False):
     """
     Plot calibration curves
     """
@@ -210,7 +211,8 @@ def plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, 
     plt.xlabel(r'$\alpha$', fontsize=17)
     plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
     plt.savefig(output_image_name)
-    plt.show()
+    if show:
+        plt.show()
 
 def plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=0.85):
     """
