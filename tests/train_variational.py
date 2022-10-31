@@ -146,7 +146,8 @@ def main():
     model.eval()
 
     # Creamos la carpeta donde se guardaran las imagenes
-    mkdir_p(os.path.join(IMAGES_DIR))
+    if not os.path.exists("./images"):
+        os.makedirs("./images")
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
