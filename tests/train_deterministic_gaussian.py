@@ -1,3 +1,9 @@
+#!/usr/bin/env python
+# coding: utf-8
+# Autor: Mario Xavier Canche Uc
+# Centro de Investigación en Matemáticas, A.C.
+# mario.canche@cimat.mx
+
 # Imports
 import time
 import sys,os,logging, argparse
@@ -7,7 +13,6 @@ sys.path.append('.')
 import math,numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import pandas as pd
 
 import torch
 from torchvision import transforms
@@ -25,6 +30,7 @@ import torch.optim as optim
 # Local constants
 from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, TEST_DETERMINISTIC_GAUSSIAN
 
+
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--batch-size', '--b',
@@ -37,17 +43,11 @@ parser.add_argument('--examples',
                     type=int, default=1, metavar='N',
                     help='number of examples to exhibit (default: 1)')
 parser.add_argument('--id-test',
-                    type=int, default=7, metavar='N',
-                    help='id of the dataset to use as test in SDD (default: 2)')
-parser.add_argument('--max-overlap',
-                    type=int, default=1, metavar='N',
-                    help='Maximal overlap between trajets (default: 1)')
+                    type=int, default=2, metavar='N',
+                    help='id of the dataset to use as test in LOO (default: 2)')
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
-parser.add_argument('--validation-proportion', '--vp',
-                    type=float, default=0.1, metavar='N',
-                    help='validation proportion out of training set (default: 0.1)')
 parser.add_argument('--no-retrain',
                     action='store_true',
                     help='do not retrain the model')
@@ -64,6 +64,7 @@ parser.add_argument('--log-level',type=int, default=20,help='Log level (default:
 parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
 args = parser.parse_args()
 
+
 def main():
     # Printing parameters
     torch.set_printoptions(precision=2)
@@ -74,15 +75,15 @@ def main():
         logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Load the default parameters, TODO: review parameters for SDD dataset
-    experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
+    # Load the default parameters
+    experiment_parameters = Experiment_Parameters()
 
-    dataset_dir   = "datasets/sdd/sdd_data"
-    dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
-    model_name    = "deterministic_gaussian_sdd"
+    dataset_dir   = "datasets/"
+    dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
+    model_name    = "deterministic_variances"
 
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, _ = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, validation_proportion=args.validation_proportion, sdd=True, compute_neighbors=False)
+    training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
     # Torch dataset
     train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
     val_data   = traj_dataset(validation_data[OBS_TRAJ_VEL], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
@@ -92,7 +93,7 @@ def main():
     batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
     batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
     batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=False)
- 
+
     # Seed for RNG
     seed = 1
     num_ensembles = 1
@@ -116,8 +117,9 @@ def main():
     model.eval()
     model.to(device)
 
+
     ind_sample = np.random.randint(args.batch_size)
-    #bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test], REFERENCE_IMG))
+    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test], REFERENCE_IMG))
 
     output_dir = os.path.join(IMAGES_DIR)
     mkdir_p(output_dir)
@@ -174,6 +176,7 @@ def main():
         save_data_for_calibration(TEST_DETERMINISTIC_GAUSSIAN, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
         # Solo se ejecuta para un batch y es usado como dataset de calibración
         break
+
 
 if __name__ == "__main__":
     main()

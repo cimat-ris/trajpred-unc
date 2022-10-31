@@ -17,6 +17,7 @@ from utils.constants import TEST_BITRAP_BT, TEST_DETERMINISTIC_GAUSSIAN, TEST_DR
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--calibration-conformal', action='store_true', help='generates metrics using calibration conformal')
 parser.add_argument('--gaussian-output', default=False, action='store_true', help='gaussian var to be used to compute calibration metrics')
+parser.add_argument('--show-plot', default=False, action='store_true', help='show the calibration plots')
 parser.add_argument('--nll', default=False, action='store_true', help='Compute the values of GT negative log likelihood before and after calibration')
 parser.add_argument('--test-name', type=str, default='deterministicGaussian', help='Test data to be load (default: deterministic gaussian test)')
 parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
@@ -52,13 +53,13 @@ def compute_calibration_metrics():
         logging.info("*************************************")
         logging.info("******* Conformal Calibration *******")
         logging.info("*************************************")
-        generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, id_test, gaussian=args.gaussian_output, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full)
+        generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, id_test, gaussian=args.gaussian_output, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full,show_plot=args.show_plot)
 
     # ---------------------------------- Calibration HDR -------------------------------------------------
     logging.info("*******************************************")
     logging.info("***** Isotonic Regression Calibration *****")
     logging.info("*******************************************")
-    generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, id_test, gaussian=args.gaussian_output, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full,compute_nll=args.nll)
+    generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, id_test, gaussian=args.gaussian_output, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full,compute_nll=args.nll,show_plot=args.show_plot)
 
 if __name__ == "__main__":
     # Loggin format

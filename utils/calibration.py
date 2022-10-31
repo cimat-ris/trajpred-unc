@@ -144,24 +144,24 @@ def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_ca
 	return predicted_hdr
 
 
-def save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=False, idTest=0, position=0, output_dirs=None):
+def save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=False, idTest=0, position=0, output_dirs=None, show=False):
 	"""
 	Save calibration curves
 	"""
 	if gaussian:
 		output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
-		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name)
+		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, show=show)
 	else:
 		output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
-		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name)
+		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, show=show)
 
 	if tpred_samples_test is not None:
 		if gaussian:
 			output_image_name = os.path.join(output_dirs.confidence, "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
-			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name)
+			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, show=show)
 		else:
 			output_image_name = os.path.join(output_dirs.confidence, "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
-			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name)
+			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, show=show)
 
 
 def get_fa(orden, alpha, ind_alpha):
@@ -227,7 +227,7 @@ def get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples, targe
 	return cal_pcts, unc_pcts
 
 
-def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000, output_dirs=None):
+def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000, output_dirs=None, show_plot=False):
 
 	predicted_hdr = get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
 
@@ -240,7 +240,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	#Visualization: Estimating HDR of Forecast
 	output_image_name = os.path.join(output_dirs.calibration, "plot_uncalibrate_"+str(idTest)+".pdf")
 	title = "Estimating HDR of Forecast"
-	plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title)
+	plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title, show=show_plot)
 
 	#-----------------
 
@@ -251,7 +251,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	# Visualization: Calibration with Isotonic Regression
 	output_image_name = os.path.join(output_dirs.calibration, "plot_calibrate_"+str(idTest)+".pdf")
 	title = "Calibration with Isotonic Regression"
-	plot_HDR_curves(predicted_hdr, isotonic.predict(empirical_hdr), output_image_name, title)
+	plot_HDR_curves(predicted_hdr, isotonic.predict(empirical_hdr), output_image_name, title, show=show_plot)
 
 	#----------------
 
@@ -264,8 +264,7 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	if tpred_samples_test is not None:
 		cal_pcts2, unc_pcts2 = get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples_test, target_test, data_test, sigmas_samples_test, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
 
-	save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=gaussian, idTest=idTest, position=position, output_dirs=output_dirs)
-
+	save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=gaussian, idTest=idTest, position=position, output_dirs=output_dirs, show=show_plot)
 	return 1-conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, isotonic
 
 
@@ -431,7 +430,7 @@ def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alp
 	return perc_within_cal, perc_within_unc
 
 
-def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None, output_dirs=None):
+def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None, output_dirs=None, show_plot=False):
 	# Alpha values
 	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05)
 
@@ -464,11 +463,11 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 			unc_pcts2.append(np.mean(perc_within_unc))
 
 	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
-	plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, cal_conformal=True)
+	plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, cal_conformal=True,show=show_plot)
 
 	if tpred_samples_test is not None:
 		output_image_name = os.path.join(output_dirs.confidence , "confidence_level_test_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
-		plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, cal_conformal=True)
+		plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, cal_conformal=True,show=show_plot)
 
 	return conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2
 
@@ -484,7 +483,7 @@ def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, 
 	metrics_data.append([key + " pos " + str(position),mace,rmsce,ma])
 	logging.info("{}:  MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(key,mace,rmsce,ma))
 
-def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None, compute_nll=False):
+def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None, compute_nll=False, show_plot=False):
 
 	#------------Calibration metrics-------------------
 	metrics_calibration_data = [["","MACE","RMSCE","MA"]]
@@ -499,7 +498,7 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		logging.info("Calibration metrics at position: {}".format(position))
 		logging.info("Calibration method: Isotonic regression")
 		# Apply isotonic regression
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
+		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs,show_plot=show_plot)
 
 		# Calibration metrics
 		logging.info("Calibration metrics (Calibration dataset)")
@@ -570,7 +569,7 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 
 
 
-def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetrel_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, targetrel_test=None, target_test=None, sigmas_samples_test=None):
+def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetrel_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, targetrel_test=None, target_test=None, sigmas_samples_test=None, show_plot=False):
 	#--------------------- Calculamos las metricas de calibracion ---------------------------------
 	metrics2 = [["","MACE","RMSCE","MA"]]
 	metrics3 = [["","MACE","RMSCE","MA"]]
@@ -587,7 +586,7 @@ def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetre
 		gt_test = np.cumsum(targetrel_test, axis=1)
 		# HDR y Calibracion
 		logging.info("Calibration method: Conformal approach with density values")
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
+		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs, show_plot=show_plot)
 
 		# Metrics Calibration
 		logging.info("Calibration metrics (Calibration dataset)")
