@@ -34,9 +34,10 @@ from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, tr
 from utils.train_utils import train_variational
 from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
 from utils.calibration import generate_one_batch_test
+from utils.directory_utils import mkdir_p
 
 # Local constants
-from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TEST_VARIATIONAL_CALIBRATION, TRAINING_CKPT_DIR
+from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TEST_VARIATIONAL_CALIBRATION, TRAINING_CKPT_DIR
 
 # parameters models
 #initial_lr     = 0.000002
@@ -145,8 +146,7 @@ def main():
     model.eval()
 
     # Creamos la carpeta donde se guardaran las imagenes
-    if not os.path.exists("./images"):
-        os.makedirs("./images")
+    mkdir_p(os.path.join(IMAGES_DIR))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
