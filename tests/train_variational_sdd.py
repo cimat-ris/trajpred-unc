@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-# Autor: Mario Xavier Canche Uc
-# Centro de Investigación en Matemáticas, A.C.
-# mario.canche@cimat.mx
 
 # Imports
 import time
@@ -37,7 +34,7 @@ from utils.calibration import generate_one_batch_test
 from utils.directory_utils import mkdir_p
 
 # Local constants
-from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, VARIATIONAL, TRAINING_CKPT_DIR
+from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, VARIATIONAL_SDD, TRAINING_CKPT_DIR, VARIATIONAL_SDD
 
 # parameters models
 #initial_lr     = 0.000002
@@ -88,9 +85,9 @@ def main():
     # Load the default parameters
     experiment_parameters = Experiment_Parameters()
 
-    dataset_dir   = "datasets/"
-    dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
-    model_name    = "variational"
+    dataset_dir   = "datasets/sdd/sdd_data"
+    dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
+    model_name    = "variational_sdd"
 
     # Load the dataset and perform the split
     training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
@@ -166,7 +163,7 @@ def main():
             plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:], ax)
         plt.legend()
         plt.title('Trajectory samples {}'.format(batch_idx))
-        plt.savefig("images/pred_variational.pdf")
+        plt.savefig("images/pred_variational_sdd.pdf")
         plt.close()
 
         # Solo aplicamos a un elemento del batch
@@ -200,7 +197,7 @@ def main():
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
 
-        save_data_for_calibration(VARIATIONAL, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
+        save_data_for_calibration(VARIATIONAL_SDD, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
 
 
         # Solo se ejecuta para un batch
