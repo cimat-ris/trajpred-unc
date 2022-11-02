@@ -20,7 +20,7 @@ from bitrap.engine.utils import print_info, post_process
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset_bitrap
 import logging
 # Local constants
-from utils.constants import OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_NEIGHBORS, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, BITRAP_BT, TRAINING_CKPT_DIR, REFERENCE_IMG
+from utils.constants import BITRAP_BT_SDD, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_NEIGHBORS, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, BITRAP_BT_SDD, TRAINING_CKPT_DIR, REFERENCE_IMG
 
 import argparse
 from configs import cfg
@@ -63,9 +63,9 @@ if __name__ == '__main__':
     experiment_parameters = Experiment_Parameters()
 
     #### Data: our way
-    dataset_dir   = "datasets/"
-    dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
-    model_name = 'model_bitrap_BT'
+    dataset_dir   = "datasets/sdd/sdd_data"
+    dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
+    model_name = 'model_bitrap_BT_sdd'
 
     #### Data: BitTrap way
     cfg.merge_from_file(args.config_file)
@@ -233,4 +233,4 @@ if __name__ == '__main__':
         targetrel_test     =  torch.tensor(gt2_traj[:256,:,:])
         targetrel_test_full=  torch.tensor(gt2_traj[256:,:,:])
 
-        save_data_for_calibration(BITRAP_BT, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, None, None, args.id_test)
+        save_data_for_calibration(BITRAP_BT_SDD, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, None, None, args.id_test)
