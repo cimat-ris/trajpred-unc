@@ -15,13 +15,18 @@ TRAIN_DATA_STR = '/training_data_'
 TEST_DATA_STR  = '/test_data_'
 VAL_DATA_STR   = '/validation_data_'
 
-# test names strings used for calibration
-TEST_DETERMINISTIC_GAUSSIAN = 'test_deterministic_gaussian'
-TEST_DETERMINISTIC_GAUSSIAN_SDD = 'test_deterministic_gaussian_sdd'
-TEST_ENSEMBLES_CALIBRATION = 'test_ensembles_calibration'
-TEST_DROPOUT_CALIBRATION = 'test_dropout_calibration'
-TEST_BITRAP_BT = 'test_bitrap_BT'
-TEST_VARIATIONAL_CALIBRATION = 'test_variational_calibration'
+# test names strings used for ETH and SDD calibration
+DETERMINISTIC_GAUSSIAN = 'deterministic_gaussian'
+ENSEMBLES = 'ensembles'
+DROPOUT = 'dropout'
+BITRAP_BT = 'bitrap_BT'
+VARIATIONAL = 'variational'
+
+DETERMINISTIC_GAUSSIAN_SDD = 'deterministic_gaussian_sdd'
+ENSEMBLES_SDD = 'ensembles_sdd'
+DROPOUT_SDD = 'dropout_sdd'
+BITRAP_BT_SDD = 'bitrap_BT_sdd'
+VARIATIONAL_SDD = 'variational_sdd'
 
 # Training checkpoints dir
 TRAINING_CKPT_DIR = 'training_checkpoints'
