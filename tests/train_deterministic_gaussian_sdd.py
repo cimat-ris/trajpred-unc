@@ -22,7 +22,7 @@ from utils.calibration_utils import save_data_for_calibration
 from utils.directory_utils import mkdir_p
 import torch.optim as optim
 # Local constants
-from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, TEST_DETERMINISTIC_GAUSSIAN_SDD
+from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN_SDD
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -78,7 +78,7 @@ def main():
 
     dataset_dir   = "datasets/sdd/sdd_data"
     dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
-    model_name    = "deterministic_gaussian_sdd"
+    model_name    = "deterministic_variances_sdd"
 
     # Load the dataset and perform the split
     training_data, validation_data, test_data, _ = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, validation_proportion=args.validation_proportion, sdd=True, compute_neighbors=False)
@@ -170,7 +170,7 @@ def main():
         print(tpred_samples.shape)
         print(sigmas_samples.shape)
 
-        save_data_for_calibration(TEST_DETERMINISTIC_GAUSSIAN_SDD, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
+        save_data_for_calibration(DETERMINISTIC_GAUSSIAN_SDD, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
         # Solo se ejecuta para un batch y es usado como dataset de calibración
         break
 

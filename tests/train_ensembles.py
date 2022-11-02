@@ -30,7 +30,7 @@ from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import generate_one_batch_test
 import torch.optim as optim
 # Local constants
-from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TEST_ENSEMBLES_CALIBRATION, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, ENSEMBLES, TRAINING_CKPT_DIR
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -143,8 +143,8 @@ def main():
             plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:],ax)
         plt.legend()
         plt.title('Trajectory samples {}'.format(batch_idx))
-		if args.show_plot:
-        	plt.show()
+        if args.show_plot:
+            plt.show()
         # Solo aplicamos a un elemento del batch
         break
 
@@ -180,7 +180,7 @@ def main():
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
 
-        save_data_for_calibration(TEST_ENSEMBLES_CALIBRATION, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
+        save_data_for_calibration(ENSEMBLES, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
 
         # Solo se ejecuta para un batch y es usado como dataset de calibración
         break
