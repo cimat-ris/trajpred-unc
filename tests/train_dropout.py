@@ -38,7 +38,7 @@ from utils.calibration import generate_one_batch_test
 import torch.optim as optim
 
 # Local constants
-from utils.constants import OBS_TRAJ, OBS_TRAJ_VEL, PRED_TRAJ, PRED_TRAJ_VEL, TEST_DROPOUT_CALIBRATION, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ, OBS_TRAJ_VEL, PRED_TRAJ, PRED_TRAJ_VEL, DROPOUT, TRAINING_CKPT_DIR
 
 
 # Parser arguments
@@ -93,10 +93,10 @@ def train(model,device,idTest,train_data,val_data):
 			# We need to clear them out before each instance
 			model.zero_grad()
 			if torch.cuda.is_available():
-			  data  = data.to(device)
-			  target=target.to(device)
-			  data_abs  = data_abs.to(device)
-			  target_abs=target_abs.to(device)
+				data  = data.to(device)
+				target=target.to(device)
+				data_abs  = data_abs.to(device)
+				target_abs=target_abs.to(device)
 
 			# Run our forward pass and compute the loss
 			loss   = model(data, target, data_abs , target_abs)# , training=True)
@@ -115,10 +115,10 @@ def train(model,device,idTest,train_data,val_data):
 		for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
 
 			if torch.cuda.is_available():
-			  data_val  = data_val.to(device)
-			  target_val = target_val.to(device)
-			  data_abs  = data_abs.to(device)
-			  target_abs = target_abs.to(device)
+				data_val  = data_val.to(device)
+				target_val = target_val.to(device)
+				data_abs  = data_abs.to(device)
+				target_abs = target_abs.to(device)
 
 			loss_val = model(data_val, target_val, data_abs , target_abs)
 			error += loss_val
@@ -214,7 +214,7 @@ def main():
 		# For each element of the ensemble
 		for ind in range(args.num_MC):
 			if torch.cuda.is_available():
-				  datarel_test  = datarel_test.to(device)
+				datarel_test  = datarel_test.to(device)
 
 			pred, sigmas = model.predict(datarel_test, dim_pred=12)
 			# Plotting
@@ -242,7 +242,7 @@ def main():
 		for ind in range(args.num_MC):
 
 			if torch.cuda.is_available():
-				  datarel_test  = datarel_test.to(device)
+				datarel_test  = datarel_test.to(device)
 
 			pred, sigmas = model.predict(datarel_test, dim_pred=12)
 
@@ -254,7 +254,7 @@ def main():
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
 
-		save_data_for_calibration(TEST_DROPOUT_CALIBRATION, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
+		save_data_for_calibration(DROPOUT, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
 
 		# Solo se ejecuta para un batch
 		break
