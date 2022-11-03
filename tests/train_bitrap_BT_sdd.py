@@ -37,6 +37,9 @@ if __name__ == '__main__':
     parser.add_argument('--id-test',
                         type=int, default=2, metavar='N',
                         help='id of the dataset to use as test in LOO (default: 2)')
+    parser.add_argument('--max-overlap',
+                    type=int, default=1, metavar='N',
+                    help='Maximal overlap between trajets (default: 1)')
     parser.add_argument('--batch-size', '--b',
                         type=int, default=64, metavar='N',
                         help='input batch size for training (default: 256)')
@@ -60,7 +63,7 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
 
     # Load the default parameters
-    experiment_parameters = Experiment_Parameters()
+    experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
     #### Data: our way
     dataset_dir   = "datasets/sdd/sdd_data"

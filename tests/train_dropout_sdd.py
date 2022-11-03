@@ -55,6 +55,9 @@ parser.add_argument('--dropout-rate',
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
+parser.add_argument('--max-overlap',
+                    type=int, default=1, metavar='N',
+                    help='Maximal overlap between trajets (default: 1)')
 parser.add_argument('--no-retrain',
                     action='store_true',
                     help='do not retrain the model')
@@ -149,7 +152,7 @@ def main():
 
     logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
     # Load the default parameters
-    experiment_parameters = Experiment_Parameters()
+    experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
     dataset_dir   = "datasets/sdd/sdd_data"
     dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']

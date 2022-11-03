@@ -50,6 +50,9 @@ parser.add_argument('--epochs', '--e',
 parser.add_argument('--id-test',
                     type=int, default=2, metavar='N',
                     help='id of the dataset to use as test in LOO (default: 2)')
+parser.add_argument('--max-overlap',
+                    type=int, default=1, metavar='N',
+                    help='Maximal overlap between trajets (default: 1)')
 parser.add_argument('--num-mctrain',
                     type=int, default=5, metavar='N',
                     help='number of sample monte carlo for train (default: 5)')
@@ -83,7 +86,7 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default parameters
-    experiment_parameters = Experiment_Parameters()
+    experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
     dataset_dir   = "datasets/sdd/sdd_data"
     dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
