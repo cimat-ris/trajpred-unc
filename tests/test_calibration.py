@@ -11,7 +11,7 @@ sys.path.append('.')
 
 from utils.calibration_utils import get_data_for_calibration
 from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_metrics_calibration_conformal
-from utils.constants import TEST_BITRAP_BT, TEST_DETERMINISTIC_GAUSSIAN, TEST_DROPOUT_CALIBRATION, TEST_ENSEMBLES_CALIBRATION, TEST_VARIATIONAL_CALIBRATION
+from utils.constants import BITRAP_BT, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -31,11 +31,16 @@ def get_test_name():
         - test_name
     """
     valid_test_names = {
-        "deterministicGaussian": TEST_DETERMINISTIC_GAUSSIAN,
-        "ensembles": TEST_ENSEMBLES_CALIBRATION,
-        "dropout": TEST_DROPOUT_CALIBRATION,
-        "bitrap": TEST_BITRAP_BT,
-        "variational": TEST_VARIATIONAL_CALIBRATION
+        "deterministicGaussian": DETERMINISTIC_GAUSSIAN,
+        "ensembles":             ENSEMBLES,
+        "dropout":               DROPOUT,
+        "bitrap":                BITRAP_BT,
+        "variational":           VARIATIONAL,
+        "deterministicGaussianSDD": DETERMINISTIC_GAUSSIAN_SDD,
+        "ensemblesSDD":             ENSEMBLES_SDD,
+        "dropoutSDD":               DROPOUT_SDD,
+        "bitrapSDD":                BITRAP_BT_SDD,
+        "variationalSDD":           VARIATIONAL_SDD
         }
     if args.test_name not in valid_test_names.keys():
         return "ERROR: INVALID TEST NAME!!"
