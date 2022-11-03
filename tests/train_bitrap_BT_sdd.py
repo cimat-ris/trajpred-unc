@@ -40,6 +40,9 @@ if __name__ == '__main__':
     parser.add_argument('--max-overlap',
                     type=int, default=1, metavar='N',
                     help='Maximal overlap between trajets (default: 1)')
+    parser.add_argument('--learning-rate', '--lr',
+                    type=float, default=0.0004, metavar='N',
+                    help='learning rate of optimizer (default: 1E-3)')
     parser.add_argument('--batch-size', '--b',
                         type=int, default=64, metavar='N',
                         help='input batch size for training (default: 256)')
@@ -164,7 +167,7 @@ if __name__ == '__main__':
     ##################################################################
     # With our data (to show how to use BitTrap normalization)
     # Load the dataset and perform the split
-    training_data, validation_data, testing_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False,use_neighbors=True)
+    training_data, validation_data, testing_data, test_homography = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False,use_neighbors=True)
     # Torch dataset
     X_test            = np.concatenate([testing_data[OBS_TRAJ],testing_data[OBS_TRAJ_VEL],testing_data[OBS_TRAJ_ACC]],axis=2)
     test_data         = traj_dataset_bitrap(X_test,testing_data[OBS_NEIGHBORS],testing_data[PRED_TRAJ])
