@@ -167,7 +167,7 @@ if __name__ == '__main__':
     ##################################################################
     # With our data (to show how to use BitTrap normalization)
     # Load the dataset and perform the split
-    training_data, validation_data, testing_data, test_homography = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False,use_neighbors=True)
+    training_data, validation_data, testing_data, test_homography = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False,use_neighbors=True, sdd=True, compute_neighbors=False)
     # Torch dataset
     X_test            = np.concatenate([testing_data[OBS_TRAJ],testing_data[OBS_TRAJ_VEL],testing_data[OBS_TRAJ_ACC]],axis=2)
     test_data         = traj_dataset_bitrap(X_test,testing_data[OBS_NEIGHBORS],testing_data[PRED_TRAJ])
