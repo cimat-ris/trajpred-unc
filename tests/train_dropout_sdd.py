@@ -204,7 +204,7 @@ def main():
 
 
     ind_sample = np.random.randint(args.batch_size)
-    bck = plt.imread(os.path.join(dataset_dir,dataset_names[idTest],'reference.png'))
+    #bck = plt.imread(os.path.join(dataset_dir,dataset_names[idTest],'reference.png'))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):

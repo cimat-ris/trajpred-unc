@@ -139,7 +139,7 @@ def main():
 
 
     ind_sample = np.random.randint(args.batch_size)
-    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test],REFERENCE_IMG))
+    #bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test],REFERENCE_IMG))
 
     # Load the previously trained model
     model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(args.id_test)+".pth"))
