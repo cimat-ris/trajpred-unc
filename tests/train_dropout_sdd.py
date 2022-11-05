@@ -5,7 +5,6 @@
 import time
 import sys,os,logging, argparse
 
-from utils.calibration_utils import save_data_for_calibration
 ''' TF_CPP_MIN_LOG_LEVEL
 0 = all messages are logged (default behavior)
 1 = INFO messages are not printed
@@ -31,6 +30,7 @@ from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import generate_one_batch_test
+from utils.calibration_utils import save_data_for_calibration
 
 import torch.optim as optim
 
