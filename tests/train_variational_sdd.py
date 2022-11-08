@@ -68,6 +68,8 @@ parser.add_argument('--no-retrain',
 parser.add_argument('--pickle',
                     action='store_true',
                     help='use previously made pickle files')
+parser.add_argument('--show-plot', default=False,
+                    action='store_true', help='show the test plots')
 parser.add_argument('--plot-losses',
                     action='store_true',
                     help='plot losses curves after training')
@@ -167,8 +169,9 @@ def main():
         plt.legend()
         plt.title('Trajectory samples {}'.format(batch_idx))
         plt.savefig("images/pred_variational_sdd.pdf")
+        if args.show_plot:
+            plt.show()
         plt.close()
-
         # Solo aplicamos a un elemento del batch
         break
 

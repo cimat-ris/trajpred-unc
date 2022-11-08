@@ -56,6 +56,8 @@ parser.add_argument('--teacher-forcing',
 parser.add_argument('--pickle',
                     action='store_true',
                     help='use previously made pickle files')
+parser.add_argument('--show-plot', default=False,
+                    action='store_true', help='show the test plots')
 parser.add_argument('--plot-losses',
                     action='store_true',
                     help='plot losses curves after training')
@@ -135,6 +137,8 @@ def main():
         #plot_cov_world(pred[ind,:,:],sigmas[ind,:,:],data_test[ind,:,:],ax)
         plt.legend()
         plt.savefig(os.path.join(output_dir , "pred_dropout"+".pdf"))
+        if args.show_plot:
+            plt.show()
         plt.close()
         # Not display more than args.examples
         if batch_idx==args.examples-1:
