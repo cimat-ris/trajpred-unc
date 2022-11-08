@@ -5,7 +5,6 @@
 import time
 import sys,os,logging, argparse
 
-from utils.calibration_utils import save_data_for_calibration
 ''' TF_CPP_MIN_LOG_LEVEL
 0 = all messages are logged (default behavior)
 1 = INFO messages are not printed
@@ -31,6 +30,7 @@ from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import generate_one_batch_test
+from utils.calibration_utils import save_data_for_calibration
 
 import torch.optim as optim
 
@@ -55,12 +55,17 @@ parser.add_argument('--dropout-rate',
 parser.add_argument('--learning-rate', '--lr',
                     type=float, default=0.0004, metavar='N',
                     help='learning rate of optimizer (default: 1E-3)')
+parser.add_argument('--max-overlap',
+                    type=int, default=1, metavar='N',
+                    help='Maximal overlap between trajets (default: 1)')
 parser.add_argument('--no-retrain',
                     action='store_true',
                     help='do not retrain the model')
 parser.add_argument('--pickle',
                     action='store_true',
                     help='use previously made pickle files')
+parser.add_argument('--show-plot', default=False,
+                    action='store_true', help='show the test plots')
 parser.add_argument('--plot-losses',
                     action='store_true',
                     help='plot losses curves after training')
@@ -149,7 +154,7 @@ def main():
 
     logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
     # Load the default parameters
-    experiment_parameters = Experiment_Parameters()
+    experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
     dataset_dir   = "datasets/sdd/sdd_data"
     dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
@@ -157,7 +162,7 @@ def main():
     pickle        = False
 
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
+    training_data, validation_data, test_data, test_homography = setup_loo_experiment('SDD',dataset_dir,dataset_names,idTest,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, sdd=True, compute_neighbors=False)
 
     # Torch dataset
     train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
@@ -201,7 +206,7 @@ def main():
 
 
     ind_sample = np.random.randint(args.batch_size)
-    bck = plt.imread(os.path.join(dataset_dir,dataset_names[idTest],'reference.png'))
+    #bck = plt.imread(os.path.join(dataset_dir,dataset_names[idTest],'reference.png'))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):

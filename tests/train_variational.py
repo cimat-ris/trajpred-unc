@@ -71,6 +71,8 @@ parser.add_argument('--pickle',
 parser.add_argument('--plot-losses',
                     action='store_true',
                     help='plot losses curves after training')
+parser.add_argument('--show-plot', default=False,
+                    action='store_true', help='show the test plots')
 parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
 args = parser.parse_args()
@@ -167,8 +169,9 @@ def main():
         plt.legend()
         plt.title('Trajectory samples {}'.format(batch_idx))
         plt.savefig("images/pred_variational.pdf")
+        if args.show_plot:
+            plt.show()
         plt.close()
-
         # Solo aplicamos a un elemento del batch
         break
 

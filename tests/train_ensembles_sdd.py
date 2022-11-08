@@ -40,6 +40,9 @@ parser.add_argument('--epochs', '--e',
 parser.add_argument('--id-test',
                     type=int, default=2, metavar='N',
                     help='id of the dataset to use as test in LOO (default: 2)')
+parser.add_argument('--max-overlap',
+                    type=int, default=1, metavar='N',
+                    help='Maximal overlap between trajets (default: 1)')
 parser.add_argument('--num-ensembles',
                     type=int, default=5, metavar='N',
                     help='number of elements in the ensemble (default: 5)')
@@ -75,14 +78,14 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Load the default parameters
-    experiment_parameters = Experiment_Parameters()
+    experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
     dataset_dir   = "datasets/sdd/sdd_data"
     dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
     model_name    = "deterministic_variances_ens_sdd"
 
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, test_homography = setup_loo_experiment('ETH_UCY',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
+    training_data, validation_data, test_data, test_homography = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, sdd=True, compute_neighbors=False)
 
     # Torch dataset
     train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
@@ -118,7 +121,7 @@ def main():
 
 
     ind_sample = np.random.randint(args.batch_size)
-    bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test], REFERENCE_IMG))
+    #bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test], REFERENCE_IMG))
 
     # Testing
     for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):

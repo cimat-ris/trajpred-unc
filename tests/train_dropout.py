@@ -64,6 +64,8 @@ parser.add_argument('--no-retrain',
 parser.add_argument('--pickle',
 					action='store_true',
 					help='use previously made pickle files')
+parser.add_argument('--show-plot', default=False,
+                    action='store_true', help='show the test plots')
 parser.add_argument('--plot-losses',
 					action='store_true',
 					help='plot losses curves after training')
