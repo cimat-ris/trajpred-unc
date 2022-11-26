@@ -28,13 +28,13 @@ MODEL:
 DATASET:
   NAME: 'zara1'
   ETH_CONFIG: '/home/jbhayet/opt/repositories/devel/bidireaction-trajectory-prediction/configs/ETH_UCY.json'
-  ROOT: '/home/jbhayet/opt/repositories/devel/trajpred-bdl/datasets/trj++'
-  TRAJECTORY_PATH: '/home/jbhayet/opt/repositories/devel/trajpred-bdl/datasets/trj++'
+  ROOT: 'datasets/trj++'
+  TRAJECTORY_PATH: 'datasets/trj++'
 DATALOADER:
   NUM_WORKERS: 12
 SOLVER:
   # TRAIN_MODULE: 'FOL'
-  MAX_EPOCH: 1
+  MAX_EPOCH: 50
   BATCH_SIZE: 64
   LR: 0.001
   scheduler: 'exp'
