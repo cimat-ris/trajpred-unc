@@ -78,7 +78,7 @@ if __name__ == '__main__':
     env             = test_dataloader.dataset.dataset.env
 
     # Load a model
-    cfg.CKPT_DIR = 'training_checkpoints/bitrap-zara01-0{}.pth'.format(1)
+    cfg.CKPT_DIR = 'training_checkpoints/bitrap/bitrap-zara1-{:02d}.pth'.format(1)
     # Build model, optimizer and scheduler
     model = make_model(cfg)
     model = model.to(cfg.DEVICE)
