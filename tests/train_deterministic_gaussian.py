@@ -28,7 +28,7 @@ from utils.calibration_utils import save_data_for_calibration
 from utils.directory_utils import mkdir_p
 import torch.optim as optim
 # Local constants
-from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN
+from utils.constants import IMAGES_DIR,TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN
 
 
 # Parser arguments
@@ -82,6 +82,7 @@ def main():
 
 	# Seed for RNG
 	seed = 1
+	# TODO: remove the references to ensembles?
 	num_ensembles = 1
 
 	if args.no_retrain==False:

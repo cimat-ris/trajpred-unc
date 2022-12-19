@@ -38,7 +38,7 @@ from utils.calibration_utils import save_data_for_calibration
 import torch.optim as optim
 
 # Local constants
-from utils.constants import OBS_TRAJ, OBS_TRAJ_VEL, PRED_TRAJ, PRED_TRAJ_VEL, DROPOUT, TRAINING_CKPT_DIR
+from utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -175,7 +175,7 @@ def main():
 		# Entremamos el modelo
 		train(model,device,args.id_test,batched_train_data,batched_val_data)
 		if args.plot_losses:
-			plt.savefig("images/loss_"+str(idTest)+".pdf")
+			plt.savefig(IMAGES_DIR+"/loss_"+str(idTest)+".pdf")
 			plt.show()
 
 
