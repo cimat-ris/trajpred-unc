@@ -2,28 +2,39 @@
 
 ## Training
 
-To train the deterministic model:
+To train the simple deterministic model:
 
 ```
-python tests/train_torch_deterministic.py
+python tests/train_deterministic.py
 ```
 
-To train the deterministic model with variances as output:
+To train the simple deterministic model with variances as output (DG):
 
 ```
- python3 tests/train_torch_deterministic_with_variances.py
+ python tests/train_deterministic_gaussian.py
 ```
 
-To train the ensemble model and calibrate the uncertainties:
+To train the model made of an ensemble of DG (DGE):
 
 ```
-python tests/train_torch_ensembles_calibration.py
+python tests/train_ensembles.py
 ```
+
+To train the deterministic model with dropout at inference (DD):
+```
+python tests/train_dropout.py
+```
+
+To train the deterministic-variational model (DV):
+```
+python tests/train_variational.py
+```
+
 
 ## Testing
 
 ```
-python3 tests/train_torch_deterministic_with_variances.py  --no-retrain --pickle  --examples 10
+python tests/train_torch_deterministic_with_variances.py  --no-retrain --pickle  --examples 10
 ```
 
 ## Calibration: a postprocess step
