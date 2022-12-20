@@ -22,7 +22,7 @@ from utils.calibration_utils import save_data_for_calibration
 from utils.directory_utils import mkdir_p
 import torch.optim as optim
 # Local constants
-from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN_SDD
+from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN_SDD, SDD_DATASETS_DIR, SDD_NAMES
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -78,12 +78,10 @@ def main():
     # Load the default parameters, TODO: review parameters for SDD dataset
     experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
-    dataset_dir   = "datasets/sdd/sdd_data"
-    dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
     model_name    = "deterministic_variances_sdd"
 
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, _ = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, validation_proportion=args.validation_proportion, sdd=True, compute_neighbors=False)
+    training_data, validation_data, test_data, _ = setup_loo_experiment(SDD_DATASETS_DIR,SDD_NAMES,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, validation_proportion=args.validation_proportion, sdd=True, compute_neighbors=False)
     # Torch dataset
     train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
     val_data   = traj_dataset(validation_data[OBS_TRAJ_VEL], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
@@ -118,7 +116,6 @@ def main():
     model.to(device)
 
     ind_sample = np.random.randint(args.batch_size)
-    #bck = plt.imread(os.path.join(dataset_dir,dataset_names[args.id_test], REFERENCE_IMG))
 
     output_dir = os.path.join(IMAGES_DIR)
     mkdir_p(output_dir)

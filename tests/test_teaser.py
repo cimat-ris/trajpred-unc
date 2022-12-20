@@ -35,7 +35,7 @@ import torch.optim as optim
 # Local constants
 from utils.constants import (
 	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,REFERENCE_IMG,FRAMES_IDS,
-	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, IMAGES_DIR, MUN_POS_CSV, DATASETS_DIR, ETH_UCY_NAMES, TRAINING_CKPT_DIR
+	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, IMAGES_DIR, MUN_POS_CSV, ETH_UCY_DATASETS_DIR, ETH_UCY_NAMES, TRAINING_CKPT_DIR
 )
 
 # Gets a testing batch of trajectories starting at the same frame (for visualization)
@@ -101,9 +101,9 @@ def main():
 
 	# Load the dataset and perform the split
 	experiment_parameters = Experiment_Parameters()
-	training_data, validation_data, test_data, test_homography = setup_loo_experiment(DATASETS_DIR,ETH_UCY_NAMES,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
+	training_data, validation_data, test_data, test_homography = setup_loo_experiment(ETH_UCY_DATASETS_DIR,ETH_UCY_NAMES,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
 	# Load the reference image
-	reference_image = plt.imread(os.path.join(DATASETS_DIR,ETH_UCY_NAMES[args.id_test],REFERENCE_IMG))
+	reference_image = plt.imread(os.path.join(ETH_UCY_DATASETS_DIR,ETH_UCY_NAMES[args.id_test],REFERENCE_IMG))
 
 	# Torch dataset
 	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
@@ -205,7 +205,7 @@ def main():
 		# Solo se ejecuta para un batch y es usado como dataset de calibración
 		break
 
-	frame_id, batch, test_bckgd = get_testing_batch(testing_data,DATASETS_DIR+ETH_UCY_NAMES[args.id_test])
+	frame_id, batch, test_bckgd = get_testing_batch(testing_data,ETH_UCY_DATASETS_DIR+ETH_UCY_NAMES[args.id_test])
 	# Form batches
 	batched_test_data  = torch.utils.data.DataLoader(batch,batch_size=len(batch))
 	# Get the homography

@@ -20,7 +20,7 @@ from bitrap.engine.utils import print_info, post_process
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset_bitrap
 import logging
 # Local constants
-from utils.constants import OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_NEIGHBORS, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, BITRAP_BT, TRAINING_CKPT_DIR, REFERENCE_IMG, DATASETS_DIR,ETH_UCY_NAMES
+from utils.constants import OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_NEIGHBORS, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, BITRAP_BT, TRAINING_CKPT_DIR, REFERENCE_IMG, ETH_UCY_DATASETS_DIR, ETH_UCY_NAMES
 
 import argparse
 from configs import cfg
@@ -93,7 +93,7 @@ if __name__ == '__main__':
     ##################################################################
     # With our data (to show how to use BitTrap normalization)
     # Load the dataset and perform the split
-    training_data, validation_data, testing_data, test_homography = setup_loo_experiment(DATASETS_DIR,ETH_UCY_NAMES,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False,use_neighbors=True)
+    training_data, validation_data, testing_data, test_homography = setup_loo_experiment(ETH_UCY_DATASETS_DIR,ETH_UCY_NAMES,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False,use_neighbors=True)
     # Torch dataset
     X_test            = np.concatenate([testing_data[OBS_TRAJ],testing_data[OBS_TRAJ_VEL],testing_data[OBS_TRAJ_ACC]],axis=2)
     test_data         = traj_dataset_bitrap(X_test,testing_data[OBS_NEIGHBORS],testing_data[PRED_TRAJ])
