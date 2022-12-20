@@ -37,7 +37,7 @@ from utils.calibration import generate_one_batch_test
 from utils.directory_utils import mkdir_p
 
 # Local constants
-from utils.constants import IMAGES_DIR, VARIATIONAL, TRAINING_CKPT_DIR
+from utils.constants import IMAGES_DIR, VARIATIONAL, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # parameters models
 #initial_lr     = 0.000002
@@ -50,6 +50,9 @@ parser.add_argument('--batch-size', '--b',
 parser.add_argument('--epochs', '--e',
 					type=int, default=20, metavar='N',
 					help='number of epochs to train (default: 200)')
+parser.add_argument('--id-dataset',
+					type=str, default=0, metavar='N',
+					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
 parser.add_argument('--id-test',
 					type=int, default=2, metavar='N',
 					help='id of the dataset to use as test in LOO (default: 2)')
@@ -88,7 +91,7 @@ def main():
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(args)
-	model_name    = "variational"
+	model_name    = "deterministic_variational"
 
 	# Seleccionamos una semilla
 	seed = 1
@@ -126,7 +129,9 @@ def main():
 	ind_sample = np.random.randint(args.batch_size)
 
 	# Load the previously trained model
-	model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(args.id_test)+".pth"))
+	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
+	logging.info("Loading {}".format(model_filename))
+	model.load_state_dict(torch.load(model_filename))
 	model.eval()
 
 	# Creamos la carpeta donde se guardaran las imagenes
@@ -162,7 +167,7 @@ def main():
 	draw_ellipse = True
 
 	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.num_mctest, TRAINING_CKPT_DIR, model_name, id_test=args.id_test, device=device, type="variational")
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.num_mctest, model_name, args, device=device, type="variational")
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Testing
