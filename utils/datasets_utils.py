@@ -10,7 +10,7 @@ from tqdm import tqdm
 from torch.utils.data import Dataset
 from utils.constants import (
 	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,REFERENCE_IMG,
-	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, MUN_POS_CSV, ETH_UCY_DATASETS_DIR, ETH_UCY_NAMES
+	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, MUN_POS_CSV, DATASETS_DIR, SUBDATASETS_NAMES
 )
 import logging
 
@@ -397,9 +397,9 @@ def get_ethucy_dataset(args):
 	experiment_parameters = Experiment_Parameters()
 
 	# Load the dataset and perform the split
-	training_data, validation_data, test_data, homography = setup_loo_experiment(ETH_UCY_DATASETS_DIR,ETH_UCY_NAMES,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
+	training_data, validation_data, test_data, homography = setup_loo_experiment(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
 	# Load the reference image
-	reference_image = plt.imread(os.path.join(ETH_UCY_DATASETS_DIR,ETH_UCY_NAMES[args.id_test],REFERENCE_IMG))
+	reference_image = plt.imread(os.path.join(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset][args.id_test],REFERENCE_IMG))
 
 	# Torch dataset
 	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])

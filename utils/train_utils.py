@@ -25,7 +25,7 @@ from utils.directory_utils import mkdir_p
 import torch.optim as optim
 
 # Local constants
-from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR
+from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Function to train the models
 # ind is the ensemble id in the case we use an ensemble (otherwise, it is equal to zero)
@@ -82,7 +82,7 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 				loss_val = model(data_val, target_val, data_abs , target_abs)
 				error   += loss_val.cpu().numpy()
 				total   += len(target_val)
-				# prediction
+				# Prediction is relative to the last observation
 				init_pos = np.expand_dims(data_abs.cpu().numpy()[:,-1,:],axis=1)
 				pred_val = model.predict(data_val, dim_pred=12)
 				if len(pred_val)==2:
@@ -102,7 +102,7 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 			min_val_error = error
 			# Keep the model
 			logging.info("Saving model")
-			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ensemble_id)+"_"+str(args.id_test)+".pth")
+			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ensemble_id)+".pth")
 
 	# Error visualization
 	if args.plot_losses:
@@ -121,7 +121,6 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 # Function to train the models
 def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 	# Optimizer
-	# optimizer = optim.SGD(model.parameters(), lr=initial_lr)
 	optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.8)
 	list_loss_train = []
 	list_loss_val   = []
@@ -149,7 +148,7 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 			# Step 2. Run our forward pass and compute the losses
 			pred, nl_loss, kl_loss = model(data, target, data_abs , target_abs, num_mc=args.num_mctrain)
 
-			# TODO: Divide by the batch size
+			# Divide by the batch size
 			loss   = nl_loss+ kl_loss/M
 			error += loss.detach().item()
 			total += len(target)
