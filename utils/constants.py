@@ -11,8 +11,10 @@ FRAMES_IDS     = 'frames_ids'
 KEY_IDX        = 'key_idx'
 
 # Strings used in dataset filenames
-DATASETS_DIR   = 'datasets/'
-ETH_UCY_NAMES  = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
+ETH_UCY_DATASETS_DIR= 'datasets/'
+ETH_UCY_NAMES       = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
+SDD_DATASETS_DIR    = 'datasets/sdd/sdd_data'
+SDD_NAMES           = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
 TRAIN_DATA_STR = '/training_data_'
 TEST_DATA_STR  = '/test_data_'
 VAL_DATA_STR   = '/validation_data_'
