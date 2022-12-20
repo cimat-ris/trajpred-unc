@@ -34,8 +34,8 @@ from utils.hdr import get_alpha,get_alpha_bs,get_falpha,sort_sample
 import torch.optim as optim
 # Local constants
 from utils.constants import (
-	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,REFERENCE_IMG,FRAMES_IDS,
-	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, IMAGES_DIR, MUN_POS_CSV, ETH_UCY_DATASETS_DIR, ETH_UCY_NAMES, TRAINING_CKPT_DIR
+	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,FRAMES_IDS,
+	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, IMAGES_DIR, MUN_POS_CSV, DATASETS_DIR, SUBDATASETS_NAMES, TRAINING_CKPT_DIR
 )
 
 # Gets a testing batch of trajectories starting at the same frame (for visualization)
@@ -64,6 +64,9 @@ parser.add_argument('--batch-size', '--b',
 parser.add_argument('--epochs', '--e',
 					type=int, default=100, metavar='N',
 					help='number of epochs to train (default: 200)')
+parser.add_argument('--id-dataset',
+					type=str, default=0, metavar='N',
+					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
 parser.add_argument('--id-test',
 					type=int, default=2, metavar='N',
 					help='id of the dataset to use as test in LOO (default: 2)')
@@ -101,9 +104,7 @@ def main():
 
 	# Load the dataset and perform the split
 	experiment_parameters = Experiment_Parameters()
-	training_data, validation_data, test_data, test_homography = setup_loo_experiment(ETH_UCY_DATASETS_DIR,ETH_UCY_NAMES,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
-	# Load the reference image
-	reference_image = plt.imread(os.path.join(ETH_UCY_DATASETS_DIR,ETH_UCY_NAMES[args.id_test],REFERENCE_IMG))
+	training_data, validation_data, test_data, test_homography = setup_loo_experiment(DATASETS_DIR[0],SUBDATASETS_NAMES[0],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
 
 	# Torch dataset
 	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
@@ -132,12 +133,13 @@ def main():
 			model.to(device)
 
 			# Train the model
-			print("\n*** Training for seed: ", seed, "\t\t ", ind, "/",len(seeds))
+			logging.info(" Training for seed: {} \t\t {}/{}".format(seed,ind,len(seeds)))
 			train(model,device,ind,batched_train_data,batched_val_data,args,model_name)
 			# Testing: Quantitative
 			ade  = 0
 			fde  = 0
 			total= 0
+			model.eval()
 			for batch_idx, (datavel_test, targetvel_test, data_test, target_test) in    enumerate(batched_test_data):
 				if torch.cuda.is_available():
 					datavel_test  = datavel_test.to(device)
@@ -157,12 +159,13 @@ def main():
 		model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
 		model.to(device)
 		# Load the previously trained model
-		model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth"))
+		model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ind)+".pth"
+		model.load_state_dict(torch.load(model_filename))
 		models.append(model)
 
 
 	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.num_ensembles, TRAINING_CKPT_DIR, model_name, id_test=args.id_test, device=device)
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.num_ensembles, model_name, args, device=device)
 
 	#---------------------------------------------------------------------------------------------------------------
 
@@ -175,7 +178,8 @@ def main():
 		# For each model of the ensemble
 		for ind in range(args.num_ensembles):
 			# Load the model
-			model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth"))
+			model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ind)+".pth"
+			model.load_state_dict(torch.load(model_filename))
 			model.eval()
 			if torch.cuda.is_available():
 				  datarel_test  = datarel_test.to(device)
@@ -205,7 +209,7 @@ def main():
 		# Solo se ejecuta para un batch y es usado como dataset de calibración
 		break
 
-	frame_id, batch, test_bckgd = get_testing_batch(testing_data,ETH_UCY_DATASETS_DIR+ETH_UCY_NAMES[args.id_test])
+	frame_id, batch, test_bckgd = get_testing_batch(testing_data,DATASETS_DIR[0]+SUBDATASETS_NAMES[0][args.id_test])
 	# Form batches
 	batched_test_data  = torch.utils.data.DataLoader(batch,batch_size=len(batch))
 	# Get the homography
