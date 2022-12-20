@@ -184,7 +184,7 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 			min_val_error = error/total
 			# Keep the model
 			logging.info("Saving model")
-			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(args.id_test)+".pth")
+			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth")
 
 
 	# Visualizamos los errores
