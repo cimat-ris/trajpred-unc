@@ -34,7 +34,7 @@ from utils.calibration import generate_one_batch_test
 from utils.directory_utils import mkdir_p
 
 # Local constants
-from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, VARIATIONAL_SDD, TRAINING_CKPT_DIR, VARIATIONAL_SDD
+from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, VARIATIONAL_SDD, TRAINING_CKPT_DIR, VARIATIONAL_SDD, SDD_DATASETS_DIR, SDD_NAMES
 
 # parameters models
 #initial_lr     = 0.000002
@@ -90,12 +90,10 @@ def main():
     # Load the default parameters
     experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
-    dataset_dir   = "datasets/sdd/sdd_data"
-    dataset_names = ['bookstore', 'coupa', 'deathCircle', 'gates', 'hyang', 'little', 'nexus', 'quad']
     model_name    = "variational_sdd"
 
     # Load the dataset and perform the split
-    training_data, validation_data, test_data, test_homography = setup_loo_experiment('SDD',dataset_dir,dataset_names,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, sdd=True, compute_neighbors=False)
+    training_data, validation_data, test_data, test_homography = setup_loo_experiment(SDD_DATASETS_DIR, SDD_NAMES,args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, sdd=True, compute_neighbors=False)
 
     # Torch dataset
     train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
