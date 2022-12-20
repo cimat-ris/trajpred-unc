@@ -27,7 +27,7 @@ from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import generate_one_batch_test
 import torch.optim as optim
 # Local constants
-from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, ENSEMBLES_SDD, TRAINING_CKPT_DIR
+from utils.constants import OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, ENSEMBLES_SDD, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')

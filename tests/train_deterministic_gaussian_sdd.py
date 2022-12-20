@@ -131,7 +131,7 @@ def main():
         # Plotting
         ind = np.minimum(ind_sample,pred.shape[0]-1)
         plot_traj_world(pred[ind,:,:],data_test[ind,:,:],target_test[ind,:,:],ax)
-        #plot_cov_world(pred[ind,:,:],sigmas[ind,:,:],data_test[ind,:,:],ax)
+
         plt.legend()
         plt.savefig(os.path.join(output_dir , "pred_dropout"+".pdf"))
         if args.show_plot:
@@ -168,8 +168,6 @@ def main():
 
         tpred_samples = np.array(tpred_samples)
         sigmas_samples = np.array(sigmas_samples)
-        print(tpred_samples.shape)
-        print(sigmas_samples.shape)
 
         save_data_for_calibration(DETERMINISTIC_GAUSSIAN_SDD, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
         # Solo se ejecuta para un batch y es usado como dataset de calibración

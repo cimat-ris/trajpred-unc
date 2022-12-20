@@ -34,7 +34,7 @@ from utils.calibration import generate_one_batch_test
 from utils.directory_utils import mkdir_p
 
 # Local constants
-from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, VARIATIONAL_SDD, TRAINING_CKPT_DIR, VARIATIONAL_SDD, SDD_DATASETS_DIR, SDD_NAMES
+from utils.constants import IMAGES_DIR, OBS_TRAJ_VEL, PRED_TRAJ_VEL, OBS_TRAJ, PRED_TRAJ, REFERENCE_IMG, VARIATIONAL_SDD, TRAINING_CKPT_DIR, VARIATIONAL_SDD, SUBDATASETS_NAMES
 
 # parameters models
 #initial_lr     = 0.000002
