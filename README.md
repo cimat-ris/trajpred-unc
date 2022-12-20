@@ -33,8 +33,10 @@ python tests/train_variational.py
 
 ## Testing
 
+With any of the training scripts above, you can use the '--no-retrain' option to produce testing results
+
 ```
-python tests/train_torch_deterministic_with_variances.py  --no-retrain --pickle  --examples 10
+python tests/train_ensembles.py --no-retrain --pickle  --examples 10
 ```
 
 ## Calibration: a postprocess step
