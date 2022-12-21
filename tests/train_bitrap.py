@@ -28,7 +28,7 @@ from configs import cfg
 from collections import OrderedDict
 import pdb
 
-dataset_names  = ['hotel','univ','zara1','zara2','univ']
+dataset_names  = ['hotel','eth','zara1','zara2','univ']
 def build_optimizer(cfg, model):
 	all_params = model.parameters()
 	optimizer = optim.Adam(all_params, lr=cfg.SOLVER.LR)
@@ -38,9 +38,6 @@ def main():
 	parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
 	parser.add_argument('--gpu', default='0', type=str)
 	parser.add_argument('--seed', default=1, type=int)
-	parser.add_argument('--id-test',
-					type=int, default=2, metavar='N',
-					help='id of the dataset to use as test in LOO (default: 2)')
 	parser.add_argument(
 		"--config_file",
 		default="bitrap_np_ETH.yml",
@@ -57,7 +54,7 @@ def main():
 	args = parser.parse_args()
 	cfg.merge_from_file(args.config_file)
 	cfg.merge_from_list(args.opts)
-	cf.DATASET.NAME = dataset_names[args.id_test]
+	#cfg.DATASET.NAME = dataset_names[args.id_test]
 	os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 	# build model, optimizer and scheduler
 	model = make_model(cfg)
