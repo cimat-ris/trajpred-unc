@@ -76,6 +76,7 @@ The `test_calibration.py` script uses Isotonic regression to compute the calibra
 python tests/train_bitrap.py --config_file bitrap_np_ETH.yml --seed n
 ```
 By changing the seed, you will be building different models for an ensemble.
+
 * To generate data calibration from bitrap, run
 ```
 python tests/test_bitrap.py
