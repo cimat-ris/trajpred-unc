@@ -401,25 +401,33 @@ def get_samples_pdfWeight(pdf,num_sample):
 	# Muestreamos de la nueva función de densidad pesada
 	return pdf.resample(num_sample)
 
-def get_conformal_pcts(displacement_prediction, observations, target, target2, sigmas_samples, alpha, fa, method, position=0, idTest=0, gaussian=False):
+def get_conformal_pcts(displacement_prediction, observations, target, target2, sigmas_prediction, alpha, fa, method, position=0, gaussian=False):
 	"""
 	Args:
+		- displacement_prediction: prediction of displacements
+		- observations: observations (to translate the predictions)
+		- target:
+		- target2:
+		- sigmas_prediction: covariances of the predictions
+		- alpha: confidence level
+		- fa: calibration threshold
+		- position: position in the time horizon
 	Returns:
 		- calibrated percentages for conformal calibration
 		- uncalibrated percentages for conformal calibration
-		displacement_prediction, observations, trajectory_id, sigmas_samples, position=0, gaussian=False, resample_size=1000, relative_coords_flag=False
 	"""
 	perc_within_cal = []
 	perc_within_unc = []
 	# For each individual trajectory
 	for trajectory_id in range(displacement_prediction.shape[1]):
 
-		kde, sample_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		kde, sample_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 
 		# Steps to compute HDRs fa
 		# Evaluate these samples on the p.d.f.
 		sample_pdf = kde.pdf(sample_kde)
 
+		# TODO: instead of sorting the values (in n log n) we could simply count how many of these values are superior to f_pdf
 		# Sort samples
 		sorted_pdf = sorted(sample_pdf, reverse=True)
 
@@ -467,13 +475,13 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 			logging.error("Method not implemented.")
 			return -1
 
-		perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, alpha, fa, method, position=position, idTest=idTest, gaussian=gaussian)
+		perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, alpha, fa, method, position=position, gaussian=gaussian)
 		# Save batch results for an specific alpha
 		cal_pcts.append(np.mean(perc_within_cal))
 		unc_pcts.append(np.mean(perc_within_unc))
 
 		if tpred_samples_test is not None:
-			perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_test, data_test, target_test, target_test2, sigmas_samples_test, alpha, fa, method, position=position, idTest=idTest, gaussian=gaussian)
+			perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_test, data_test, target_test, target_test2, sigmas_samples_test, alpha, fa, method, position=position, gaussian=gaussian)
 			# Save batch results for an specific alpha
 			cal_pcts2.append(np.mean(perc_within_cal))
 			unc_pcts2.append(np.mean(perc_within_unc))
