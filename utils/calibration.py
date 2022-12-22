@@ -17,75 +17,76 @@ from utils.plot_utils import plot_calibration_curves, plot_HDR_curves, plot_cali
 # Local utils helpers
 from utils.directory_utils import Output_directories
 # Local constants
-from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
+from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES, CALIBRATION_CONFORMAL_FVAL, CALIBRATION_CONFORMAL_FREL
 # HDR utils
 from utils.hdr import sort_sample, get_alpha
 # Calibration metrics
 from utils.calibration_metrics import miscalibration_area,mean_absolute_calibration_error,root_mean_squared_calibration_error
 
-
-def gaussian_kde2(pred, sigmas_samples, data_test, target_test, i, position, resample_size=0 , display=False, idTest=0, output_dirs=None):
-
+def gaussian_kde2(displacement_prediction, sigmas_prediction, observations, trajectory_id, position, resample_size=0):
+	"""
+	Args:
+		- displacement_prediction: prediction of displacements
+		-
+		-
+		- relative_coords_flag: to specify how the coordinates are going to be computed, relative (True) or absolute (False)
+	"""
 	# Estimamos la gaussiana con los parametros que salen del modelo
-	param_gaussiana = []
-	if display:
-		plt.figure(figsize=(12,10))
+	gaussian_parameters = []
+	#if display:
+	#	plt.figure(figsize=(12,10))
 
-	for ind_ensemble in range(sigmas_samples.shape[0]):
+	for ind_ensemble in range(sigmas_prediction.shape[0]):
 		# Procesamos las medias y sigmas [2, 16, 12, 3]
 		# Extraemos los valores para la covarianza
-		sigmas_samples_ensemble = sigmas_samples[ind_ensemble, i,:,:]
+		sigmas_samples_ensemble = sigmas_prediction[ind_ensemble,trajectory_id,:,:]
 		sx, sy, cor = sigmas_samples_ensemble[:, 0], sigmas_samples_ensemble[:, 1], sigmas_samples_ensemble[:, 2]
+		sx          = sx[position]
+		sy          = sy[position]
 
-		# Exponential to get a positive value for std dev
-		sx   = sx[position]
-		sy   = sy[position]
+		# Transform in absolute coordinates
+		displacement        = displacement_prediction[ind_ensemble,trajectory_id,:,:]
+		absolute_prediction = displacement + np.array([observations[trajectory_id,:,:][-1].numpy()])
+		mean                = absolute_prediction[position, :]
+		covariance          = np.array([[sx**2, 0],[0, sy**2]])
+		# TODO: move the drawings out of this one
+		#if display:
+		# label4, = plt.plot(mean[0], mean[1], "*", color="red", label = "Means from Gaussian Mix")
+		# label1, label2, label3 = plot_traj_world(displacement_prediction[ind_ensemble,trajectory_id,:,:], observations[trajectory_id,:,:], target_test[trajectory_id,:,:])
 
-		# Coordenadas absolutas
-		displacement = pred[ind_ensemble, i,:,:]
-		this_pred_out_abs = displacement + np.array([data_test[i,:,:][-1].numpy()])
+		gaussian_parameters.append([mean,covariance])
 
-		mean = this_pred_out_abs[position, :]
-		cov = np.array([[sx**2, 0],[0, sy**2]])
-
-		if display:
-			label4, = plt.plot(mean[0], mean[1], "*", color="red", label = "Means from Gaussian Mix")
-			label1, label2, label3 = plot_traj_world(pred[ind_ensemble,i,:,:], data_test[i,:,:], target_test[i,:,:])
-
-	param_gaussiana.append([mean,cov])
-
+	# TODO: do the samples from the mixture, directly
 	# Construimos la gaussiana de la mezcla
 	# Mezcla de gaussianas
 	# https://faculty.ucmerced.edu/mcarreira-perpinan/papers/cs-99-03.pdf
-
-	pi = np.ones((len(param_gaussiana),))/len(param_gaussiana)
-	# Calculamos la media de mezcla
-	mean_mix = np.zeros((2,))
-	for j in range(len(param_gaussiana)):
-		mean_mix += pi[j]*(param_gaussiana[j][0])
-
-	# Calculamos la covarianza de la mezcla
-	cov_mix = np.zeros((2,2))
-	for j in range(len(param_gaussiana)):
-		sub_mean = param_gaussiana[j][0].reshape(2,1) - mean_mix.reshape(2,1)
+	pi = np.ones((len(gaussian_parameters),))/len(gaussian_parameters)
+	# Mean of the mixture
+	mean_mixture = np.zeros((2,))
+	for j in range(len(gaussian_parameters)):
+		mean_mixture += pi[j]*(gaussian_parameters[j][0])
+	# Covariance of the mixture
+	cov_mixture = np.zeros((2,2))
+	for j in range(len(gaussian_parameters)):
+		sub_mean      = gaussian_parameters[j][0].reshape(2,1) - mean_mixture.reshape(2,1)
 		mult_sub_mean = sub_mean @ sub_mean.T
-		cov_mix +=  pi[j]*(param_gaussiana[j][1] + mult_sub_mean)
+		cov_mixture +=  pi[j]*(gaussian_parameters[j][1] + mult_sub_mean)
 
 
-	sample_pdf = np.random.multivariate_normal(mean_mix, cov_mix, resample_size)
+	sample_pdf = np.random.multivariate_normal(mean_mixture, cov_mixture, resample_size)
 
-	if display:
-		label5, = plt.plot(sample_pdf[:,0], sample_pdf[:,1], ".", color="blue", alpha=0.2, label = "Gaussian Mix Samples")
-		plt.title("Trajectory Plot")
-		plt.legend(handles=[label1, label2, label3, label4, label5 ])
-		image_output_name = os.path.join(output_dirs.trajectories, "traj_samples_cov_"+str(idTest)+"_"+str(i)+".pdf")
-		plt.savefig(image_output_name)
-		#plt.show()
-		plt.close()
+	#if display:
+	#	label5, = plt.plot(sample_pdf[:,0], sample_pdf[:,1], ".", color="blue", alpha=0.2, label = "Gaussian Mix Samples")
+	#	plt.title("Trajectory Plot")
+	#	plt.legend(handles=[label1, label2, label3, label4, label5 ])
+		#image_output_name = os.path.join(output_dirs.trajectories, "traj_samples_cov_"+str(idTest)+"_"+str(i)+".pdf")
+		#plt.savefig(image_output_name)
+	#	plt.show()
+	#	plt.close()
+	# TODO: return a sklearn.KernelDensity instead?
+	return multivariate_normal(mean_mixture, cov_mixture), sample_pdf
 
-	return multivariate_normal(mean_mix, cov_mix), sample_pdf
-
-def get_kde(tpred_samples, data, target, i, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
+def get_kde(displacement_prediction, observations, target, trajectory_id, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
 	"""
 	Args:
 		- relative_coords_flag: to specify how the coordinates are going to be computed, relative (True) or absolute (False)
@@ -95,18 +96,17 @@ def get_kde(tpred_samples, data, target, i, sigmas_samples, position=0, idTest=0
 	"""
 	# Produce resample_size samples from the pdf
 	if gaussian:
-		# p.d.f. estimation. Sampling points (x,y) from PDF
-		kde, sample_kde = gaussian_kde2(tpred_samples, sigmas_samples, data, target, i, position, resample_size=resample_size, display=False, idTest=idTest)
+		# p.d.f. estimation as a Gaussian. Sampling points (x,y) from PDF
+		kde, sample_kde = gaussian_kde2(displacement_prediction, sigmas_samples, observations, trajectory_id, position, resample_size=resample_size)
 	else:
 		if relative_coords_flag:
-			sample_kde = tpred_samples[:, i, position, :]
+			sample_kde = displacement_prediction[:, trajectory_id, position, :]
 		else:
-			sample_kde = tpred_samples[:, i, position, :] + np.array([data[i,:,:][-1].numpy()])
+			sample_kde = displacement_prediction[:, trajectory_id, position, :] + np.array([observations[i,:,:][-1].numpy()])
 		# Use KDE to get a representation of the p.d.f.
 		# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
 		kde        = gaussian_kde(sample_kde.T)
 		sample_kde = kde.resample(resample_size,0)
-
 	return kde, sample_kde
 
 
@@ -399,6 +399,7 @@ def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alp
 	"""
 	perc_within_cal = []
 	perc_within_unc = []
+	#
 	for i in range(tpred_samples.shape[1]):
 		kde, sample_kde = get_kde(tpred_samples, data, target2, i, sigmas_samples, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 
@@ -413,7 +414,7 @@ def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alp
 			fa_unc = 0.0
 		else:
 			fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
-
+		# Why?
 		if gaussian:
 			gt = target2[i,position,:].cpu()
 		else:
@@ -421,9 +422,9 @@ def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alp
 		# GT evaluation
 		f_pdf = kde.pdf(gt)
 
-		if method==2:
+		if method==CALIBRATION_CONFORMAL_FVAL:
 			perc_within_cal.append(f_pdf >= fa)
-		elif method==3:
+		elif method==CALIBRATION_CONFORMAL_FREL:
 			perc_within_cal.append(f_pdf >= sample_pdf.max()*fa)
 
 		perc_within_unc.append(f_pdf >= fa_unc)
@@ -431,7 +432,7 @@ def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alp
 	return perc_within_cal, perc_within_unc
 
 
-def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=2, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None, output_dirs=None, show_plot=False):
+def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=CALIBRATION_CONFORMAL_FVAL, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None, output_dirs=None, show_plot=False):
 	# Alpha values
 	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05)
 
@@ -440,16 +441,15 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 	unc_pcts2 = []
 	cal_pcts2 = []
 
-	#for alpha in conf_level_lower_bounds:
 	for i,alpha in enumerate(tqdm(conf_levels)):
 		logging.debug("***** alpha: {}".format(alpha))
 		# Obtenemos el fa con el metodo conformal
-		if method==2:
-			fa = calibration_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
-		elif method==3:
-			fa = calibration_relative_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTA: Es unico para todo el dataset de calibracion
+		if method==CALIBRATION_CONFORMAL_FVAL:
+			fa = calibration_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTE: Unique value for the whole calibration dataset
+		elif method==CALIBRATION_CONFORMAL_FREL:
+			fa = calibration_relative_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTE: Unique value for the whole calibration dataset
 		else:
-			print("Método incorrecto, valores posibles 2 o 3.")
+			logging.error("Method not implemented.")
 			return -1
 
 		perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, alpha, fa, method, position=position, idTest=idTest, gaussian=gaussian)
