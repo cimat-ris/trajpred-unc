@@ -572,20 +572,20 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 
 def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetrel_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, targetrel_test=None, target_test=None, sigmas_samples_test=None, show_plot=False):
 	#--------------------- Calculamos las metricas de calibracion ---------------------------------
-	metrics2 = [["","MACE","RMSCE","MA"]]
-	metrics3 = [["","MACE","RMSCE","MA"]]
+	metrics2      = [["","MACE","RMSCE","MA"]]
+	metrics3      = [["","MACE","RMSCE","MA"]]
 	metrics2_test = [["","MACE","RMSCE","MA"]]
 	metrics3_test = [["","MACE","RMSCE","MA"]]
-	key_before = "Before Recalibration"
-	key_after  = "After  Recalibration"
-	output_dirs = Output_directories()
+	key_before    = "Before Recalibration"
+	key_after     = "After  Recalibration"
+	output_dirs   = Output_directories()
 	# Recorremos cada posicion para calibrar
 	for pos in range(tpred_samples_cal.shape[2]):
 		pos = 11
 		logging.info("Calibration metrics at position: {}".format(pos))
-		gt = np.cumsum(targetrel_cal, axis=1)
+		gt      = np.cumsum(targetrel_cal, axis=1)
 		gt_test = np.cumsum(targetrel_test, axis=1)
-		# HDR y Calibracion
+		# Uncertainty calibration
 		logging.info("Calibration method: Conformal approach with density values")
 		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs, show_plot=show_plot)
 

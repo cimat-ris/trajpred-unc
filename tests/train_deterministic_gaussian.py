@@ -109,11 +109,11 @@ def main():
 	model.to(device)
 
 
-	ind_sample = np.random.randint(args.batch_size)
 	output_dir = os.path.join(IMAGES_DIR)
 	mkdir_p(output_dir)
 
-	# Testing
+	# Testing a random trajectory index in all batches
+	ind_sample = np.random.randint(args.batch_size)
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 		fig, ax = plt.subplots(1,1,figsize=(12,12))
 
@@ -139,11 +139,6 @@ def main():
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Producing data for uncertainty calibration
-	# Load the model
-	#model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
-	#logging.info("Loading {}".format(model_filename))
-	#model.load_state_dict(torch.load(model_filename))
-	#model.eval()
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 
 		tpred_samples  = []
@@ -153,7 +148,6 @@ def main():
 			datarel_test  = datarel_test.to(device)
 
 		pred, sigmas = model.predict(datarel_test, dim_pred=12)
-
 		tpred_samples.append(pred)
 		sigmas_samples.append(sigmas)
 
