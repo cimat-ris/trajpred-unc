@@ -6,7 +6,8 @@
 
 import argparse
 import logging, sys
-
+import numpy as np
+import torch
 sys.path.append('.')
 
 from utils.calibration_utils import get_data_for_calibration
@@ -53,7 +54,6 @@ def compute_calibration_metrics():
     test_name = get_test_name()
     # Load data for calibration compute
     tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, id_test = get_data_for_calibration(test_name)
-
     if args.calibration_conformal:
         logging.info("*************************************")
         logging.info("******* Conformal Calibration *******")

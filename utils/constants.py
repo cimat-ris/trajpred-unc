@@ -40,3 +40,7 @@ IMAGES_DIR = 'images'
 # Images and data helpers
 REFERENCE_IMG = 'reference.png'
 MUN_POS_CSV   = 'mundo/mun_pos.csv'
+
+
+CALIBRATION_CONFORMAL_FVAL = 2
+CALIBRATION_CONFORMAL_FREL = 3
