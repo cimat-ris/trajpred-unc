@@ -23,13 +23,18 @@ from utils.hdr import sort_sample, get_alpha
 # Calibration metrics
 from utils.calibration_metrics import miscalibration_area,mean_absolute_calibration_error,root_mean_squared_calibration_error
 
-def gaussian_kde2(displacement_prediction, sigmas_prediction, observations, trajectory_id, position, resample_size=0):
+def gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction, observations, trajectory_id, position, resample_size=0):
 	"""
 	Args:
 		- displacement_prediction: prediction of displacements
-		-
-		-
-		- relative_coords_flag: to specify how the coordinates are going to be computed, relative (True) or absolute (False)
+		- sigmas_prediction: covariances of the predictions
+		- observations: observations (to translate the predictions)
+		- trajectory_id: id of the trajectory
+		- position: position in the time horizon
+		- resample_size: number of samples to produce from the KDE
+	Returns:
+		- kde: PDF estimation
+		- sample_kde: Sampled points (x,y) from PDF
 	"""
 	# Estimamos la gaussiana con los parametros que salen del modelo
 	gaussian_parameters = []
@@ -70,7 +75,7 @@ def gaussian_kde2(displacement_prediction, sigmas_prediction, observations, traj
 	for j in range(len(gaussian_parameters)):
 		sub_mean      = gaussian_parameters[j][0].reshape(2,1) - mean_mixture.reshape(2,1)
 		mult_sub_mean = sub_mean @ sub_mean.T
-		cov_mixture +=  pi[j]*(gaussian_parameters[j][1] + mult_sub_mean)
+		cov_mixture  +=  pi[j]*(gaussian_parameters[j][1] + mult_sub_mean)
 
 
 	sample_pdf = np.random.multivariate_normal(mean_mixture, cov_mixture, resample_size)
@@ -86,9 +91,15 @@ def gaussian_kde2(displacement_prediction, sigmas_prediction, observations, traj
 	# TODO: return a sklearn.KernelDensity instead?
 	return multivariate_normal(mean_mixture, cov_mixture), sample_pdf
 
-def get_kde(displacement_prediction, observations, target, trajectory_id, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
+def get_kde(displacement_prediction, observations, trajectory_id, sigmas_samples, position=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
 	"""
 	Args:
+		- displacement_prediction: prediction of displacements
+		- observations: observations (to translate the predictions)
+		- trajectory_id: id of the trajectory
+		- sigmas_prediction: covariances of the predictions
+		- position: position in the time horizon
+		- resample_size: number of samples to produce from the KDE
 		- relative_coords_flag: to specify how the coordinates are going to be computed, relative (True) or absolute (False)
 	Returns:
 		- kde: PDF estimation
@@ -97,7 +108,7 @@ def get_kde(displacement_prediction, observations, target, trajectory_id, sigmas
 	# Produce resample_size samples from the pdf
 	if gaussian:
 		# p.d.f. estimation as a Gaussian. Sampling points (x,y) from PDF
-		kde, sample_kde = gaussian_kde2(displacement_prediction, sigmas_samples, observations, trajectory_id, position, resample_size=resample_size)
+		kde, sample_kde = gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_samples, observations, trajectory_id, position, resample_size=resample_size)
 	else:
 		if relative_coords_flag:
 			sample_kde = displacement_prediction[:, trajectory_id, position, :]
@@ -121,7 +132,7 @@ def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_ca
 	for i in range(tpred_samples_cal.shape[1]):
 		# Ground Truth
 		gt = target_cal[i,position,:].cpu()
-		kde, sample_kde = get_kde(tpred_samples_cal, data_cal, target_cal, i, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
+		kde, sample_kde = get_kde(tpred_samples_cal, data_cal, i, sigmas_samples_cal, position=position, gaussian=gaussian, resample_size=resample_size)
 
 		#----------------------------------------------------------
 		# Evaluate these samples on the p.d.f.
@@ -201,7 +212,7 @@ def get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples, targe
 		for i in range(tpred_samples.shape[1]):
 			# Ground Truth
 			gt = target[i,position,:].cpu()
-			kde, sample_kde = get_kde(tpred_samples, data, target, i, sigmas_samples, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
+			kde, sample_kde = get_kde(tpred_samples, data, i, sigmas_samples, position=position, gaussian=gaussian, resample_size=resample_size)
 
 			#--------
 			# Steps to compute HDRs fa
@@ -288,7 +299,7 @@ def calibration_density(tpred_samples, data_test, target_test, target_test2, sig
 	s_xk_yk = []
 	# KDE density creation using provided samples
 	for k in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian)
 		list_fk.append(fk)
 
@@ -337,7 +348,7 @@ def calibration_relative_density(tpred_samples, data_test, target_test, target_t
 	s_xk_yk = []
 	# KDE density creation using provided samples
 	for k in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, target_test2, k, sigmas_samples, position=position, idTest=2, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 		fk_max = fk.pdf(yi).max()
 		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
 		list_fk.append(fk)
@@ -390,36 +401,40 @@ def get_samples_pdfWeight(pdf,num_sample):
 	# Muestreamos de la nueva función de densidad pesada
 	return pdf.resample(num_sample)
 
-def get_conformal_pcts(tpred_samples, data, target, target2, sigmas_samples, alpha, fa, method, position=0, idTest=0, gaussian=False):
+def get_conformal_pcts(displacement_prediction, observations, target, target2, sigmas_samples, alpha, fa, method, position=0, idTest=0, gaussian=False):
 	"""
 	Args:
 	Returns:
 		- calibrated percentages for conformal calibration
 		- uncalibrated percentages for conformal calibration
+		displacement_prediction, observations, trajectory_id, sigmas_samples, position=0, gaussian=False, resample_size=1000, relative_coords_flag=False
 	"""
 	perc_within_cal = []
 	perc_within_unc = []
-	#
-	for i in range(tpred_samples.shape[1]):
-		kde, sample_kde = get_kde(tpred_samples, data, target2, i, sigmas_samples, position=position, idTest=idTest, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+	# For each individual trajectory
+	for trajectory_id in range(displacement_prediction.shape[1]):
+
+		kde, sample_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 
 		# Steps to compute HDRs fa
 		# Evaluate these samples on the p.d.f.
 		sample_pdf = kde.pdf(sample_kde)
 
 		# Sort samples
-		orden = sorted(sample_pdf, reverse=True)
-		ind = int(len(orden)*alpha) # Encontramos el indice del alpha-esimo elemento
-		if ind==len(orden):
+		sorted_pdf = sorted(sample_pdf, reverse=True)
+
+		# Index corresponding to the alpha-largest value
+		ind = int(len(sorted_pdf)*alpha)
+		if ind==len(sorted_pdf):
 			fa_unc = 0.0
 		else:
-			fa_unc = orden[ind] # tomamos el valor del alpha-esimo elemento mas grande
+			fa_unc = sorted_pdf[ind] # tomamos el valor del alpha-esimo elemento mas grande
 		# Why?
 		if gaussian:
-			gt = target2[i,position,:].cpu()
+			gt = target2[trajectory_id,position,:].cpu()
 		else:
-			gt = target[i,position,:].cpu()
-		# GT evaluation
+			gt = target[trajectory_id,position,:].cpu()
+		# GT evaluation on the pdf
 		f_pdf = kde.pdf(gt)
 
 		if method==CALIBRATION_CONFORMAL_FVAL:
@@ -536,7 +551,7 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		for i in tqdm(range(tpred_samples_test.shape[1])):
 			# Ground Truth
 			gt = target_test[i,position,:].cpu()
-			kde, sample_kde = get_kde(tpred_samples_test, data_test, target_test, i, sigmas_samples_test, position=position, idTest=id_test, gaussian=gaussian, resample_size=1000)
+			kde, sample_kde = get_kde(tpred_samples_test, data_test, i, sigmas_samples_test, position=position, gaussian=gaussian, resample_size=1000)
 
 			# Evaluamos la muestra en la pdf
 			sample_pdf = kde.pdf(sample_kde)
