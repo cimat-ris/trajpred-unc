@@ -28,7 +28,7 @@ from utils.calibration_utils import save_data_for_calibration
 from utils.directory_utils import mkdir_p
 import torch.optim as optim
 # Local constants
-from utils.constants import IMAGES_DIR,TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN
+from utils.constants import IMAGES_DIR,TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN, SUBDATASETS_NAMES
 
 
 # Parser arguments
@@ -42,6 +42,9 @@ parser.add_argument('--epochs', '--e',
 parser.add_argument('--examples',
 					type=int, default=1, metavar='N',
 					help='number of examples to exhibit (default: 1)')
+parser.add_argument('--id-dataset',
+					type=str, default=0, metavar='N',
+					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
 parser.add_argument('--id-test',
 					type=int, default=2, metavar='N',
 					help='id of the dataset to use as test in LOO (default: 2)')
@@ -72,35 +75,36 @@ def main():
 	torch.set_printoptions(precision=2)
 	# Loggin format
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
+
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+	# Get the ETH-UCY data
 	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(args)
 	model_name    = "deterministic_variances"
 
 	# Seed for RNG
 	seed = 1
-	# TODO: remove the references to ensembles?
-	num_ensembles = 1
 
+	# Training
 	if args.no_retrain==False:
 		# Choose seed
 		torch.manual_seed(seed)
 		torch.cuda.manual_seed(seed)
-
 		# Instanciate the model
 		model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
 		model.to(device)
-
 		# Train the model
 		train(model,device,0,batched_train_data,batched_val_data,args,model_name)
 
 	# Model instantiation
 	model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
 	# Load the previously trained model
-	model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"))
+	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
+	logging.info("Loading {}".format(model_filename))
+	model.load_state_dict(torch.load(model_filename))
 	model.eval()
 	model.to(device)
 
@@ -130,28 +134,27 @@ def main():
 			break
 
 	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, num_ensembles, TRAINING_CKPT_DIR, model_name, id_test=args.id_test, device=device)
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, 1, model_name, args, device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
-	# Testing
+	# Producing data for uncertainty calibration
+	# Load the model
+	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
+	logging.info("Loading {}".format(model_filename))
+	model.load_state_dict(torch.load(model_filename))
+	model.eval()
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 
-		tpred_samples = []
+		tpred_samples  = []
 		sigmas_samples = []
-		# Muestreamos con cada modelo
-		for ind in range(num_ensembles):
 
-			# Load the model
-			model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth"))
-			model.eval()
+		if torch.cuda.is_available():
+			datarel_test  = datarel_test.to(device)
 
-			if torch.cuda.is_available():
-				  datarel_test  = datarel_test.to(device)
+		pred, sigmas = model.predict(datarel_test, dim_pred=12)
 
-			pred, sigmas = model.predict(datarel_test, dim_pred=12)
-
-			tpred_samples.append(pred)
-			sigmas_samples.append(sigmas)
+		tpred_samples.append(pred)
+		sigmas_samples.append(sigmas)
 
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)

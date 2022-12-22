@@ -30,7 +30,7 @@ from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import generate_one_batch_test
 import torch.optim as optim
 # Local constants
-from utils.constants import REFERENCE_IMG, ENSEMBLES, TRAINING_CKPT_DIR
+from utils.constants import REFERENCE_IMG, ENSEMBLES, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -40,6 +40,9 @@ parser.add_argument('--batch-size', '--b',
 parser.add_argument('--epochs', '--e',
 					type=int, default=100, metavar='N',
 					help='number of epochs to train (default: 200)')
+parser.add_argument('--id-dataset',
+					type=str, default=0, metavar='N',
+					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
 parser.add_argument('--id-test',
 					type=int, default=2, metavar='N',
 					help='id of the dataset to use as test in LOO (default: 2)')
@@ -113,8 +116,9 @@ def main():
 		# For each element of the ensemble
 		for ind in range(args.num_ensembles):
 			# Load the previously trained model
-			model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth"))
-
+			model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ind)+".pth"
+			logging.info("Loading {}".format(model_filename))
+			model.load_state_dict(torch.load(model_filename))
 			model.eval()
 
 			if torch.cuda.is_available():
@@ -128,11 +132,11 @@ def main():
 		plt.title('Trajectory samples {}'.format(batch_idx))
 		if args.show_plot:
 			plt.show()
-		# Solo aplicamos a un elemento del batch
+		# We just use the first batch to test
 		break
 
 	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.num_ensembles, TRAINING_CKPT_DIR, model_name, id_test=args.id_test, device=device)
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.num_ensembles, model_name, args, device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Testing
@@ -145,7 +149,9 @@ def main():
 		for ind in range(args.num_ensembles):
 
 			# Cargamos el Modelo
-			model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(args.id_test)+".pth"))
+			model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ind)+".pth"
+			logging.info("Loading {}".format(model_filename))
+			model.load_state_dict(torch.load(model_filename))
 			model.eval()
 
 			if torch.cuda.is_available():

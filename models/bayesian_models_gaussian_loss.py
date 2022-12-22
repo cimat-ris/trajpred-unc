@@ -86,7 +86,7 @@ class lstm_encdec_MCDropout(nn.Module):
         sigma_pos= dec[:,:,2:]
         return pred_pos,sigma_pos,hidden_state
 
-    def forward(self, X, y, data_abs , target_abs, training=False):
+    def forward(self, X, y, data_abs , target_abs, training=False, teacher_forcing=False):
         # Encode the past trajectory
         last_pos,hidden_state = self.encode(X)
 

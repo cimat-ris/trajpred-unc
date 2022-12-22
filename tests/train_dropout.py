@@ -34,11 +34,11 @@ from utils.datasets_utils import get_ethucy_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import generate_one_batch_test
 from utils.calibration_utils import save_data_for_calibration
-
+from utils.train_utils import train
 import torch.optim as optim
 
 # Local constants
-from utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR
+from utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -48,6 +48,9 @@ parser.add_argument('--batch-size', '--b',
 parser.add_argument('--epochs', '--e',
 					type=int, default=100, metavar='N',
 					help='number of epochs to train (default: 200)')
+parser.add_argument('--id-dataset',
+					type=str, default=0, metavar='N',
+					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
 parser.add_argument('--id-test',
 					type=int, default=2, metavar='N',
 					help='id of the dataset to use as test in LOO (default: 2)')
@@ -57,6 +60,9 @@ parser.add_argument('--mc',
 parser.add_argument('--dropout-rate',
 					type=int, default=0.5, metavar='N',
 					help='dropout rate (default: 0.5)')
+parser.add_argument('--teacher-forcing',
+					action='store_true',
+					help='uses teacher forcing during training')					
 parser.add_argument('--learning-rate', '--lr',
 					type=float, default=0.0004, metavar='N',
 					help='learning rate of optimizer (default: 1E-3)')
@@ -75,12 +81,12 @@ parser.add_argument('--log-level',type=int, default=20,help='Log level (default:
 parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
 args = parser.parse_args()
 
+model_name = 'deterministic_dropout'
 
-
+# TODO: move it to train_utils?
 # Function to train the models
-def train(model,device,idTest,train_data,val_data):
+def train2(model,device,idTest,train_data,val_data):
 	# Optimizer
-	# optimizer = optim.SGD(model.parameters(), lr=initial_lr)
 	optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.8)
 	list_loss_train = []
 	list_loss_val   = []
@@ -90,6 +96,7 @@ def train(model,device,idTest,train_data,val_data):
 		logging.info("Epoch: {}".format(epoch))
 		error = 0
 		total = 0
+		model.train()
 		# Recorremos cada batch
 		for batch_idx, (data, target, data_abs , target_abs) in enumerate(train_data):
 			# Remember that Pytorch accumulates gradients.
@@ -115,25 +122,25 @@ def train(model,device,idTest,train_data,val_data):
 		# Validation
 		error = 0
 		total = 0
-		for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
-
-			if torch.cuda.is_available():
-				data_val  = data_val.to(device)
-				target_val = target_val.to(device)
-				data_abs  = data_abs.to(device)
-				target_abs = target_abs.to(device)
-
-			loss_val = model(data_val, target_val, data_abs , target_abs)
-			error += loss_val
-			total += len(target_val)
-		error = error.detach().cpu().numpy()/total
+		model.eval()
+		with torch.no_grad():
+			for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
+				if torch.cuda.is_available():
+					data_val  = data_val.to(device)
+					target_val = target_val.to(device)
+					data_abs  = data_abs.to(device)
+					target_abs = target_abs.to(device)
+				loss_val = model(data_val, target_val, data_abs , target_abs)
+				error += loss_val.cpu().numpy()
+				total += len(target_val)
+		error = error/total
 		logging.info("Validation loss: {:6.3f}".format(error))
 		list_loss_val.append(error)
 		if error<min_val_error:
 			min_val_error = error
 			# Keep the model
 			logging.info("Saving model")
-			torch.save(model.state_dict(), "training_checkpoints/model_dropout_"+str(idTest)+".pth")
+			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth")
 
 	# Visualizamos los errores
 	plt.figure(figsize=(12,12))
@@ -154,7 +161,6 @@ def main():
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(args)
-	model_name    = 'dropout'
 
 	# Seleccionamos de forma aleatorea las semillas
 	seed = 1
@@ -163,17 +169,15 @@ def main():
 
 
 	if args.no_retrain==False:
-
-		# Agregamos la semilla
+		# Seed for RNG
 		torch.manual_seed(seed)
 		torch.cuda.manual_seed(seed)
-
-		# Instanciate the model
+		# Instantiate the model
 		model = lstm_encdec_MCDropout(2,128,256,2, dropout_rate = args.dropout_rate)
 		model.to(device)
+		# Train the model
+		train(model,device,0,batched_train_data,batched_val_data,args,model_name)
 
-		# Entremamos el modelo
-		train(model,device,args.id_test,batched_train_data,batched_val_data)
 		if args.plot_losses:
 			plt.savefig(IMAGES_DIR+"/loss_"+str(idTest)+".pdf")
 			plt.show()
@@ -182,9 +186,9 @@ def main():
 	# Instanciamos el modelo
 	model = lstm_encdec_MCDropout(2,128,256,2, dropout_rate = args.dropout_rate)
 	model.to(device)
-
 	# Load the previously trained model
-	model.load_state_dict(torch.load("training_checkpoints/model_dropout_"+str(args.id_test)+".pth"))
+	file_name = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
+	model.load_state_dict(torch.load(file_name))
 	model.eval()
 
 
@@ -212,7 +216,7 @@ def main():
 	draw_ellipse = True
 
 	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.mc, TRAINING_CKPT_DIR, "model_name", id_test=args.id_test, device=device, type="dropout")
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.mc, model_name, args, device=device, type="dropout")
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Testing

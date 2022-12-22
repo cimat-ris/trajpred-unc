@@ -28,6 +28,7 @@ from configs import cfg
 from collections import OrderedDict
 import pdb
 
+dataset_names  = ['hotel','eth','zara1','zara2','univ']
 def build_optimizer(cfg, model):
 	all_params = model.parameters()
 	optimizer = optim.Adam(all_params, lr=cfg.SOLVER.LR)
@@ -39,7 +40,7 @@ def main():
 	parser.add_argument('--seed', default=1, type=int)
 	parser.add_argument(
 		"--config_file",
-		default="",
+		default="bitrap_np_ETH.yml",
 		metavar="FILE",
 		help="path to config file",
 		type=str,
@@ -51,16 +52,14 @@ def main():
 		nargs=argparse.REMAINDER,
 	)
 	args = parser.parse_args()
-
 	cfg.merge_from_file(args.config_file)
 	cfg.merge_from_list(args.opts)
+	#cfg.DATASET.NAME = dataset_names[args.id_test]
 	os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
-	print(cfg.DATASET.NAME)
 	# build model, optimizer and scheduler
 	model = make_model(cfg)
 	model = model.to(cfg.DEVICE)
 	optimizer = build_optimizer(cfg, model)
-	print('optimizer built!')
 	# NOTE: add separate optimizers to train single object predictor and interaction predictor
 
 	torch.manual_seed(args.seed)
@@ -86,13 +85,12 @@ def main():
 	train_dataloader = make_dataloader(cfg, 'train')
 	val_dataloader = make_dataloader(cfg, 'val')
 	test_dataloader = make_dataloader(cfg, 'test')
-	print('Dataloader built!')
+	logging.info('Dataloader built!')
 	# get train_val_test engines
 	do_train, do_val, inference = build_engine(cfg)
-	print('Training engine built!')
+	logging.info('Training engine built!')
 
 	save_checkpoint_dir = cfg.CKPT_DIR
-	print(save_checkpoint_dir)
 	if not os.path.exists(save_checkpoint_dir):
 		os.makedirs(save_checkpoint_dir)
 
@@ -131,7 +129,7 @@ def main():
 	else:
 		lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[25, 40], gamma=0.2)
 
-	print('Schedulers built!')
+	logging.info('Schedulers built!')
 
 	for epoch in range(cfg.SOLVER.MAX_EPOCH):
 		logger.info("Epoch:{}".format(epoch))
@@ -139,8 +137,6 @@ def main():
 		val_loss = do_val(cfg, epoch, model, val_dataloader, cfg.DEVICE, logger=logger)
 		if (epoch+1) % 1 == 0:
 			inference(cfg, epoch, model, test_dataloader, cfg.DEVICE, logger=logger, eval_kde_nll=False)
-
-		#torch.save(model.state_dict(), os.path.join(save_checkpoint_dir, 'Epoch_{}.pth'.format(str(epoch).zfill(3))))
 
 		# update LR
 		if cfg.SOLVER.scheduler != 'exp':

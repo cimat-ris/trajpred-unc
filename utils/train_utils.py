@@ -25,7 +25,7 @@ from utils.directory_utils import mkdir_p
 import torch.optim as optim
 
 # Local constants
-from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR
+from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Function to train the models
 # ind is the ensemble id in the case we use an ensemble (otherwise, it is equal to zero)
@@ -41,6 +41,7 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 		logging.info("Epoch: {}".format(epoch))
 		error = 0
 		total = 0
+		model.train()
 		# Recorremos cada batch
 		for batch_idx, (observations_vel, target_vel, observations_abs , target_abs) in enumerate(train_data):
 			# Remember that Pytorch accumulates gradients.
@@ -54,41 +55,43 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 
 			# Run our forward pass and compute the loss
 			loss   = model(observations_vel, target_vel, observations_abs , target_abs, teacher_forcing=args.teacher_forcing)
-			error += loss
+			error += loss.detach().cpu().numpy()
 			total += len(target_vel)
 
 			# Step 3. Compute the gradients, and update the parameters by
 			loss.backward()
 			optimizer.step()
-		logging.info("Trn loss: {:.4f}".format(error.detach().cpu().numpy()/total))
-		list_loss_train.append(error.detach().cpu().numpy()/total)
+		logging.info("Trn loss: {:.4f}".format(error/total))
+		list_loss_train.append(error/total)
 
 		# Validation
 		error = 0
 		total = 0
 		ade   = 0
 		fde   = 0
-		for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
+		model.eval()
+		with torch.no_grad():
+			for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
 
-			if torch.cuda.is_available():
-			  data_val  = data_val.to(device)
-			  target_val= target_val.to(device)
-			  data_abs  = data_abs.to(device)
-			  target_abs= target_abs.to(device)
+				if torch.cuda.is_available():
+				  data_val  = data_val.to(device)
+				  target_val= target_val.to(device)
+				  data_abs  = data_abs.to(device)
+				  target_abs= target_abs.to(device)
 
-			loss_val = model(data_val, target_val, data_abs , target_abs)
-			error   += loss_val
-			total   += len(target_val)
-			# prediction
-			init_pos = np.expand_dims(data_abs.cpu().numpy()[:,-1,:],axis=1)
-			pred_val = model.predict(data_val, dim_pred=12)
-			if len(pred_val)==2:
-				pred_val = pred_val[0]
-			pred_val += init_pos
-			ade    = ade + np.sum(np.average(np.sqrt(np.square(target_abs.cpu().numpy()-pred_val).sum(2)),axis=1))
-			fde    = fde + np.sum(np.sqrt(np.square(target_abs.cpu().numpy()[:,-1,:]-pred_val[:,-1,:]).sum(1)))
+				loss_val = model(data_val, target_val, data_abs , target_abs)
+				error   += loss_val.cpu().numpy()
+				total   += len(target_val)
+				# Prediction is relative to the last observation
+				init_pos = np.expand_dims(data_abs.cpu().numpy()[:,-1,:],axis=1)
+				pred_val = model.predict(data_val, dim_pred=12)
+				if len(pred_val)==2:
+					pred_val = pred_val[0]
+				pred_val += init_pos
+				ade    = ade + np.sum(np.average(np.sqrt(np.square(target_abs.cpu().numpy()-pred_val).sum(2)),axis=1))
+				fde    = fde + np.sum(np.sqrt(np.square(target_abs.cpu().numpy()[:,-1,:]-pred_val[:,-1,:]).sum(1)))
 
-		error = error.detach().cpu().numpy()/total
+		error = error/total
 		ade   = ade/total
 		fde   = fde/total
 		logging.info("Val loss: {:.4f} ".format(error))
@@ -99,7 +102,7 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 			min_val_error = error
 			# Keep the model
 			logging.info("Saving model")
-			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ensemble_id)+"_"+str(args.id_test)+".pth")
+			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ensemble_id)+".pth")
 
 	# Error visualization
 	if args.plot_losses:
@@ -118,7 +121,6 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 # Function to train the models
 def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 	# Optimizer
-	# optimizer = optim.SGD(model.parameters(), lr=initial_lr)
 	optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.8)
 	list_loss_train = []
 	list_loss_val   = []
@@ -126,11 +128,12 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 
 	for epoch in range(args.epochs):
 		# Training
-		logging.info("----- ")		
+		logging.info("----- ")
 		logging.info("Epoch: {}".format(epoch))
 		error = 0
 		total = 0
 		M     = len(train_data)
+		model.train()
 		for batch_idx, (data, target, data_abs, target_abs) in enumerate(train_data):
 			# Step 1. Remember that Pytorch accumulates gradients.
 			# We need to clear them out before each instance
@@ -145,7 +148,7 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 			# Step 2. Run our forward pass and compute the losses
 			pred, nl_loss, kl_loss = model(data, target, data_abs , target_abs, num_mc=args.num_mctrain)
 
-			# TODO: Divide by the batch size
+			# Divide by the batch size
 			loss   = nl_loss+ kl_loss/M
 			error += loss.detach().item()
 			total += len(target)
@@ -160,18 +163,20 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 		error = 0
 		total = 0
 		M     = len(val_data)
-		for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
-			if torch.cuda.is_available():
-				data_val  = data_val.to(device)
-				target_val=target_val.to(device)
-				data_abs  = data_abs.to(device)
-				target_abs= target_abs.to(device)
+		model.eval()
+		with torch.no_grad():
+			for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
+				if torch.cuda.is_available():
+					data_val  = data_val.to(device)
+					target_val=target_val.to(device)
+					data_abs  = data_abs.to(device)
+					target_abs= target_abs.to(device)
 
-			pred_val, nl_loss, kl_loss = model(data_val, target_val, data_abs , target_abs)
-			pi     = (2.0**(M-batch_idx))/(2.0**M-1) # From Blundell
-			loss   = nl_loss+ pi*kl_loss
-			error += loss.detach().item()
-			total += len(target_val)
+				pred_val, nl_loss, kl_loss = model(data_val, target_val, data_abs , target_abs)
+				pi     = (2.0**(M-batch_idx))/(2.0**M-1) # From Blundell
+				loss   = nl_loss+ pi*kl_loss
+				error += loss.detach().item()
+				total += len(target_val)
 
 		logging.info("Validation loss: {:6.3f}".format(error/total))
 		list_loss_val.append(error/total)
@@ -179,7 +184,7 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 			min_val_error = error/total
 			# Keep the model
 			logging.info("Saving model")
-			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(args.id_test)+".pth")
+			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth")
 
 
 	# Visualizamos los errores

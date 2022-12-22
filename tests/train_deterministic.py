@@ -21,7 +21,7 @@ from utils.plot_utils import plot_traj_img
 from utils.train_utils import train
 
 # Local constants
-from utils.constants import TRAINING_CKPT_DIR
+from utils.constants import TRAINING_CKPT_DIR,SUBDATASETS_NAMES
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -34,6 +34,9 @@ parser.add_argument('--epochs', '--e',
 parser.add_argument('--examples',
 					type=int, default=1, metavar='N',
 					help='number of examples to exhibit (default: 1)')
+parser.add_argument('--id-dataset',
+					type=str, default=0, metavar='N',
+					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
 parser.add_argument('--id-test',
 					type=int, default=2, metavar='N',
 					help='id of the dataset to use as test in LOO (default: 2)')
@@ -89,7 +92,7 @@ def main():
 	# Model instantiation
 	model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=128, output_size=2)
 	# Load the previously trained model
-	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_0"+"_"+str(args.id_test)+".pth"
+	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
 	logging.info("Loading {}".format(model_filename))
 	model.load_state_dict(torch.load(model_filename))
 	model.to(device)

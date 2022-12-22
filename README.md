@@ -2,30 +2,30 @@
 
 ## Training
 
-To train the simple deterministic model:
+To train a simple deterministic model:
 
 ```
 python tests/train_deterministic.py
 ```
 
-To train the simple deterministic model with variances as output (DG):
+To train a simple deterministic model with variances as output (DG):
 
 ```
  python tests/train_deterministic_gaussian.py
 ```
 
-To train the model made of an ensemble of DG (DGE):
+To train a model made of an ensemble of DGs (DGE):
 
 ```
 python tests/train_ensembles.py
 ```
 
-To train the deterministic model with dropout at inference (DD):
+To train a deterministic model with dropout at inference (DD):
 ```
 python tests/train_dropout.py
 ```
 
-To train the deterministic-variational model (DV):
+To train a deterministic-variational model (DV):
 ```
 python tests/train_variational.py
 ```
@@ -33,8 +33,10 @@ python tests/train_variational.py
 
 ## Testing
 
+With any of the training scripts above, you can use the '--no-retrain' option to produce testing results
+
 ```
-python tests/train_torch_deterministic_with_variances.py  --no-retrain --pickle  --examples 10
+python tests/train_ensembles.py --no-retrain --pickle  --examples 10
 ```
 
 ## Calibration: a postprocess step
@@ -74,6 +76,7 @@ The `test_calibration.py` script uses Isotonic regression to compute the calibra
 python tests/train_bitrap.py --config_file bitrap_np_ETH.yml --seed n
 ```
 By changing the seed, you will be building different models for an ensemble.
+
 * To generate data calibration from bitrap, run
 ```
 python tests/test_bitrap.py

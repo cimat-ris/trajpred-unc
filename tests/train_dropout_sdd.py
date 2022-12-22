@@ -217,7 +217,7 @@ def main():
 			pred, sigmas = model.predict(datarel_test, dim_pred=12)
 			# Plotting
 			plot_traj_world(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],ax)
-			#plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:],ax)
+
 		plt.legend()
 		plt.title('Trajectory samples')
 		if args.show_plot:

@@ -17,7 +17,7 @@ from utils.plot_utils import plot_calibration_curves, plot_HDR_curves, plot_cali
 # Local utils helpers
 from utils.directory_utils import Output_directories
 # Local constants
-from utils.constants import IMAGES_DIR
+from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 # HDR utils
 from utils.hdr import sort_sample, get_alpha
 # Calibration metrics
@@ -707,12 +707,12 @@ def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_ba
 
 
 
-def generate_one_batch_test(batched_test_data, model, num_samples, TRAINING_CKPT_DIR, model_name, id_test=2, device=None, dim_pred=12, type="ensemble"):
+def generate_one_batch_test(batched_test_data, model, num_samples, model_name, args, device=None, dim_pred=12, type="ensemble"):
 	#----------- Dataset TEST -------------
-	datarel_test_full = []
+	datarel_test_full   = []
 	targetrel_test_full = []
-	data_test_full = []
-	target_test_full = []
+	data_test_full      = []
+	target_test_full    = []
 
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 		if batch_idx==0:
@@ -737,7 +737,9 @@ def generate_one_batch_test(batched_test_data, model, num_samples, TRAINING_CKPT
 	# Each model sampled
 	for ind in range(num_samples):
 		if type == "ensemble":
-			model.load_state_dict(torch.load(TRAINING_CKPT_DIR+"/"+model_name+"_"+str(ind)+"_"+str(id_test)+".pth"))
+			model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ind)+".pth"
+			logging.info("Loading {}".format(model_filename))
+			model.load_state_dict(torch.load(model_filename))
 			model.eval()
 
 		if torch.cuda.is_available():
