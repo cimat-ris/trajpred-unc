@@ -707,7 +707,7 @@ def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_ba
 
 
 
-def generate_one_batch_test(batched_test_data, model, num_samples, model_name, args, device=None, dim_pred=12, type="ensemble"):
+def generate_uncertainty_evaluation_dataset(batched_test_data, model, num_samples, model_name, args, device=None, dim_pred=12, type="ensemble"):
 	#----------- Dataset TEST -------------
 	datarel_test_full   = []
 	targetrel_test_full = []
@@ -715,10 +715,11 @@ def generate_one_batch_test(batched_test_data, model, num_samples, model_name, a
 	target_test_full    = []
 
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
+		# The first batch is used for uncertainty calibration, so we skip it
 		if batch_idx==0:
 			continue
 
-		 # Batchs saved into array respectively
+		 # Batches saved into array respectively
 		datarel_test_full.append(datarel_test)
 		targetrel_test_full.append(targetrel_test)
 		data_test_full.append(data_test)
