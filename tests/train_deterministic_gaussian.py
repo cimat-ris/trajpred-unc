@@ -23,7 +23,7 @@ from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import get_ethucy_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
-from utils.calibration import generate_one_batch_test
+from utils.calibration import generate_uncertainty_evaluation_dataset
 from utils.calibration_utils import save_data_for_calibration
 from utils.directory_utils import mkdir_p
 import torch.optim as optim
@@ -124,6 +124,7 @@ def main():
 		# Plotting
 		ind = np.minimum(ind_sample,pred.shape[0]-1)
 		plot_traj_world(pred[ind,:,:],data_test[ind,:,:],target_test[ind,:,:],ax)
+		plot_cov_world(pred[ind,:,:],sigmas[ind,:,:],data_test[ind,:,:],ax)
 		plt.legend()
 		plt.savefig(os.path.join(output_dir , "pred_dropout"+".pdf"))
 		if args.show_plot:
@@ -133,16 +134,16 @@ def main():
 		if batch_idx==args.examples-1:
 			break
 
-	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, 1, model_name, args, device=device)
+	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, args, device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Producing data for uncertainty calibration
 	# Load the model
-	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
-	logging.info("Loading {}".format(model_filename))
-	model.load_state_dict(torch.load(model_filename))
-	model.eval()
+	#model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
+	#logging.info("Loading {}".format(model_filename))
+	#model.load_state_dict(torch.load(model_filename))
+	#model.eval()
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 
 		tpred_samples  = []
