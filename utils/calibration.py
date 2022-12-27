@@ -23,8 +23,9 @@ from utils.hdr import sort_sample, get_alpha
 # Calibration metrics
 from utils.calibration_metrics import miscalibration_area,mean_absolute_calibration_error,root_mean_squared_calibration_error
 
-def gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction, observations, trajectory_id, position, resample_size=0):
+def gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction, observations, trajectory_id, time_position, resample_size=0):
 	"""
+	Builds a KDE representation from a Gaussian mixture (output of one of the prediction algorithms)
 	Args:
 		- displacement_prediction: prediction of displacements
 		- sigmas_prediction: covariances of the predictions
@@ -36,29 +37,21 @@ def gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction
 		- kde: PDF estimation
 		- sample_kde: Sampled points (x,y) from PDF
 	"""
-	# Estimamos la gaussiana con los parametros que salen del modelo
+	# This array will hold the parameters of each element of the mixture
 	gaussian_parameters = []
-	#if display:
-	#	plt.figure(figsize=(12,10))
 
-	for ind_ensemble in range(sigmas_prediction.shape[0]):
-		# Procesamos las medias y sigmas [2, 16, 12, 3]
-		# Extraemos los valores para la covarianza
-		sigmas_samples_ensemble = sigmas_prediction[ind_ensemble,trajectory_id,:,:]
+	for idx_ensemble in range(sigmas_prediction.shape[0]):
+		# Get means and standard deviations
+		sigmas_samples_ensemble = sigmas_prediction[idx_ensemble,trajectory_id,:,:]
 		sx, sy, cor = sigmas_samples_ensemble[:, 0], sigmas_samples_ensemble[:, 1], sigmas_samples_ensemble[:, 2]
-		sx          = sx[position]
-		sy          = sy[position]
+		sx          = sx[time_position]
+		sy          = sy[time_position]
 
 		# Transform in absolute coordinates
-		displacement        = displacement_prediction[ind_ensemble,trajectory_id,:,:]
+		displacement        = displacement_prediction[idx_ensemble,trajectory_id,:,:]
 		absolute_prediction = displacement + np.array([observations[trajectory_id,:,:][-1].numpy()])
-		mean                = absolute_prediction[position, :]
+		mean                = absolute_prediction[time_position, :]
 		covariance          = np.array([[sx**2, 0],[0, sy**2]])
-		# TODO: move the drawings out of this one
-		#if display:
-		# label4, = plt.plot(mean[0], mean[1], "*", color="red", label = "Means from Gaussian Mix")
-		# label1, label2, label3 = plot_traj_world(displacement_prediction[ind_ensemble,trajectory_id,:,:], observations[trajectory_id,:,:], target_test[trajectory_id,:,:])
-
 		gaussian_parameters.append([mean,covariance])
 
 	# TODO: do the samples from the mixture, directly
@@ -77,43 +70,38 @@ def gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction
 		mult_sub_mean = sub_mean @ sub_mean.T
 		cov_mixture  +=  pi[j]*(gaussian_parameters[j][1] + mult_sub_mean)
 
-
 	sample_pdf = np.random.multivariate_normal(mean_mixture, cov_mixture, resample_size)
-
-	#if display:
-	#	label5, = plt.plot(sample_pdf[:,0], sample_pdf[:,1], ".", color="blue", alpha=0.2, label = "Gaussian Mix Samples")
-	#	plt.title("Trajectory Plot")
-	#	plt.legend(handles=[label1, label2, label3, label4, label5 ])
-		#image_output_name = os.path.join(output_dirs.trajectories, "traj_samples_cov_"+str(idTest)+"_"+str(i)+".pdf")
-		#plt.savefig(image_output_name)
-	#	plt.show()
-	#	plt.close()
 	# TODO: return a sklearn.KernelDensity instead?
 	return multivariate_normal(mean_mixture, cov_mixture), sample_pdf
 
-def get_kde(displacement_prediction, observations, trajectory_id, sigmas_samples, position=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
+def get_kde(displacement_prediction, observations, trajectory_id, sigmas_samples, time_position=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
 	"""
+	Builds a KDE representation from the prediction output
 	Args:
 		- displacement_prediction: prediction of displacements
 		- observations: observations (to translate the predictions)
 		- trajectory_id: id of the trajectory
 		- sigmas_prediction: covariances of the predictions
-		- position: position in the time horizon
+		- time_position: position in the time horizon
 		- resample_size: number of samples to produce from the KDE
 		- relative_coords_flag: to specify how the coordinates are going to be computed, relative (True) or absolute (False)
 	Returns:
 		- kde: PDF estimation
 		- sample_kde: Sampled points (x,y) from PDF
 	"""
-	# Produce resample_size samples from the pdf
+	# Produces resample_size samples from the pdf
 	if gaussian:
 		# p.d.f. estimation as a Gaussian. Sampling points (x,y) from PDF
-		kde, sample_kde = gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_samples, observations, trajectory_id, position, resample_size=resample_size)
+		kde, sample_kde = gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_samples, observations, trajectory_id, time_position, resample_size=resample_size)
 	else:
+		# In that case, we use samples
 		if relative_coords_flag:
-			sample_kde = displacement_prediction[:, trajectory_id, position, :]
+			sample_kde = displacement_prediction[:, trajectory_id, time_position, :]
 		else:
-			sample_kde = displacement_prediction[:, trajectory_id, position, :] + np.array([observations[trajectory_id,:,:][-1].numpy()])
+			sample_kde = displacement_prediction[:, trajectory_id, time_position, :] + np.array([observations[trajectory_id,:,:][-1].numpy()])
+		if sample_kde.shape[0]<2:
+			raise Exception("Needs more samples to perform KDE")
+
 		# Use KDE to get a representation of the p.d.f.
 		# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
 		kde        = gaussian_kde(sample_kde.T)
@@ -132,7 +120,7 @@ def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_ca
 	for i in range(tpred_samples_cal.shape[1]):
 		# Ground Truth
 		gt = target_cal[i,position,:].cpu()
-		kde, sample_kde = get_kde(tpred_samples_cal, data_cal, i, sigmas_samples_cal, position=position, gaussian=gaussian, resample_size=resample_size)
+		kde, sample_kde = get_kde(tpred_samples_cal, data_cal, i, sigmas_samples_cal, time_position=position, gaussian=gaussian, resample_size=resample_size)
 
 		#----------------------------------------------------------
 		# Evaluate these samples on the p.d.f.
@@ -159,6 +147,7 @@ def save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts,
 	"""
 	Save calibration curves
 	"""
+
 	if gaussian:
 		output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
 		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, show=show)
@@ -212,7 +201,7 @@ def get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples, targe
 		for i in range(tpred_samples.shape[1]):
 			# Ground Truth
 			gt = target[i,position,:].cpu()
-			kde, sample_kde = get_kde(tpred_samples, data, i, sigmas_samples, position=position, gaussian=gaussian, resample_size=resample_size)
+			kde, sample_kde = get_kde(tpred_samples, data, i, sigmas_samples, time_position=position, gaussian=gaussian, resample_size=resample_size)
 
 			#--------
 			# Steps to compute HDRs fa
@@ -293,38 +282,43 @@ def gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=
 		fk_yi = fk.pdf(gt)
 		s_xk_yk.append(fk_yi/fk_max)
 
-def calibration_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
+def calibration_density(displacement_prediction, observations, target_test, target_test2, sigmas_prediction, time_position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
 	"""
+	Performs uncertainty calibration by using the density values as conformal scores
 	Args:
-		- orden:
-		- alpha: alpha value to be used at elif
-		- ind_alpha: alpha value to be used to compute index
+		- displacement_prediction: prediction of the displacements, according to the prediction algorithm
+		- observations: past positions
+		-
+		-
+		- sigmas_prediction: covariances of the predictions, according to the prediction algorithm
+		- time_position: the position in the time horizon to consider
+		- alpha: confidence value to consider
 	Returns:
-		- fa obtained from PDF samples
+		- Threshold on the density value to be used for marking confidence at least alpha
 	"""
 	list_fk = []
-	s_xk_yk = []
+	all_density_values = []
 	# KDE density creation using provided samples
-	for trajectory_id in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, trajectory_id, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
-		gt_evaluation(target_test, target_test2, trajectory_id, position, fk, s_xk_yk, gaussian=gaussian)
+	for trajectory_id in range(displacement_prediction.shape[1]):
+		fk, yi = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		gt_evaluation(target_test, target_test2, trajectory_id, time_position, fk, all_density_values, gaussian=gaussian)
 		list_fk.append(fk)
 
 	# Sort samples
-	orden = sorted(s_xk_yk, reverse=True)
+	sorted_density_values = sorted(all_density_values, reverse=True)
 	# Index of alpha-th sample
-	ind = int(len(orden)*alpha)
-	if ind==len(orden):
+	ind = int(len(sorted_density_values)*alpha)
+	if ind==len(sorted_density_values):
 		Sa = 0.0
 	else:
-		Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
+		Sa = sorted_density_values[ind][0] # The alpha-th largest element gives the threshold
 
 	if draw:
 		#-------------- For an specific id_batch ----------------------
 		# Compute alpha that relates the new Sa in p.d.f.
 		# Get sample of interest
-		yi = tpred_samples[:, id_batch, position, :].T
-		gt = target_test[id_batch, position,:].detach().numpy()
+		yi = tpred_samples[:, id_batch, time_position, :].T
+		gt = target_test[id_batch, time_position,:].detach().numpy()
 
 		# p.d.f creation and sample evaluation in it
 		fk = gaussian_kde(yi.T)
@@ -336,28 +330,28 @@ def calibration_density(tpred_samples, data_test, target_test, target_test2, sig
 		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
 		alpha_fk = float(ind)/len(orden)
 
-		output_image_name = os.path.join(output_dirs.hdr, "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		output_image_name = os.path.join(output_dirs.hdr, "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(time_position)+"_gt.pdf")
 		# Distribution visualization
 		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
-		yi = tpred_samples[:, id_batch, position, :]  + data_test[id_batch,-1,:].numpy()
+		yi = tpred_samples[:, id_batch, time_position, :]  + data_test[id_batch,-1,:].numpy()
 		target_test_world = target_test[id_batch, :, :] + data_test[id_batch,-1,:].numpy()
 
-		output_image_name = os.path.join(output_dirs.trajectories_kde, "trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+".pdf")
+		output_image_name = os.path.join(output_dirs.trajectories_kde, "trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(time_position)+".pdf")
 		# Distribution visualization along trajectory
 		plot_calibration_pdf_traj(yi, data_test, id_batch, target_test_world, Sa, output_image_name)
 
 	return Sa
 
-def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
+def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, time_position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
 
 	list_fk = []
 	s_xk_yk = []
 	# KDE density creation using provided samples
 	for k in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 		fk_max = fk.pdf(yi).max()
-		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
+		gt_evaluation(target_test, target_test2, k, time_position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
 		list_fk.append(fk)
 
 	# Sort samples
@@ -373,8 +367,8 @@ def calibration_relative_density(tpred_samples, data_test, target_test, target_t
 		#-------------- For an specific id_batch ----------------------
 		# Compute alpha that relates the new Sa in p.d.f.
 		# Get sample of interest
-		yi = tpred_samples[:, id_batch, position, :] # Seleccionamos las muestras de una trayectoria
-		gt = target_test[id_batch, position,:].detach().numpy()
+		yi = tpred_samples[:, id_batch, time_position, :] # Seleccionamos las muestras de una trayectoria
+		gt = target_test[id_batch, time_position,:].detach().numpy()
 
 		# p.d.f creation and sample evaluation in it
 		fk = gaussian_kde(yi.T)
@@ -387,7 +381,7 @@ def calibration_relative_density(tpred_samples, data_test, target_test, target_t
 		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
 		alpha_fk = float(ind)/len(orden)
 
-		output_image_name = os.path.join(output_dirs.hdr2 , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		output_image_name = os.path.join(output_dirs.hdr2 , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(time_position)+"_gt.pdf")
 		# Distribution visualization
 		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
@@ -428,7 +422,7 @@ def get_conformal_pcts(displacement_prediction, observations, target, target2, s
 	# For each individual trajectory
 	for trajectory_id in range(displacement_prediction.shape[1]):
 
-		kde, sample_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		kde, sample_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 
 		# Steps to compute HDRs fa
 		# Evaluate these samples on the p.d.f.
