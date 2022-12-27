@@ -113,7 +113,7 @@ def get_kde(displacement_prediction, observations, trajectory_id, sigmas_samples
 		if relative_coords_flag:
 			sample_kde = displacement_prediction[:, trajectory_id, position, :]
 		else:
-			sample_kde = displacement_prediction[:, trajectory_id, position, :] + np.array([observations[i,:,:][-1].numpy()])
+			sample_kde = displacement_prediction[:, trajectory_id, position, :] + np.array([observations[trajectory_id,:,:][-1].numpy()])
 		# Use KDE to get a representation of the p.d.f.
 		# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
 		kde        = gaussian_kde(sample_kde.T)
@@ -178,7 +178,7 @@ def save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts,
 def get_fa(orden, alpha, ind_alpha):
 	"""
 	Args:
-		- orden
+		- orden:
 		- alpha: alpha value to be used at elif
 		- ind_alpha: alpha value to be used to compute index
 	Returns:
@@ -294,13 +294,20 @@ def gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=
 		s_xk_yk.append(fk_yi/fk_max)
 
 def calibration_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
-
+	"""
+	Args:
+		- orden:
+		- alpha: alpha value to be used at elif
+		- ind_alpha: alpha value to be used to compute index
+	Returns:
+		- fa obtained from PDF samples
+	"""
 	list_fk = []
 	s_xk_yk = []
 	# KDE density creation using provided samples
-	for k in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
-		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian)
+	for trajectory_id in range(tpred_samples.shape[1]):
+		fk, yi = get_kde(tpred_samples, data_test, trajectory_id, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		gt_evaluation(target_test, target_test2, trajectory_id, position, fk, s_xk_yk, gaussian=gaussian)
 		list_fk.append(fk)
 
 	# Sort samples
