@@ -9,7 +9,7 @@ import statistics
 import torch
 from scipy.stats import gaussian_kde
 
-from scipy.stats import multivariate_normal
+from scipy.stats import multivariate_normal,multinomial
 from sklearn.metrics import auc
 from sklearn.isotonic import IsotonicRegression
 
@@ -23,142 +23,144 @@ from utils.hdr import sort_sample, get_alpha
 # Calibration metrics
 from utils.calibration_metrics import miscalibration_area,mean_absolute_calibration_error,root_mean_squared_calibration_error
 
-def gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction, observations, trajectory_id, position, resample_size=0):
+def gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction, observations, trajectory_id, time_position, resample_size=0):
 	"""
+	Builds a KDE representation from a Gaussian mixture (output of one of the prediction algorithms)
 	Args:
 		- displacement_prediction: prediction of displacements
 		- sigmas_prediction: covariances of the predictions
 		- observations: observations (to translate the predictions)
 		- trajectory_id: id of the trajectory
-		- position: position in the time horizon
+		- time_position: position in the time horizon
 		- resample_size: number of samples to produce from the KDE
 	Returns:
 		- kde: PDF estimation
 		- sample_kde: Sampled points (x,y) from PDF
 	"""
-	# Estimamos la gaussiana con los parametros que salen del modelo
-	gaussian_parameters = []
-	#if display:
-	#	plt.figure(figsize=(12,10))
+	# This array will hold the parameters of each element of the mixture
+	gaussian_mixture = []
 
-	for ind_ensemble in range(sigmas_prediction.shape[0]):
-		# Procesamos las medias y sigmas [2, 16, 12, 3]
-		# Extraemos los valores para la covarianza
-		sigmas_samples_ensemble = sigmas_prediction[ind_ensemble,trajectory_id,:,:]
+	for idx_ensemble in range(sigmas_prediction.shape[0]):
+		# Get means and standard deviations
+		sigmas_samples_ensemble = sigmas_prediction[idx_ensemble,trajectory_id,:,:]
 		sx, sy, cor = sigmas_samples_ensemble[:, 0], sigmas_samples_ensemble[:, 1], sigmas_samples_ensemble[:, 2]
-		sx          = sx[position]
-		sy          = sy[position]
+		sx          = sx[time_position]
+		sy          = sy[time_position]
 
 		# Transform in absolute coordinates
-		displacement        = displacement_prediction[ind_ensemble,trajectory_id,:,:]
+		displacement        = displacement_prediction[idx_ensemble,trajectory_id,:,:]
 		absolute_prediction = displacement + np.array([observations[trajectory_id,:,:][-1].numpy()])
-		mean                = absolute_prediction[position, :]
+		mean                = absolute_prediction[time_position, :]
 		covariance          = np.array([[sx**2, 0],[0, sy**2]])
-		# TODO: move the drawings out of this one
-		#if display:
-		# label4, = plt.plot(mean[0], mean[1], "*", color="red", label = "Means from Gaussian Mix")
-		# label1, label2, label3 = plot_traj_world(displacement_prediction[ind_ensemble,trajectory_id,:,:], observations[trajectory_id,:,:], target_test[trajectory_id,:,:])
-
-		gaussian_parameters.append([mean,covariance])
-
+		gaussian_mixture.append(multivariate_normal(mean,covariance))
+	# Performs the sampling
+	pi                 = np.ones((len(gaussian_mixture),))/len(gaussian_mixture)
+	partition          = multinomial(n=resample_size,p=pi).rvs(size=1)
+	sample_pdf         = []
+	for gaussian_id,gaussian in enumerate(gaussian_mixture):
+		sample_pdf.append(gaussian.rvs(size=partition[0][gaussian_id]))
+	sample_pdf = np.concatenate(sample_pdf,axis=0)
 	# TODO: do the samples from the mixture, directly
 	# Construimos la gaussiana de la mezcla
 	# Mezcla de gaussianas
 	# https://faculty.ucmerced.edu/mcarreira-perpinan/papers/cs-99-03.pdf
-	pi = np.ones((len(gaussian_parameters),))/len(gaussian_parameters)
 	# Mean of the mixture
 	mean_mixture = np.zeros((2,))
-	for j in range(len(gaussian_parameters)):
-		mean_mixture += pi[j]*(gaussian_parameters[j][0])
+	for j in range(len(gaussian_mixture)):
+		mean_mixture += pi[j]*(gaussian_mixture[j].mean)
 	# Covariance of the mixture
 	cov_mixture = np.zeros((2,2))
-	for j in range(len(gaussian_parameters)):
-		sub_mean      = gaussian_parameters[j][0].reshape(2,1) - mean_mixture.reshape(2,1)
+	for j in range(len(gaussian_mixture)):
+		sub_mean      = gaussian_mixture[j].mean.reshape(2,1) - mean_mixture.reshape(2,1)
 		mult_sub_mean = sub_mean @ sub_mean.T
-		cov_mixture  +=  pi[j]*(gaussian_parameters[j][1] + mult_sub_mean)
-
+		cov_mixture  +=  pi[j]*(gaussian_mixture[j].cov + mult_sub_mean)
 
 	sample_pdf = np.random.multivariate_normal(mean_mixture, cov_mixture, resample_size)
-
-	#if display:
-	#	label5, = plt.plot(sample_pdf[:,0], sample_pdf[:,1], ".", color="blue", alpha=0.2, label = "Gaussian Mix Samples")
-	#	plt.title("Trajectory Plot")
-	#	plt.legend(handles=[label1, label2, label3, label4, label5 ])
-		#image_output_name = os.path.join(output_dirs.trajectories, "traj_samples_cov_"+str(idTest)+"_"+str(i)+".pdf")
-		#plt.savefig(image_output_name)
-	#	plt.show()
-	#	plt.close()
-	# TODO: return a sklearn.KernelDensity instead?
+	# TODO: return a sklearn.KernelDensity or GaussianKDE instead?
 	return multivariate_normal(mean_mixture, cov_mixture), sample_pdf
 
-def get_kde(displacement_prediction, observations, trajectory_id, sigmas_samples, position=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
+def get_kde(displacement_prediction, observations, trajectory_id, sigmas_samples, time_position=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
 	"""
+	Builds a KDE representation from the prediction output
 	Args:
 		- displacement_prediction: prediction of displacements
-		- observations: observations (to translate the predictions)
+		- observations: past observations (to translate the predictions)
 		- trajectory_id: id of the trajectory
 		- sigmas_prediction: covariances of the predictions
-		- position: position in the time horizon
+		- time_position: position in the time horizon
+		- gaussian: flag to handle the prediction output as mean,variance
 		- resample_size: number of samples to produce from the KDE
 		- relative_coords_flag: to specify how the coordinates are going to be computed, relative (True) or absolute (False)
 	Returns:
 		- kde: PDF estimation
-		- sample_kde: Sampled points (x,y) from PDF
+		- samples_kde: Sampled points (x,y) from PDF
 	"""
-	# Produce resample_size samples from the pdf
+	# Produces resample_size samples from the pdf
 	if gaussian:
-		# p.d.f. estimation as a Gaussian. Sampling points (x,y) from PDF
-		kde, sample_kde = gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_samples, observations, trajectory_id, position, resample_size=resample_size)
+		# p.d.f. estimation given as a Gaussian. Sampling points (x,y) from PDF
+		kde, samples_kde = gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_samples, observations, trajectory_id, time_position, resample_size=resample_size)
 	else:
+		# p.d.f. estimation given implicitly as samples
 		if relative_coords_flag:
-			sample_kde = displacement_prediction[:, trajectory_id, position, :]
+			samples_kde = displacement_prediction[:, trajectory_id, time_position, :]
 		else:
-			sample_kde = displacement_prediction[:, trajectory_id, position, :] + np.array([observations[trajectory_id,:,:][-1].numpy()])
+			samples_kde = displacement_prediction[:, trajectory_id, time_position, :] + np.array([observations[trajectory_id,:,:][-1].numpy()])
+		if sample_kde.shape[0]<2:
+			raise Exception("Needs more than one sample to perform KDE")
 		# Use KDE to get a representation of the p.d.f.
 		# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-		kde        = gaussian_kde(sample_kde.T)
-		sample_kde = kde.resample(resample_size,0)
-	return kde, sample_kde
+		kde        = gaussian_kde(samples_kde.T)
+		samples_kde = kde.resample(resample_size,0)
+	return kde, samples_kde
 
 
-def get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position=0, idTest=0, gaussian=False, resample_size=1000):
+def get_mass_below_gt(displacement_prediction, observations, ground_truth, sigmas_prediction, time_position=0, gaussian=False, resample_size=1000):
 	"""
+	Evaluates the probability mass in our predictive distribution below the GT
 	Args:
+		- displacement_prediction: prediction of displacements
+		- observations: past observations (to translate the predictions)
+		- sigmas_prediction: covariances of the predictions
+		- time_position: position in the time horizon
+		- gaussian: flag to handle the prediction output as mean,variance
+		- resample_size: number of samples to produce from the KDE
 	Returns:
-		- predicted HDR
+		- Array of probability masses above the GT
 	"""
-	predicted_hdr = []
+	mass_below_gt = []
 	# Traverse each trajectory of the batch
-	for i in range(tpred_samples_cal.shape[1]):
+	for trajectory_id in range(displacement_prediction.shape[1]):
 		# Ground Truth
-		gt = target_cal[i,position,:].cpu()
-		kde, sample_kde = get_kde(tpred_samples_cal, data_cal, i, sigmas_samples_cal, position=position, gaussian=gaussian, resample_size=resample_size)
+		gt = ground_truth[trajectory_id,time_position,:].cpu()
+		# KDE representation and samples
+		kde, samples_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=time_position, gaussian=gaussian, resample_size=resample_size)
 
 		#----------------------------------------------------------
 		# Evaluate these samples on the p.d.f.
-		sample_pdf = kde.pdf(sample_kde)
+		samples_pdf_values = kde.pdf(samples_kde)
 
-		# Sort the samples in decreasing order of their p.d.f. value
-		sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
-		orden          = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
+		# Sort the samples in **decreasing order** of their p.d.f. value
+		sample_pdf_zip = zip(samples_pdf_values, samples_pdf_values/np.sum(samples_pdf_values))
+		sorted_samples_pdf_zip = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
 		#----------------------------------------------------------
+		# Evaluate the GT on the p.d.f.
+		gt_pdf_value = kde.pdf(gt)
+		# Select all samples for which the pdf value is above the one of GT
+		index = np.where(np.array(sorted_samples_pdf_zip)[:,0] >= gt_pdf_value)[0]
+		index = 0 if index.size == 0 else index[-1] # Validate that it is not the first largest element
+		# TODO: to be like in the paper should we remove the 1-?
+		# Sum all the normalized values for these indices
+		alpha_pred = 1 - np.array(sorted_samples_pdf_zip)[:index+1,1].sum()
+		mass_below_gt.append(alpha_pred)
 
-		# Ealuate the GT on the p.d.f.
-		f_pdf = kde.pdf(gt)
-
-		# Predicted HDR
-		ind = np.where(np.array(orden)[:,0] >= f_pdf)[0]
-		ind = 0 if ind.size == 0 else ind[-1] # Validate that it is not the first largest element
-		alpha_pred = 1 - np.array(orden)[:ind+1,1].sum()
-		predicted_hdr.append(alpha_pred)
-
-	return predicted_hdr
+	return mass_below_gt
 
 
 def save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=False, idTest=0, position=0, output_dirs=None, show=False):
 	"""
 	Save calibration curves
 	"""
+
 	if gaussian:
 		output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
 		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, show=show)
@@ -174,77 +176,92 @@ def save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts,
 			output_image_name = os.path.join(output_dirs.confidence, "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
 			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, show=show)
 
-
-def get_fa(orden, alpha, ind_alpha):
+# TODO: I don't understand why we need two alpha arguments. Is it possible to use only one?
+def get_fa(sorted_pdf_values, alpha, alpha_level):
 	"""
+	Given a set of sorted pdf values (unnormalized and normalized), determine the f_alpha value such that the pdf values above f_alpha sum to alpha.
 	Args:
-		- orden:
-		- alpha: alpha value to be used at elif
-		- ind_alpha: alpha value to be used to compute index
+		- sorted_pdf_values: values of the pdf (unnormalized and normalized)
+		- alpha: confidence level we are considering
+		- alpha_level: confidence level we are considering
 	Returns:
 		- fa obtained from PDF samples
 	"""
-	orden_i, orden_val = zip(*orden)
-	ind = np.where(np.cumsum(orden_val) >= (1.0-ind_alpha))[0]
-	if (ind.shape[0] == 0) :
+	sorted_unnormalized_pdf_values, sorted_normalized_pdf_values = zip(*sorted_pdf_values)
+	# TODO: Is it sure 1-alpha?
+	index = np.where(np.cumsum(sorted_normalized_pdf_values) >= (1.0-alpha_level))[0]
+	if (index.shape[0] == 0) :
 		fa = 0.0
-	elif (list(ind) == [len(orden)-1]) and (alpha==0.0):
+	elif (list(index) == [len(sorted_pdf_values)-1]) and (alpha==0.0):
 		fa = 0.0
 	else:
-		fa = orden_i[ind[0]]
+		fa = sorted_unnormalized_pdf_values[index[0]]
 	return fa
 
 
-def get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples, target, data, sigmas_samples, position=0, idTest=0, gaussian=False, resample_size=1000):
+def get_gt_within_proportions(conf_levels, isotonic, displacement_prediction, ground_truth, observations, sigmas_prediction, time_position=0, gaussian=False, resample_size=1000):
 	"""
 	Args:
+		- conf_levels: array of cofidence levels to probe
+		- isotonic: the (isotonic) function that applies calibration
+		- displacement_prediction: prediction of displacements
+		- ground_truth: the ground_truth values for future positions
+		- observations: past observations (to translate the predictions)
+		- sigmas_prediction: covariances of the predictions
+		- time_position: position in the time horizon
+		- gaussian: flag to handle the prediction output as mean,variance
+		- resample_size: number of samples to produce from the KDE
 	Returns:
-		- calibrated percentages
-		- uncalibrated percentages
+		- Array of probability masses blow the GT
 	"""
-	unc_pcts = []
-	cal_pcts = []
-	for i,alpha in enumerate(tqdm(conf_levels)):
+	# TODO: I feel that this function do the same as get_mass_above_gt no?
+	within_proportion_calibrated   = []
+	within_proportion_uncalibrated = []
+	for trajectory_id,alpha in enumerate(tqdm(conf_levels)):
+		# Modified (calibrated) alpha
 		new_alpha = isotonic.transform([alpha])
 		logging.debug("alpha: {} -- new_alpha: {}".format(alpha,new_alpha))
-		perc_within_cal = []
-		perc_within_unc = []
-		for i in range(tpred_samples.shape[1]):
+		within_proportion_calibrated_   = []
+		within_proportion_uncalibrated_ = []
+		for trajectory_id in range(displacement_prediction.shape[1]):
 			# Ground Truth
-			gt = target[i,position,:].cpu()
-			kde, sample_kde = get_kde(tpred_samples, data, i, sigmas_samples, position=position, gaussian=gaussian, resample_size=resample_size)
+			gt = ground_truth[trajectory_id,time_position,:].cpu()
+			# Get KDE representation
+			kde, samples_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=time_position, gaussian=gaussian, resample_size=resample_size)
 
 			#--------
 			# Steps to compute HDRs fa
-			# Evaluate these samples on the p.d.f.
-			sample_pdf = kde.pdf(sample_kde)
+			# Evaluate these samples over the p.d.f.
+			samples_pdf_values = kde.pdf(samples_kde)
 
 			# Sort the samples in decreasing order of their p.d.f. value
-			sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
-			orden = sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
+			samples_pdf_zip   = zip(samples_pdf_values, samples_pdf_values/np.sum(samples_pdf_values))
+			sorted_samples_pdf= sorted(samples_pdf_zip, key=lambda x: x[1], reverse=True)
+			fa     = get_fa(sorted_samples_pdf, alpha, new_alpha)
+			fa_unc = get_fa(sorted_samples_pdf, alpha, alpha)
 
-			fa = get_fa(orden, alpha, new_alpha)
-			fa_unc = get_fa(orden, alpha, alpha)
-
-			f_pdf = kde.pdf(gt)
-			perc_within_cal.append(f_pdf >= fa)
-			perc_within_unc.append(f_pdf >= fa_unc)
+			# Evaluate the GT over the p.d.f.
+			gt_pdf_value = kde.pdf(gt)
+			# Evaluate whether the GT pdf value is above fa
+			within_proportion_calibrated_.append(gt_pdf_value >= fa)
+			within_proportion_uncalibrated_.append(gt_pdf_value >= fa_unc)
 			#-----
 
 		# Save batch results for an specific alpha
-		cal_pcts.append(np.mean(perc_within_cal))
-		unc_pcts.append(np.mean(perc_within_unc))
+		within_proportion_calibrated.append(np.mean(within_proportion_calibrated_))
+		within_proportion_uncalibrated.append(np.mean(within_proportion_uncalibrated_))
 
-	return cal_pcts, unc_pcts
+	return within_proportion_calibrated, within_proportion_uncalibrated
 
 
-def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000, output_dirs=None, show_plot=False):
+def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, time_position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000, output_dirs=None, show_plot=False):
 	output_dirs = Output_directories()
 
-	predicted_hdr = get_predicted_hdr(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
+	predicted_hdr = get_mass_below_gt(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, time_position=time_position, gaussian=gaussian, resample_size=resample_size)
 
 	# Empirical HDR
 	empirical_hdr = np.zeros(len(predicted_hdr))
+
 	for i, p in enumerate(predicted_hdr):
 		# TODO: check whether < or <=
 		empirical_hdr[i] = np.sum(predicted_hdr <= p)/len(predicted_hdr)
@@ -269,62 +286,70 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 
 	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05) # Valores de alpha
 
-	cal_pcts, unc_pcts = get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples_cal, target_cal, data_cal, sigmas_samples_cal, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
+	cal_pcts, unc_pcts = get_gt_within_proportions(conf_levels, isotonic, tpred_samples_cal, target_cal, data_cal, sigmas_samples_cal, time_position=time_position, gaussian=gaussian, resample_size=resample_size)
 	unc_pcts2 = []
 	cal_pcts2 = []
 
 	if tpred_samples_test is not None:
-		cal_pcts2, unc_pcts2 = get_calibrated_uncalibrated_pcts(conf_levels, isotonic, tpred_samples_test, target_test, data_test, sigmas_samples_test, position=position, idTest=idTest, gaussian=gaussian, resample_size=resample_size)
+		cal_pcts2, unc_pcts2 = get_gt_within_proportions(conf_levels, isotonic, tpred_samples_test, target_test, data_test, sigmas_samples_test, time_position=time_position, gaussian=gaussian, resample_size=resample_size)
 
-	save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=gaussian, idTest=idTest, position=position, output_dirs=output_dirs, show=show_plot)
+	save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=gaussian, idTest=idTest, position=time_position, output_dirs=output_dirs, show=show_plot)
 	return 1-conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, isotonic
 
 
-def gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=False, fk_max=1.0):
+def gt_evaluation(target_test, target_test2, trajectory_id, time_position, fk, s_xk_yk, gaussian=False, fk_max=1.0):
 	"""
 	GT evaluation
 	"""
+	# TODO: avoid these two cases?
 	if gaussian:
-		gt = target_test2[k,position,:].detach().numpy()
+		gt = target_test2[trajectory_id,time_position,:].detach().numpy()
 		fk_yi = np.array([fk.pdf(gt)])
 		s_xk_yk.append(np.array([fk_yi/fk_max]))
 	else:
-		gt = target_test[k,position,:].detach().numpy()
+		gt = target_test[trajectory_id,time_position,:].detach().numpy()
 		fk_yi = fk.pdf(gt)
 		s_xk_yk.append(fk_yi/fk_max)
 
-def calibration_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
+def calibration_density(displacement_prediction, observations, target_test, target_test2, sigmas_prediction, time_position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
 	"""
+	Performs uncertainty calibration by using the density values as conformal scores
 	Args:
-		- orden:
-		- alpha: alpha value to be used at elif
-		- ind_alpha: alpha value to be used to compute index
+		- displacement_prediction: prediction of the displacements, according to the prediction algorithm
+		- observations: past positions
+		-
+		-
+		- sigmas_prediction: covariances of the predictions, according to the prediction algorithm
+		- time_position: the position in the time horizon to consider
+		- alpha: confidence value to consider
 	Returns:
-		- fa obtained from PDF samples
+		- Threshold on the density value to be used for marking confidence at least alpha
 	"""
-	list_fk = []
-	s_xk_yk = []
-	# KDE density creation using provided samples
-	for trajectory_id in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, trajectory_id, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
-		gt_evaluation(target_test, target_test2, trajectory_id, position, fk, s_xk_yk, gaussian=gaussian)
-		list_fk.append(fk)
+	all_density_values = []
+	for trajectory_id in range(displacement_prediction.shape[1]):
+		# KDE density creation using provided samples
+		kde, __ = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		# Evaluates the GT over the KDE and keep the value  in  all_density_values
+		gt_evaluation(target_test, target_test2, trajectory_id, time_position, kde, all_density_values, gaussian=gaussian)
 
-	# Sort samples
-	orden = sorted(s_xk_yk, reverse=True)
+	# Sort GT values by decreasing order
+	sorted_density_values = sorted(all_density_values, reverse=True)
+
 	# Index of alpha-th sample
-	ind = int(len(orden)*alpha)
-	if ind==len(orden):
+	ind = int(len(sorted_density_values)*alpha)
+	if ind==len(sorted_density_values):
 		Sa = 0.0
 	else:
-		Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
+		# The alpha-th largest element gives the threshold
+		Sa = sorted_density_values[ind][0]
 
+	# TODO: move this part in another function
 	if draw:
 		#-------------- For an specific id_batch ----------------------
 		# Compute alpha that relates the new Sa in p.d.f.
 		# Get sample of interest
-		yi = tpred_samples[:, id_batch, position, :].T
-		gt = target_test[id_batch, position,:].detach().numpy()
+		yi = tpred_samples[:, id_batch, time_position, :].T
+		gt = target_test[id_batch, time_position,:].detach().numpy()
 
 		# p.d.f creation and sample evaluation in it
 		fk = gaussian_kde(yi.T)
@@ -336,28 +361,28 @@ def calibration_density(tpred_samples, data_test, target_test, target_test2, sig
 		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
 		alpha_fk = float(ind)/len(orden)
 
-		output_image_name = os.path.join(output_dirs.hdr, "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		output_image_name = os.path.join(output_dirs.hdr, "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(time_position)+"_gt.pdf")
 		# Distribution visualization
 		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
-		yi = tpred_samples[:, id_batch, position, :]  + data_test[id_batch,-1,:].numpy()
+		yi = tpred_samples[:, id_batch, time_position, :]  + data_test[id_batch,-1,:].numpy()
 		target_test_world = target_test[id_batch, :, :] + data_test[id_batch,-1,:].numpy()
 
-		output_image_name = os.path.join(output_dirs.trajectories_kde, "trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+".pdf")
+		output_image_name = os.path.join(output_dirs.trajectories_kde, "trajectories_kde_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(time_position)+".pdf")
 		# Distribution visualization along trajectory
 		plot_calibration_pdf_traj(yi, data_test, id_batch, target_test_world, Sa, output_image_name)
 
 	return Sa
 
-def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
+def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, time_position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
 
 	list_fk = []
 	s_xk_yk = []
 	# KDE density creation using provided samples
 	for k in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 		fk_max = fk.pdf(yi).max()
-		gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
+		gt_evaluation(target_test, target_test2, k, time_position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
 		list_fk.append(fk)
 
 	# Sort samples
@@ -373,8 +398,8 @@ def calibration_relative_density(tpred_samples, data_test, target_test, target_t
 		#-------------- For an specific id_batch ----------------------
 		# Compute alpha that relates the new Sa in p.d.f.
 		# Get sample of interest
-		yi = tpred_samples[:, id_batch, position, :] # Seleccionamos las muestras de una trayectoria
-		gt = target_test[id_batch, position,:].detach().numpy()
+		yi = tpred_samples[:, id_batch, time_position, :] # Seleccionamos las muestras de una trayectoria
+		gt = target_test[id_batch, time_position,:].detach().numpy()
 
 		# p.d.f creation and sample evaluation in it
 		fk = gaussian_kde(yi.T)
@@ -387,13 +412,14 @@ def calibration_relative_density(tpred_samples, data_test, target_test, target_t
 		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
 		alpha_fk = float(ind)/len(orden)
 
-		output_image_name = os.path.join(output_dirs.hdr2 , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(position)+"_gt.pdf")
+		output_image_name = os.path.join(output_dirs.hdr2 , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(time_position)+"_gt.pdf")
 		# Distribution visualization
 		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
 	return Sa
 
-# Given a value of alpha, deduce the value of the density
+# Given a value of alpha and sorted values of te density, deduce the alpha-th value of the density
+# TODO: to be correct, the sorted values should also be normalized
 def get_falpha(orden, alpha):
 	# We find f_gamma(HDR) from the pdf samples
 	orden_idx, orden_val = zip(*orden)
@@ -401,6 +427,7 @@ def get_falpha(orden, alpha):
 	if ind.shape[0] == 0:
 		fa = orden[-1][0]
 	else:
+		# TODO: why is the index used in one case and the values in the other?
 		fa = orden_idx[ind[0]]
 	return fa
 
@@ -428,7 +455,7 @@ def get_conformal_pcts(displacement_prediction, observations, target, target2, s
 	# For each individual trajectory
 	for trajectory_id in range(displacement_prediction.shape[1]):
 
-		kde, sample_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+		kde, sample_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
 
 		# Steps to compute HDRs fa
 		# Evaluate these samples on the p.d.f.
@@ -462,8 +489,22 @@ def get_conformal_pcts(displacement_prediction, observations, target, target2, s
 	return perc_within_cal, perc_within_unc
 
 
-def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=CALIBRATION_CONFORMAL_FVAL, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None, output_dirs=None, show_plot=False):
-	# Alpha values
+def calibration_Conformal(displacement_prediction_calibration, observations_calibration, gt_calibration, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=CALIBRATION_CONFORMAL_FVAL, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None, output_dirs=None, show_plot=False):
+	"""
+	Args:
+		- displacement_prediction_calibration: prediction of displacements on the calibration dataset
+		- observations_calibration: observations (to translate the predictions)
+		- gt_calibration:
+		- target2:
+		- sigmas_prediction_calibration: covariances of the predictions
+		- alpha: confidence level
+		- fa: calibration threshold
+		- position: position in the time horizon
+	Returns:
+		- calibrated percentages for conformal calibration
+		- uncalibrated percentages for conformal calibration
+	"""
+	# Perform calibration for alpha values in the range [0,1]
 	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05)
 
 	unc_pcts = []
@@ -473,16 +514,16 @@ def calibration_Conformal(tpred_samples_cal, data_cal, target_cal, target_cal2, 
 
 	for i,alpha in enumerate(tqdm(conf_levels)):
 		logging.debug("***** alpha: {}".format(alpha))
-		# Obtenemos el fa con el metodo conformal
+		# Use a conformal approach to obtain a threshold value fa
 		if method==CALIBRATION_CONFORMAL_FVAL:
-			fa = calibration_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTE: Unique value for the whole calibration dataset
+			fa = calibration_density(displacement_prediction_calibration, observations_calibration, gt_calibration, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTE: Unique value for the whole calibration dataset
 		elif method==CALIBRATION_CONFORMAL_FREL:
-			fa = calibration_relative_density(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTE: Unique value for the whole calibration dataset
+			fa = calibration_relative_density(displacement_prediction_calibration, observations_calibration, gt_calibration, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTE: Unique value for the whole calibration dataset
 		else:
 			logging.error("Method not implemented.")
 			return -1
 
-		perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_cal, data_cal, target_cal, target_cal2, sigmas_samples_cal, alpha, fa, method, position=position, gaussian=gaussian)
+		perc_within_cal, perc_within_unc = get_conformal_pcts(displacement_prediction_calibration, observations_calibration, gt_calibration, target_cal2, sigmas_samples_cal, alpha, fa, method, position=position, gaussian=gaussian)
 		# Save batch results for an specific alpha
 		cal_pcts.append(np.mean(perc_within_cal))
 		unc_pcts.append(np.mean(perc_within_unc))
@@ -529,7 +570,7 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		logging.info("Calibration metrics at position: {}".format(position))
 		logging.info("Calibration method: Isotonic regression")
 		# Apply isotonic regression
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs,show_plot=show_plot)
+		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, time_position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs,show_plot=show_plot)
 
 		# Calibration metrics
 		logging.info("Calibration metrics (Calibration dataset)")
