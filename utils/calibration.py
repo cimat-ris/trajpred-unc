@@ -324,13 +324,12 @@ def calibration_density(displacement_prediction, observations, target_test, targ
 	Returns:
 		- Threshold on the density value to be used for marking confidence at least alpha
 	"""
-	list_fk = []
 	all_density_values = []
-	# KDE density creation using provided samples
 	for trajectory_id in range(displacement_prediction.shape[1]):
-		fk, yi = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
-		gt_evaluation(target_test, target_test2, trajectory_id, time_position, fk, all_density_values, gaussian=gaussian)
-		list_fk.append(fk)
+		# KDE density creation using provided samples
+		kde, __ = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+
+		gt_evaluation(target_test, target_test2, trajectory_id, time_position, kde, all_density_values, gaussian=gaussian)
 
 	# Sort samples
 	sorted_density_values = sorted(all_density_values, reverse=True)
