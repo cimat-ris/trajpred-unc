@@ -297,16 +297,17 @@ def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samp
 	return 1-conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, isotonic
 
 
-def gt_evaluation(target_test, target_test2, k, position, fk, s_xk_yk, gaussian=False, fk_max=1.0):
+def gt_evaluation(target_test, target_test2, trajectory_id, time_position, fk, s_xk_yk, gaussian=False, fk_max=1.0):
 	"""
 	GT evaluation
 	"""
+	# TODO: avoid these two cases?
 	if gaussian:
-		gt = target_test2[k,position,:].detach().numpy()
+		gt = target_test2[trajectory_id,time_position,:].detach().numpy()
 		fk_yi = np.array([fk.pdf(gt)])
 		s_xk_yk.append(np.array([fk_yi/fk_max]))
 	else:
-		gt = target_test[k,position,:].detach().numpy()
+		gt = target_test[trajectory_id,time_position,:].detach().numpy()
 		fk_yi = fk.pdf(gt)
 		s_xk_yk.append(fk_yi/fk_max)
 
@@ -328,18 +329,21 @@ def calibration_density(displacement_prediction, observations, target_test, targ
 	for trajectory_id in range(displacement_prediction.shape[1]):
 		# KDE density creation using provided samples
 		kde, __ = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
-
+		# Evaluates the GT over the KDE and keep the value  in  all_density_values
 		gt_evaluation(target_test, target_test2, trajectory_id, time_position, kde, all_density_values, gaussian=gaussian)
 
-	# Sort samples
+	# Sort GT values by decreasing order
 	sorted_density_values = sorted(all_density_values, reverse=True)
+
 	# Index of alpha-th sample
 	ind = int(len(sorted_density_values)*alpha)
 	if ind==len(sorted_density_values):
 		Sa = 0.0
 	else:
-		Sa = sorted_density_values[ind][0] # The alpha-th largest element gives the threshold
+		# The alpha-th largest element gives the threshold
+		Sa = sorted_density_values[ind][0]
 
+	# TODO: move this part in another function
 	if draw:
 		#-------------- For an specific id_batch ----------------------
 		# Compute alpha that relates the new Sa in p.d.f.
