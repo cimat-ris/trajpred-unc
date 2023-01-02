@@ -85,16 +85,16 @@ def compute_calibration_metrics2():
     data_obs = data_test
     data_gt = target_test
     # Conjunto de evaluacion
-    data_pred = tpred_samples_full
-    data_obs = data_test_full
-    data_gt = target_test_full
+    data_pred_test = tpred_samples_full
+    data_obs_test = data_test_full
+    data_gt_test = target_test_full
     
     # Calculamos los tres metodos
     # 0: Conformal
     # 1: Conformal con densidad relativa
     # 2: Regresion Isotonica
-    generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred, data_obs, data_gt, methods=[0,1,2], resample_size=resample_size)
-    #generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred, data_obs, data_gt, methods=[0,1,2], resample_size=resample_size, gaussian=[sigmas_samples, sigmas_samples_full])
+    generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], resample_size=resample_size)
+    #generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], resample_size=resample_size, gaussian=[sigmas_samples, sigmas_samples_full])
 
 
 if __name__ == "__main__":
