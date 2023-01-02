@@ -940,6 +940,9 @@ def eval_density(displacement_prediction, ground_truth, resample_size=1000, sigm
     if sigmas_prediction is not None:
         # Creamos la funcion de densidad
         f_density, samples = eval_gaussianmixture(displacement_prediction, sigmas_prediction, resample_size=1000)
+	
+	# Evaluamos el gt en la funcion de densidad
+	f_gt = f_density.pdf(ground_truth)
 
     else:
         # Creamos la funcion de densidad
@@ -948,8 +951,8 @@ def eval_density(displacement_prediction, ground_truth, resample_size=1000, sigm
         # Muestreamos de la funcion de densidad
         samples = f_density.resample(resample_size,0)
 
-    # Evaluamos el gt en la funcion de densidad
-    f_gt = f_density.pdf(ground_truth)[0]
+	# Evaluamos el gt en la funcion de densidad
+        f_gt = f_density.pdf(ground_truth)[0]
 
     # Evaluamos las muetras en la funcion de densidad
     f_samples = f_density.pdf(samples)
