@@ -1111,8 +1111,8 @@ def generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred_test, d
         for position in range(data_pred.shape[2]):
             if relative_coords_flag:
                 # Convert it to absolute (starting from the last observed position)
-                this_pred_out_abs      = data_pred[:, :, position, :] + data_obs[:, -1, :]
-                this_pred_out_abs_test = data_pred_test[:, :, position, :] + data_obs_test[:, -1, :]
+                this_pred_out_abs      = data_pred[:, :, position, :] + data_obs[:, -1, :].numpy()
+                this_pred_out_abs_test = data_pred_test[:, :, position, :] + data_obs_test[:, -1, :].numpy()
             else:
                 this_pred_out_abs      = data_pred[:, :, position, :]
                 this_pred_out_abs_test = data_pred_test[:, :, position, :]
