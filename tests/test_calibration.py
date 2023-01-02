@@ -14,6 +14,8 @@ from utils.calibration_utils import get_data_for_calibration
 from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_metrics_calibration_conformal
 from utils.constants import BITRAP_BT, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
 
+from utils.calibration import generate_metrics_calibration
+
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
 parser.add_argument('--calibration-conformal', action='store_true', help='generates metrics using calibration conformal')
@@ -65,6 +67,35 @@ def compute_calibration_metrics():
     logging.info("***** Isotonic Regression Calibration *****")
     logging.info("*******************************************")
     generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, id_test, gaussian=args.gaussian_output, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full,compute_nll=args.nll,show_plot=args.show_plot)
+
+
+def compute_calibration_metrics2():
+    """
+    Compute Isotonic Regression (by default) and conformal calibration metrics (if provided argument)
+    """
+    test_name = get_test_name()
+    # Load data for calibration compute
+    tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, id_test = get_data_for_calibration(test_name)
+
+    # Size del remuestreo
+    resample_size = 1000
+    
+    # Conjunto de calibracion
+    data_pred = tpred_samples
+    data_obs = data_test
+    data_gt = target_test
+    # Conjunto de evaluacion
+    data_pred = tpred_samples_full
+    data_obs = data_test_full
+    data_gt = target_test_full
+    
+    # Calculamos los tres metodos
+    # 0: Conformal
+    # 1: Conformal con densidad relativa
+    # 2: Regresion Isotonica
+    generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred, data_obs, data_gt, methods=[0,1,2], resample_size=resample_size)
+    #generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred, data_obs, data_gt, methods=[0,1,2], resample_size=resample_size, gaussian=[sigmas_samples, sigmas_samples_full])
+
 
 if __name__ == "__main__":
     # Loggin format
