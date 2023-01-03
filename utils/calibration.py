@@ -8,6 +8,7 @@ import statistics
 
 import torch
 from scipy.stats import gaussian_kde
+from sklearn.neighbors import KernelDensity
 
 from scipy.stats import multivariate_normal,multinomial
 from sklearn.metrics import auc
@@ -285,49 +286,49 @@ def calibration_density(displacement_prediction, observations, target_test, targ
 
 	return Sa
 
-def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, time_position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
-
-	list_fk = []
-	s_xk_yk = []
+#def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, time_position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
+#
+#	list_fk = []
+#	s_xk_yk = []
 	# KDE density creation using provided samples
-	for k in range(tpred_samples.shape[1]):
-		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
-		fk_max = fk.pdf(yi).max()
-		gt_evaluation(target_test, target_test2, k, time_position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
-		list_fk.append(fk)
-
-	# Sort samples
-	orden = sorted(s_xk_yk, reverse=True)
+#	for k in range(tpred_samples.shape[1]):
+#		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
+#		fk_max = fk.pdf(yi).max()
+#		gt_evaluation(target_test, target_test2, k, time_position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
+#		list_fk.append(fk)
+#
+#	# Sort samples
+#	orden = sorted(s_xk_yk, reverse=True)
 	#  Index of alpha-th sample
-	ind = int(len(orden)*alpha)
-	if ind==len(orden):
-		Sa = 0.0
-	else:
-		Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
-
-	if draw:
+#	ind = int(len(orden)*alpha)
+#	if ind==len(orden):
+#		Sa = 0.0
+#	else:
+#		Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
+#
+#	if draw:
 		#-------------- For an specific id_batch ----------------------
 		# Compute alpha that relates the new Sa in p.d.f.
 		# Get sample of interest
-		yi = tpred_samples[:, id_batch, time_position, :] # Seleccionamos las muestras de una trayectoria
-		gt = target_test[id_batch, time_position,:].detach().numpy()
+#		yi = tpred_samples[:, id_batch, time_position, :] # Seleccionamos las muestras de una trayectoria
+#		gt = target_test[id_batch, time_position,:].detach().numpy()
 
 		# p.d.f creation and sample evaluation in it
-		fk = gaussian_kde(yi.T)
-		fk_yi = fk.pdf(yi.T)
-		fk_max = fk_yi.max()
+#		fk = gaussian_kde(yi.T)
+#		fk_yi = fk.pdf(yi.T)
+#		fk_max = fk_yi.max()
 
 		# Sort samples
-		orden = sorted(fk_yi, reverse=True)
-		ind = np.where(np.array(orden) >= (fk_max*Sa))[0]
-		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
-		alpha_fk = float(ind)/len(orden)
+#		orden = sorted(fk_yi, reverse=True)
+#		ind = np.where(np.array(orden) >= (fk_max*Sa))[0]
+#		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
+#		alpha_fk = float(ind)/len(orden)
 
-		output_image_name = os.path.join(output_dirs.hdr2 , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(time_position)+"_gt.pdf")
+#		output_image_name = os.path.join(output_dirs.hdr2 , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(time_position)+"_gt.pdf")
 		# Distribution visualization
-		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
+#		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
 
-	return Sa
+#	return Sa
 
 # Given a value of alpha and sorted values of te density, deduce the alpha-th value of the density
 # TODO: to be correct, the sorted values should also be normalized
@@ -794,16 +795,16 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_si
 	"""
 	Builds a KDE representation from a Gaussian mixture (output of one of the prediction algorithms)
 	Args:
-	  - displacement_prediction: prediction of displacements
+	  - prediction: set of position predictions
 	  - sigmas_prediction: covariances of the predictions
 	  - resample_size: number of samples to produce from the KDE
 	Returns:
-	  - kde: PDF estimation
+	  - kde: PDF estimate through KDE
 	  - sample_kde: Sampled points (x,y) from PDF
 	"""
 	# This array will hold the parameters of each element of the mixture
 	gaussian_mixture = []
-
+	# Form the Gaussian mixture
 	for idx_ensemble in range(sigmas_prediction.shape[0]):
 		# Get means and standard deviations
 		sigmas_samples_ensemble = sigmas_prediction[idx_ensemble,:]
@@ -812,47 +813,43 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_si
 		mean                = prediction[idx_ensemble, :]
 		covariance          = np.array([[sx**2, 0],[0, sy**2]])
 		gaussian_mixture.append(multivariate_normal(mean,covariance))
-	# Performs the sampling
+	# Performs sampling on the Gaussian mixture
 	pi                 = np.ones((len(gaussian_mixture),))/len(gaussian_mixture)
 	partition          = multinomial(n=resample_size,p=pi).rvs(size=1)
 	sample_pdf         = []
 	for gaussian_id,gaussian in enumerate(gaussian_mixture):
 		sample_pdf.append(gaussian.rvs(size=partition[0][gaussian_id]))
 	sample_pdf = np.concatenate(sample_pdf,axis=0)
-	# TODO: do the samples from the mixture, directly
-	# Construimos la gaussiana de la mezcla
-	# Mezcla de gaussianas
-	# https://faculty.ucmerced.edu/mcarreira-perpinan/papers/cs-99-03.pdf
-	# Mean of the mixture
-	mean_mixture = np.zeros((2,))
-	for j in range(len(gaussian_mixture)):
-		mean_mixture += pi[j]*(gaussian_mixture[j].mean)
-	# Covariance of the mixture
-	cov_mixture = np.zeros((2,2))
-	for j in range(len(gaussian_mixture)):
-		sub_mean      = gaussian_mixture[j].mean.reshape(2,1) - mean_mixture.reshape(2,1)
-		mult_sub_mean = sub_mean @ sub_mean.T
-		cov_mixture  +=  pi[j]*(gaussian_mixture[j].cov + mult_sub_mean)
+	# Use the samples to generate a KDE
+	f_density = gaussian_kde(sample_pdf.T)
+	return f_density, sample_pdf
 
-	sample_pdf = np.random.multivariate_normal(mean_mixture, cov_mixture, resample_size)
-	# TODO: return a sklearn.KernelDensity or GaussianKDE instead?
-	return multivariate_normal(mean_mixture, cov_mixture), sample_pdf
-
-def evaluate_kde(displacement_prediction, ground_truth, resample_size=1000, sigmas_prediction=None):
+def evaluate_kde(prediction, sigmas_prediction, ground_truth, resample_size=1000):
+	"""
+	Builds a KDE representation for the prediction and evaluate the ground truth on it
+	Args:
+	  - prediction: set of predicted position
+	  - sigmas_prediction: set of covariances on the predicted position
+	  - ground_truth: set of ground truth positions
+	  - resample_size: number of samples to produce from the KDE
+	Returns:
+	  - f_ground_truth: PDF values at the ground truth points
+	  - f_samples: PDF values at the samples
+	"""
 	if sigmas_prediction is not None:
-		# Creamos la funcion de densidad
-		f_density, samples = gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction, resample_size=1000)
+		# In this case, we use a Gaussian output and create a KDE representation from it
+		f_density, samples = gaussian_kde_from_gaussianmixture(prediction,sigmas_prediction,resample_size=1000)
 	else:
-		# Creamos la funcion de densidad
-		f_density = gaussian_kde(displacement_prediction.T)
-		# Muestreamos de la funcion de densidad
+		# In this case, we just have samples and create the KDE from them
+		f_density = gaussian_kde(prediction.T)
+		# Then we sample from the obtained representation
 		samples = f_density.resample(resample_size,0)
 
-	# Evaluamos el gt en la funcion de densidad
-	f_gt = f_density.pdf(ground_truth)
-	# Evaluamos las muetras en la funcion de densidad
-	f_samples = f_density.pdf(samples)
-	return f_gt, f_samples
+	# Evaluate the GT on the obtained KDE
+	f_ground_truth = f_density.pdf(ground_truth.T)
+	# Evaluate our samples
+	f_samples = f_density.pdf(samples.T)
+	return f_ground_truth, f_samples
 
 def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size=1000, sigmas_prediction=None):
 	predicted_hdr = []
@@ -861,10 +858,10 @@ def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size=1
 
 		if sigmas_prediction is not None:
 			# Creamos la funcion de densidad, evaluamos el gt y muestreamos
-			f_gt0, f_samples = evaluate_kde(this_pred_out_abs[:,k,:], data_gt[k, position, :], resample_size, sigmas_prediction=sigmas_prediction[:, k, position, :])
+			f_gt0, f_samples = evaluate_kde(this_pred_out_abs[:,k,:], sigmas_prediction[:, k, position, :], data_gt[k, position, :], resample_size)
 		else:
 		  # Creamos la funcion de densidad, evaluamos el gt y muestreamos
-			f_gt0, f_samples = evaluate_kde(this_pred_out_abs[:,k,:], data_gt[k, position, :], resample_size)
+			f_gt0, f_samples = evaluate_kde(this_pred_out_abs[:,k,:],[None,None],data_gt[k, position, :], resample_size)
 
 		predicted_hdr.append( get_alpha2(f_samples, f_gt0) )
 
@@ -916,12 +913,12 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,pos
 		for k in range(prediction.shape[1]):
 			if gaussian[0] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_gt0, f_samples = evaluate_kde(prediction[:,k,:],groundtruth[k,position,:], resample_size, sigmas_prediction=gaussian[0][:,k,position,:])
-				f_gt0_test, f_samples_test = evaluate_kde(prediction_test[:,k,:],groundtruth_test[k, position, :], resample_size, sigmas_prediction=gaussian[1][:, k, position, :])
+				f_gt0, f_samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,position,:],groundtruth[k,position,:], resample_size, )
+				f_gt0_test, f_samples_test = evaluate_kde(prediction_test[:,k,:],gaussian[1][:, k, position, :],groundtruth_test[k, position, :], resample_size, )
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_gt0, f_samples = evaluate_kde(prediction[:,k,:],groundtruth[k,position,:],resample_size)
-				f_gt0_test, f_samples_test = evaluate_kde(prediction_test[:,k,:],groundtruth_test[k, position, :], resample_size)
+				f_gt0, f_samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,position,:],resample_size)
+				f_gt0_test, f_samples_test = evaluate_kde(prediction_test[:,k,:],[None,None],groundtruth_test[k, position, :], resample_size)
 
 			f_gt.append( f_gt0 )
 			f_gt_test.append( f_gt0_test )
