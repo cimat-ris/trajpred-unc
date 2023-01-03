@@ -25,97 +25,6 @@ from utils.calibration_metrics import miscalibration_area,mean_absolute_calibrat
 
 from utils.plot_utils import plot_calibration_curves2
 
-def gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction, observations, trajectory_id, time_position, resample_size=0):
-	"""
-	Builds a KDE representation from a Gaussian mixture (output of one of the prediction algorithms)
-	Args:
-		- displacement_prediction: prediction of displacements
-		- sigmas_prediction: covariances of the predictions
-		- observations: observations (to translate the predictions)
-		- trajectory_id: id of the trajectory
-		- time_position: position in the time horizon
-		- resample_size: number of samples to produce from the KDE
-	Returns:
-		- kde: PDF estimation
-		- sample_kde: Sampled points (x,y) from PDF
-	"""
-	# This array will hold the parameters of each element of the mixture
-	gaussian_mixture = []
-
-	for idx_ensemble in range(sigmas_prediction.shape[0]):
-		# Get means and standard deviations
-		sigmas_samples_ensemble = sigmas_prediction[idx_ensemble,trajectory_id,:,:]
-		sx, sy, cor = sigmas_samples_ensemble[:, 0], sigmas_samples_ensemble[:, 1], sigmas_samples_ensemble[:, 2]
-		sx          = sx[time_position]
-		sy          = sy[time_position]
-
-		# Transform in absolute coordinates
-		displacement        = displacement_prediction[idx_ensemble,trajectory_id,:,:]
-		absolute_prediction = displacement + np.array([observations[trajectory_id,:,:][-1].numpy()])
-		mean                = absolute_prediction[time_position, :]
-		covariance          = np.array([[sx**2, 0],[0, sy**2]])
-		gaussian_mixture.append(multivariate_normal(mean,covariance))
-	# Performs the sampling
-	pi                 = np.ones((len(gaussian_mixture),))/len(gaussian_mixture)
-	partition          = multinomial(n=resample_size,p=pi).rvs(size=1)
-	sample_pdf         = []
-	for gaussian_id,gaussian in enumerate(gaussian_mixture):
-		sample_pdf.append(gaussian.rvs(size=partition[0][gaussian_id]))
-	sample_pdf = np.concatenate(sample_pdf,axis=0)
-	# TODO: do the samples from the mixture, directly
-	# Construimos la gaussiana de la mezcla
-	# Mezcla de gaussianas
-	# https://faculty.ucmerced.edu/mcarreira-perpinan/papers/cs-99-03.pdf
-	# Mean of the mixture
-	mean_mixture = np.zeros((2,))
-	for j in range(len(gaussian_mixture)):
-		mean_mixture += pi[j]*(gaussian_mixture[j].mean)
-	# Covariance of the mixture
-	cov_mixture = np.zeros((2,2))
-	for j in range(len(gaussian_mixture)):
-		sub_mean      = gaussian_mixture[j].mean.reshape(2,1) - mean_mixture.reshape(2,1)
-		mult_sub_mean = sub_mean @ sub_mean.T
-		cov_mixture  +=  pi[j]*(gaussian_mixture[j].cov + mult_sub_mean)
-
-	sample_pdf = np.random.multivariate_normal(mean_mixture, cov_mixture, resample_size)
-	# TODO: return a sklearn.KernelDensity or GaussianKDE instead?
-	return multivariate_normal(mean_mixture, cov_mixture), sample_pdf
-
-def get_kde(displacement_prediction, observations, trajectory_id, sigmas_samples, time_position=0, gaussian=False, resample_size=1000, relative_coords_flag=False):
-	"""
-	Builds a KDE representation from the prediction output
-	Args:
-		- displacement_prediction: prediction of displacements
-		- observations: past observations (to translate the predictions)
-		- trajectory_id: id of the trajectory
-		- sigmas_prediction: covariances of the predictions
-		- time_position: position in the time horizon
-		- gaussian: flag to handle the prediction output as mean,variance
-		- resample_size: number of samples to produce from the KDE
-		- relative_coords_flag: to specify how the coordinates are going to be computed, relative (True) or absolute (False)
-	Returns:
-		- kde: PDF estimation
-		- samples_kde: Sampled points (x,y) from PDF
-	"""
-	# Produces resample_size samples from the pdf
-	if gaussian:
-		# p.d.f. estimation given as a Gaussian. Sampling points (x,y) from PDF
-		kde, samples_kde = gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_samples, observations, trajectory_id, time_position, resample_size=resample_size)
-	else:
-		# p.d.f. estimation given implicitly as samples
-		if relative_coords_flag:
-			samples_kde = displacement_prediction[:, trajectory_id, time_position, :]
-		else:
-			samples_kde = displacement_prediction[:, trajectory_id, time_position, :] + np.array([observations[trajectory_id,:,:][-1].numpy()])
-		if sample_kde.shape[0]<2:
-			raise Exception("Needs more than one sample to perform KDE")
-		# Use KDE to get a representation of the p.d.f.
-		# See: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gaussian_kde.html
-		kde        = gaussian_kde(samples_kde.T)
-		samples_kde = kde.resample(resample_size,0)
-	return kde, samples_kde
-
-
 def get_mass_below_gt(displacement_prediction, observations, ground_truth, sigmas_prediction, time_position=0, gaussian=False, resample_size=1000):
 	"""
 	Evaluates the probability mass in our predictive distribution below the GT
@@ -641,8 +550,6 @@ def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target
 		df.to_csv(output_csv_name)
 		print(df)
 
-
-
 def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetrel_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, targetrel_test=None, target_test=None, sigmas_samples_test=None, show_plot=False):
 	#--------------------- Calculamos las metricas de calibracion ---------------------------------
 	metrics2      = [["","MACE","RMSCE","MA"]]
@@ -821,9 +728,9 @@ def generate_uncertainty_evaluation_dataset(batched_test_data, model, num_sample
 
 		# Model prediction obtained
 		if type == "variational":
-		    pred, kl, sigmas = model.predict(datarel_test_full, dim_pred=12)
+			pred, kl, sigmas = model.predict(datarel_test_full, dim_pred=12)
 		else:
-		    pred, sigmas = model.predict(datarel_test_full, dim_pred=12)
+			pred, sigmas = model.predict(datarel_test_full, dim_pred=12)
 
 		# Sample saved
 		tpred_samples_full.append(pred)
@@ -833,304 +740,279 @@ def generate_uncertainty_evaluation_dataset(batched_test_data, model, num_sample
 	sigmas_samples_full = np.array(sigmas_samples_full)
 
 	return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full
- 
- #---------------------------------------------------------------------------------------
- def generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics, position, method, output_dirs):
-    # Metrics Calibration
-    logging.info("Calibration metrics (Calibration dataset)")
-    compute_calibration_metrics(conf_levels, unc_pcts, metrics, position, "Before Recalibration")
-    compute_calibration_metrics(conf_levels, cal_pcts, metrics, position, "After  Recalibration")
-    #print("position: ", position)
 
-    # Save plot_calibration_curves
-    output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_method_"+str(method)+"_pos_"+str(position)+".pdf")
-    plot_calibration_curves2(conf_levels, unc_pcts, cal_pcts, output_image_name)
+#-----------------------------------------------------------------------------------
+def generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics, position, method, output_dirs):
+	# Evaluate metrics before/after calibration
+	compute_calibration_metrics(conf_levels, unc_pcts, metrics, position, "Before Recalibration")
+	compute_calibration_metrics(conf_levels, cal_pcts, metrics, position, "After  Recalibration")
+	# Save plot_calibration_curves
+	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_method_"+str(method)+"_pos_"+str(position)+".pdf")
+	plot_calibration_curves2(conf_levels, unc_pcts, cal_pcts, output_image_name)
 
 def save_metrics(metrics_cal, metrics_test, method, output_dirs):
-    # Guardamos con un data frame
-    df = pd.DataFrame(metrics_cal)
-    output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_cal_method_" + str(method) + ".csv")
-    df.to_csv(output_csv_name)
-    print("Metricas del conjunto de calibracion:")
-    print(df)
+	# Guardamos con un data frame
+	df = pd.DataFrame(metrics_cal)
+	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_cal_method_" + str(method) + ".csv")
+	df.to_csv(output_csv_name)
+	print("Metricas del conjunto de calibracion:")
+	print(df)
 
-    # Guardamos con un data frame
-    df = pd.DataFrame(metrics_test)
-    output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_method_" + str(method) + ".csv")
-    df.to_csv(output_csv_name)
-    print("Metricas del conjunto de test:")
-    print(df)
+	# Guardamos con un data frame
+	df = pd.DataFrame(metrics_test)
+	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_method_" + str(method) + ".csv")
+	df.to_csv(output_csv_name)
+	print("Metricas del conjunto de test:")
+	print(df)
 
 def get_quantile(score, alpha):
-    # Sort samples
-    orden = sorted(score, reverse=True)
+	# Sort samples
+	orden = sorted(score, reverse=True)
 
-    # Index of alpha-th sample
-    ind = int(np.round(len(orden)*alpha)-1)
-    if ind == -1:
-        fa = orden[0]*10 # forzamos a que sea muy grande
-    else:
-        fa = orden[ind]
-    #print("ind, fa: ", ind, fa)
-    return fa
+	# Index of alpha-th sample
+	ind = int(np.round(len(orden)*alpha)-1)
+	if ind == -1:
+		fa = orden[0]*10 # forzamos a que sea muy grande
+	else:
+		fa = orden[ind]
+	#print("ind, fa: ", ind, fa)
+	return fa
 
 def get_alpha2(score, fa):
-    # Sort samples
-    orden = sorted(score, reverse=True)
+	# Sort samples
+	orden = sorted(score, reverse=True)
 
-    # Select all samples for which the pdf value is above the one of GT
-    ind = np.where(orden < fa)[0]
-    if ind.shape[0] > 0:
-        alpha_fa = ind[0]/len(orden)
-    else:
-        alpha_fa = 1.0
-    return alpha_fa
+	# Select all samples for which the pdf value is above the one of GT
+	ind = np.where(orden < fa)[0]
+	if ind.shape[0] > 0:
+		alpha_fa = ind[0]/len(orden)
+	else:
+		alpha_fa = 1.0
+	return alpha_fa
 
-def eval_gaussianmixture(displacement_prediction, sigmas_prediction, resample_size=1000):
-    """
-    Builds a KDE representation from a Gaussian mixture (output of one of the prediction algorithms)
-    Args:
-      - displacement_prediction: prediction of displacements
-      - sigmas_prediction: covariances of the predictions
-      - resample_size: number of samples to produce from the KDE
-    Returns:
-      - kde: PDF estimation
-      - sample_kde: Sampled points (x,y) from PDF
-    """
-    # This array will hold the parameters of each element of the mixture
-    gaussian_mixture = []
+def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_size=1000):
+	"""
+	Builds a KDE representation from a Gaussian mixture (output of one of the prediction algorithms)
+	Args:
+	  - displacement_prediction: prediction of displacements
+	  - sigmas_prediction: covariances of the predictions
+	  - resample_size: number of samples to produce from the KDE
+	Returns:
+	  - kde: PDF estimation
+	  - sample_kde: Sampled points (x,y) from PDF
+	"""
+	# This array will hold the parameters of each element of the mixture
+	gaussian_mixture = []
 
-    for idx_ensemble in range(sigmas_prediction.shape[0]):
-        # Get means and standard deviations
-        sigmas_samples_ensemble = sigmas_prediction[idx_ensemble,:]
-        sx, sy, cor = sigmas_samples_ensemble[0], sigmas_samples_ensemble[1], sigmas_samples_ensemble[2]
+	for idx_ensemble in range(sigmas_prediction.shape[0]):
+		# Get means and standard deviations
+		sigmas_samples_ensemble = sigmas_prediction[idx_ensemble,:]
+		sx, sy, cor = sigmas_samples_ensemble[0], sigmas_samples_ensemble[1], sigmas_samples_ensemble[2]
+		# Predictions arrive here in **absolute coordinates**
+		mean                = prediction[idx_ensemble, :]
+		covariance          = np.array([[sx**2, 0],[0, sy**2]])
+		gaussian_mixture.append(multivariate_normal(mean,covariance))
+	# Performs the sampling
+	pi                 = np.ones((len(gaussian_mixture),))/len(gaussian_mixture)
+	partition          = multinomial(n=resample_size,p=pi).rvs(size=1)
+	sample_pdf         = []
+	for gaussian_id,gaussian in enumerate(gaussian_mixture):
+		sample_pdf.append(gaussian.rvs(size=partition[0][gaussian_id]))
+	sample_pdf = np.concatenate(sample_pdf,axis=0)
+	# TODO: do the samples from the mixture, directly
+	# Construimos la gaussiana de la mezcla
+	# Mezcla de gaussianas
+	# https://faculty.ucmerced.edu/mcarreira-perpinan/papers/cs-99-03.pdf
+	# Mean of the mixture
+	mean_mixture = np.zeros((2,))
+	for j in range(len(gaussian_mixture)):
+		mean_mixture += pi[j]*(gaussian_mixture[j].mean)
+	# Covariance of the mixture
+	cov_mixture = np.zeros((2,2))
+	for j in range(len(gaussian_mixture)):
+		sub_mean      = gaussian_mixture[j].mean.reshape(2,1) - mean_mixture.reshape(2,1)
+		mult_sub_mean = sub_mean @ sub_mean.T
+		cov_mixture  +=  pi[j]*(gaussian_mixture[j].cov + mult_sub_mean)
 
-        # Transform in absolute coordinates
-        mean                = displacement_prediction[idx_ensemble, :]
-        covariance          = np.array([[sx**2, 0],[0, sy**2]])
-        gaussian_mixture.append(multivariate_normal(mean,covariance))
-    # Performs the sampling
-    pi                 = np.ones((len(gaussian_mixture),))/len(gaussian_mixture)
-    partition          = multinomial(n=resample_size,p=pi).rvs(size=1)
-    sample_pdf         = []
-    for gaussian_id,gaussian in enumerate(gaussian_mixture):
-        sample_pdf.append(gaussian.rvs(size=partition[0][gaussian_id]))
-    sample_pdf = np.concatenate(sample_pdf,axis=0)
-    # TODO: do the samples from the mixture, directly
-    # Construimos la gaussiana de la mezcla
-    # Mezcla de gaussianas
-    # https://faculty.ucmerced.edu/mcarreira-perpinan/papers/cs-99-03.pdf
-    # Mean of the mixture
-    mean_mixture = np.zeros((2,))
-    for j in range(len(gaussian_mixture)):
-        mean_mixture += pi[j]*(gaussian_mixture[j].mean)
-    # Covariance of the mixture
-    cov_mixture = np.zeros((2,2))
-    for j in range(len(gaussian_mixture)):
-        sub_mean      = gaussian_mixture[j].mean.reshape(2,1) - mean_mixture.reshape(2,1)
-        mult_sub_mean = sub_mean @ sub_mean.T
-        cov_mixture  +=  pi[j]*(gaussian_mixture[j].cov + mult_sub_mean)
+	sample_pdf = np.random.multivariate_normal(mean_mixture, cov_mixture, resample_size)
+	# TODO: return a sklearn.KernelDensity or GaussianKDE instead?
+	return multivariate_normal(mean_mixture, cov_mixture), sample_pdf
 
-    sample_pdf = np.random.multivariate_normal(mean_mixture, cov_mixture, resample_size)
-    # TODO: return a sklearn.KernelDensity or GaussianKDE instead?
-    return multivariate_normal(mean_mixture, cov_mixture), sample_pdf
-    
-def eval_density(displacement_prediction, ground_truth, resample_size=1000, sigmas_prediction=None):
+def evaluate_kde(displacement_prediction, ground_truth, resample_size=1000, sigmas_prediction=None):
+	if sigmas_prediction is not None:
+		# Creamos la funcion de densidad
+		f_density, samples = gaussian_kde_from_gaussianmixture(displacement_prediction, sigmas_prediction, resample_size=1000)
+	else:
+		# Creamos la funcion de densidad
+		f_density = gaussian_kde(displacement_prediction.T)
+		# Muestreamos de la funcion de densidad
+		samples = f_density.resample(resample_size,0)
 
-    if sigmas_prediction is not None:
-        # Creamos la funcion de densidad
-        f_density, samples = eval_gaussianmixture(displacement_prediction, sigmas_prediction, resample_size=1000)
-	
 	# Evaluamos el gt en la funcion de densidad
 	f_gt = f_density.pdf(ground_truth)
+	# Evaluamos las muetras en la funcion de densidad
+	f_samples = f_density.pdf(samples)
+	return f_gt, f_samples
 
-    else:
-        # Creamos la funcion de densidad
-        f_density = gaussian_kde(displacement_prediction.T)
-
-        # Muestreamos de la funcion de densidad
-        samples = f_density.resample(resample_size,0)
-
-	# Evaluamos el gt en la funcion de densidad
-        f_gt = f_density.pdf(ground_truth)[0]
-
-    # Evaluamos las muetras en la funcion de densidad
-    f_samples = f_density.pdf(samples)
-
-    return f_gt, f_samples
-    
 def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size=1000, sigmas_prediction=None):
-    predicted_hdr = []
-    # Recorremos todo el conjunto de calibracion (batch)
-    for k in range(this_pred_out_abs.shape[1]):
+	predicted_hdr = []
+	# Recorremos todo el conjunto de calibracion (batch)
+	for k in range(this_pred_out_abs.shape[1]):
 
-        if sigmas_prediction is not None:
-            # Creamos la funcion de densidad, evaluamos el gt y muestreamos
-            f_gt0, f_samples = eval_density(this_pred_out_abs[:,k,:], data_gt[k, position, :], resample_size, sigmas_prediction=sigmas_prediction[:, k, position, :])
-        else:
-          # Creamos la funcion de densidad, evaluamos el gt y muestreamos
-            f_gt0, f_samples = eval_density(this_pred_out_abs[:,k,:], data_gt[k, position, :], resample_size)
+		if sigmas_prediction is not None:
+			# Creamos la funcion de densidad, evaluamos el gt y muestreamos
+			f_gt0, f_samples = evaluate_kde(this_pred_out_abs[:,k,:], data_gt[k, position, :], resample_size, sigmas_prediction=sigmas_prediction[:, k, position, :])
+		else:
+		  # Creamos la funcion de densidad, evaluamos el gt y muestreamos
+			f_gt0, f_samples = evaluate_kde(this_pred_out_abs[:,k,:], data_gt[k, position, :], resample_size)
 
-        predicted_hdr.append( get_alpha2(f_samples, f_gt0) )
+		predicted_hdr.append( get_alpha2(f_samples, f_gt0) )
 
-    # Empirical HDR
-    empirical_hdr = np.zeros(len(predicted_hdr))
+	# Empirical HDR
+	empirical_hdr = np.zeros(len(predicted_hdr))
 
-    for i, p in enumerate(predicted_hdr):
-        # TODO: check whether < or <=
-        empirical_hdr[i] = np.sum(np.array(predicted_hdr) <= p)/len(predicted_hdr)
+	for i, p in enumerate(predicted_hdr):
+		# TODO: check whether < or <=
+		empirical_hdr[i] = np.sum(np.array(predicted_hdr) <= p)/len(predicted_hdr)
 
-    # Fit empirical_hdr to predicted_hdr with isotonic regression
-    isotonic = IsotonicRegression(out_of_bounds='clip')
-    isotonic.fit(empirical_hdr, predicted_hdr)
+	# Fit empirical_hdr to predicted_hdr with isotonic regression
+	isotonic = IsotonicRegression(out_of_bounds='clip')
+	isotonic.fit(empirical_hdr, predicted_hdr)
 
-    return isotonic
-    
-def calibration_test(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, method, resample_size=1000, gaussian=[None,None]):
+	return isotonic
 
-    # Perform calibration for alpha values in the range [0,1]
-    conf_levels = np.arange(start=0.0, stop=1.025, step=0.05)
+def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,position,method,resample_size=1000, gaussian=[None,None]):
 
-    cal_pcts = []
-    unc_pcts = []
-    cal_pcts_test = []
-    unc_pcts_test = []
+	# Perform calibration for alpha values in the range [0,1]
+	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05)
 
-    if method == 2: # Isotonic
-        # Regresion isotonic training
-        isotonic = regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size, sigmas_prediction=gaussian[0])
+	cal_pcts = []
+	unc_pcts = []
+	cal_pcts_test = []
+	unc_pcts_test = []
 
-    # Recorremos cada valor de alpha
-    #for i,alpha in enumerate(tqdm(conf_levels)):
-    for i,alpha in enumerate(conf_levels):
-        #logging.debug("***** alpha: {}".format(alpha))
+	if method == 2: # Isotonic
+		# Regresion isotonic training
+		isotonic = regresion_isotonic_fit(prediction,groundtruth,position,resample_size,sigmas_prediction=gaussian[0])
+
+	# Recorremos cada valor de alpha
+	for i,alpha in enumerate(tqdm(conf_levels)):
+	#for i,alpha in enumerate(conf_levels):
+		#logging.debug("***** alpha: {}".format(alpha))
 #        print("\n***** alpha: {}".format(alpha))
 
-        # ------------------------------------------------------------
+		# ------------------------------------------------------------
 
-        f_gt = []
-        fa_unc = []
-        fa_new = []
-        f_density_max = []
+		f_gt = []
+		fa_unc = []
+		fa_new = []
+		f_density_max = []
 
-        f_gt_test = []
-        fa_unc_test = []
-        fa_new_test = []
-        f_density_max_test = []
-        # Recorremos todo el conjunto de calibracion (batch)
-        for k in range(this_pred_out_abs.shape[1]):
+		f_gt_test = []
+		fa_unc_test = []
+		fa_new_test = []
+		f_density_max_test = []
+		# Recorremos todo el conjunto de calibracion (batch)
+		for k in range(prediction.shape[1]):
+			if gaussian[0] is not None:
+				# Estimate a KDE, produce samples and evaluate the groundtruth on it
+				f_gt0, f_samples = evaluate_kde(prediction[:,k,:],groundtruth[k,position,:], resample_size, sigmas_prediction=gaussian[0][:,k,position,:])
+				f_gt0_test, f_samples_test = evaluate_kde(prediction_test[:,k,:],groundtruth_test[k, position, :], resample_size, sigmas_prediction=gaussian[1][:, k, position, :])
+			else:
+				# Estimate a KDE, produce samples and evaluate the groundtruth on it
+				f_gt0, f_samples = evaluate_kde(prediction[:,k,:],groundtruth[k,position,:],resample_size)
+				f_gt0_test, f_samples_test = evaluate_kde(prediction_test[:,k,:],groundtruth_test[k, position, :], resample_size)
 
-            if gaussian[0] is not None:
-                # Creamos la funcion de densidad, evaluamos el gt y muestreamos
-                f_gt0, f_samples = eval_density(this_pred_out_abs[:,k,:], data_gt[k, position, :], resample_size, sigmas_prediction=gaussian[0][:, k, position, :])
-                f_gt0_test, f_samples_test = eval_density(this_pred_out_abs_test[:,k,:], data_gt_test[k, position, :], resample_size, sigmas_prediction=gaussian[1][:, k, position, :])
-            else:
-                # Creamos la funcion de densidad, evaluamos el gt y muestreamos
-                #f_gt0, f_samples = eval_density(this_pred_out_abs[:,k,:], data_gt[k, position, :], resample_size, sigmas_prediction=gaussian[0])
-                f_gt0, f_samples = eval_density(this_pred_out_abs[:,k,:], data_gt[k, position, :], resample_size)
-                f_gt0_test, f_samples_test = eval_density(this_pred_out_abs_test[:,k,:], data_gt_test[k, position, :], resample_size)
-                
-            f_gt.append( f_gt0 )
-            f_gt_test.append( f_gt0_test )
+			f_gt.append( f_gt0 )
+			f_gt_test.append( f_gt0_test )
 
-            # Obtenemos el cuantil alpha de la distribucion de las muestras
-            fa_unc.append( get_quantile(f_samples, alpha) )
-            fa_unc_test.append( get_quantile(f_samples_test, alpha) )
+			# Obtenemos el cuantil alpha de la distribucion de las muestras
+			fa_unc.append( get_quantile(f_samples, alpha) )
+			fa_unc_test.append( get_quantile(f_samples_test, alpha) )
 
-            # Verificamos la version del metodo conformal a utilizar
-            if method == 1: # conformal relative
-                f_density_max.append( f_samples.max() )
-                f_density_max_test.append( f_samples_test.max() )
-            elif method == 2: # Isotonic
-                # Modified (calibrated) alpha
-                new_alpha = isotonic.transform([alpha])
-                # Obtenemos el cuantil alpha de la distribucion de las muestras
-                fa_new.append( get_quantile(f_samples, new_alpha) )
-                fa_new_test.append( get_quantile(f_samples_test, new_alpha) )
-              
-            
-        # ------------------------------------------------------------
-        f_gt = np.array(f_gt)
-        f_gt_test = np.array(f_gt_test)
-        
-        if method == 1: # conformal relative
-            # Obtenemos el cuantil alpha del score
-            f_density_max = np.array(f_density_max)
-            f_density_max_test = np.array(f_density_max_test)
-            fa = get_quantile(f_gt/f_density_max, alpha)
+			# Verificamos la version del metodo conformal a utilizar
+			if method == 1: # conformal relative
+				f_density_max.append( f_samples.max() )
+				f_density_max_test.append( f_samples_test.max() )
+			elif method == 2: # Isotonic
+				# Modified (calibrated) alpha
+				new_alpha = isotonic.transform([alpha])
+				# Obtenemos el cuantil alpha de la distribucion de las muestras
+				fa_new.append( get_quantile(f_samples, new_alpha) )
+				fa_new_test.append( get_quantile(f_samples_test, new_alpha) )
 
-            # Verificamos con la evaluacion del gt
-            perc_within_cal = f_gt >= fa*f_density_max
-            perc_within_cal_test = f_gt_test >= fa*f_density_max_test
 
-        elif method == 2: # Isotonic
-            # Verificamos con la evaluacion del gt
-            perc_within_cal = f_gt >= np.array(fa_new)
-            perc_within_cal_test = f_gt_test >= np.array(fa_new)
+		# ------------------------------------------------------------
+		f_gt = np.array(f_gt)
+		f_gt_test = np.array(f_gt_test)
 
-        else:
-            # Obtenemos el cuantil alpha del score
-            fa = get_quantile(f_gt, alpha)
-            #print(position, "    fa: ", fa)
+		if method == 1: # conformal relative
+			# Obtenemos el cuantil alpha del score
+			f_density_max = np.array(f_density_max)
+			f_density_max_test = np.array(f_density_max_test)
+			fa = get_quantile(f_gt/f_density_max, alpha)
 
-            # Verificamos con la evaluacion del gt
-            perc_within_cal = f_gt >= fa
-            perc_within_cal_test = f_gt_test >= fa
+			# Verificamos con la evaluacion del gt
+			perc_within_cal = f_gt >= fa*f_density_max
+			perc_within_cal_test = f_gt_test >= fa*f_density_max_test
 
-        # Verificamos con la evaluacion del gt
-        perc_within_unc = f_gt >= np.array(fa_unc)
-        perc_within_unc_test = f_gt_test >= np.array(fa_unc_test)
-        
-        # ------------------------------------------------------------
+		elif method == 2: # Isotonic
+			# Verificamos con la evaluacion del gt
+			perc_within_cal = f_gt >= np.array(fa_new)
+			perc_within_cal_test = f_gt_test >= np.array(fa_new)
 
-#        print("np.mean(perc_within_cal): ", np.mean(perc_within_cal))
-#        print("np.mean(perc_within_unc): ", np.mean(perc_within_unc))
-#        print(perc_within_cal.tolist())
-#        print(perc_within_unc.tolist())
-#        print("np.mean(perc_within_cal_test): ", np.mean(perc_within_cal_test))
-#        print("np.mean(perc_within_unc_test): ", np.mean(perc_within_unc_test))
-#        print(perc_within_cal_test.tolist())
-#        print(perc_within_unc_test.tolist())
+		else:
+			# Obtenemos el cuantil alpha del score
+			fa = get_quantile(f_gt, alpha)
+			#print(position, "    fa: ", fa)
 
-        cal_pcts.append(np.mean(perc_within_cal))
-        unc_pcts.append(np.mean(perc_within_unc))
-        cal_pcts_test.append(np.mean(perc_within_cal_test))
-        unc_pcts_test.append(np.mean(perc_within_unc_test))
+			# Verificamos con la evaluacion del gt
+			perc_within_cal = f_gt >= fa
+			perc_within_cal_test = f_gt_test >= fa
 
-    return conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test
-    
-def generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0], resample_size=1000, gaussian=[None,None], relative_coords_flag=True):
-    # Calculamos para cada metodo
-    for method in methods:
-        print("\nProcesando metodo: ", method)
-        #--------------------- Calculamos las metricas de calibracion ---------------------------------
-        metrics_cal  = [["","MACE","RMSCE","MA"]]
-        metrics_test = [["","MACE","RMSCE","MA"]]
-        output_dirs   = Output_directories()
-        # Recorremos cada posicion para calibrar
-        for position in range(data_pred.shape[2]):
-            if relative_coords_flag:
-                # Convert it to absolute (starting from the last observed position)
-                this_pred_out_abs      = data_pred[:, :, position, :] + data_obs[:, -1, :]
-                this_pred_out_abs_test = data_pred_test[:, :, position, :] + data_obs_test[:, -1, :]
-            else:
-                this_pred_out_abs      = data_pred[:, :, position, :]
-                this_pred_out_abs_test = data_pred_test[:, :, position, :]
+		# Verificamos con la evaluacion del gt
+		perc_within_unc = f_gt >= np.array(fa_unc)
+		perc_within_unc_test = f_gt_test >= np.array(fa_unc_test)
 
-            # Uncertainty calibration
-            logging.info("Calibration metrics at position: {}".format(position))
-            conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test = calibration_test(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, method, resample_size, gaussian=gaussian)
+		# ------------------------------------------------------------
+		cal_pcts.append(np.mean(perc_within_cal))
+		unc_pcts.append(np.mean(perc_within_unc))
+		cal_pcts_test.append(np.mean(perc_within_cal_test))
+		unc_pcts_test.append(np.mean(perc_within_unc_test))
 
-            # Metrics Calibration for data calibration
-            logging.info("Calibration metrics (Calibration dataset)")
-            generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics_cal, position, method, output_dirs)
+	return conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test
 
-            # Metrics Calibration for data test
-            logging.info("Calibration evaluation (Test dataset)")
-            generate_metrics_curves(conf_levels, unc_pcts_test, cal_pcts_test, metrics_test, position, method, output_dirs)
-        
-        #--------------------- Guardamos las metricas de calibracion ---------------------------------
-        save_metrics(metrics_cal, metrics_test, method, output_dirs)
+def generate_metrics_calibration(predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0], resample_size=1000, gaussian=[None,None], relative_coords_flag=True):
+	# Cycle over methods
+	for method in methods:
+		logging.info("Evaluating calibration method: {}".format(method))
+		#--------------------- Calculamos las metricas de calibracion ---------------------------------
+		metrics_cal  = [["","MACE","RMSCE","MA"]]
+		metrics_test = [["","MACE","RMSCE","MA"]]
+		output_dirs   = Output_directories()
+		# Recorremos cada posicion para calibrar
+		for position in range(predictions_calibration.shape[2]):
+			if relative_coords_flag:
+				# Convert it to absolute (starting from the last observed position)
+				this_pred_out_abs      = predictions_calibration[:,:,position,:]+observations_calibration[:,-1,:]
+				this_pred_out_abs_test = data_pred_test[:, :, position, :] + data_obs_test[:, -1, :]
+			else:
+				this_pred_out_abs      = predictions_calibration[:, :, position, :]
+				this_pred_out_abs_test = data_pred_test[:, :, position, :]
+
+			# Uncertainty calibration
+			logging.info("Calibration metrics at position: {}".format(position))
+			conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test = calibration_test(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, method, resample_size, gaussian=gaussian)
+
+			# Metrics Calibration for data calibration
+			logging.info("Calibration metrics (Calibration dataset)")
+			generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics_cal, position, method, output_dirs)
+
+			# Metrics Calibration for data test
+			logging.info("Calibration evaluation (Test dataset)")
+			generate_metrics_curves(conf_levels, unc_pcts_test, cal_pcts_test, metrics_test, position, method, output_dirs)
+
+		#--------------------- Guardamos las metricas de calibracion ---------------------------------
+		save_metrics(metrics_cal, metrics_test, method, output_dirs)
 
  #---------------------------------------------------------------------------------------
- 
