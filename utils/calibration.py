@@ -988,7 +988,7 @@ def generate_metrics_calibration(predictions_calibration, observations_calibrati
 		metrics_test = [["","MACE","RMSCE","MA"]]
 		output_dirs   = Output_directories()
 		# Recorremos cada posicion para calibrar
-		for position in range(predictions_calibration.shape[2]):
+		for position in [3,7,11]:
 			if relative_coords_flag:
 				# Convert it to absolute (starting from the last observed position)
 				this_pred_out_abs      = predictions_calibration[:,:,position,:]+observations_calibration[:,-1,:]
