@@ -67,27 +67,6 @@ def get_mass_below_gt(displacement_prediction, observations, ground_truth, sigma
 
 	return mass_below_gt
 
-
-def save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=False, idTest=0, position=0, output_dirs=None, show=False):
-	"""
-	Save calibration curves
-	"""
-
-	if gaussian:
-		output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
-		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, show=show)
-	else:
-		output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
-		plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, show=show)
-
-	if tpred_samples_test is not None:
-		if gaussian:
-			output_image_name = os.path.join(output_dirs.confidence, "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+"_gaussian.pdf")
-			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, show=show)
-		else:
-			output_image_name = os.path.join(output_dirs.confidence, "confidence_level_test_IsotonicReg_"+str(idTest)+"_"+str(position)+".pdf")
-			plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, show=show)
-
 # TODO: I don't understand why we need two alpha arguments. Is it possible to use only one?
 def get_fa(sorted_pdf_values, alpha, alpha_level):
 	"""
@@ -164,49 +143,6 @@ def get_gt_within_proportions(conf_levels, isotonic, displacement_prediction, gr
 		within_proportion_uncalibrated.append(np.mean(within_proportion_uncalibrated_))
 
 	return within_proportion_calibrated, within_proportion_uncalibrated
-
-
-def calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, time_position = 0, idTest=0, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None,resample_size=1000, output_dirs=None, show_plot=False):
-	output_dirs = Output_directories()
-
-	predicted_hdr = get_mass_below_gt(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, time_position=time_position, gaussian=gaussian, resample_size=resample_size)
-
-	# Empirical HDR
-	empirical_hdr = np.zeros(len(predicted_hdr))
-
-	for i, p in enumerate(predicted_hdr):
-		# TODO: check whether < or <=
-		empirical_hdr[i] = np.sum(predicted_hdr <= p)/len(predicted_hdr)
-
-	#Visualization: Estimating HDR of Forecast
-	output_image_name = os.path.join(output_dirs.calibration, "plot_uncalibrate_"+str(idTest)+".pdf")
-	title = "Estimating HDR of Forecast"
-	plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title, show=show_plot)
-
-	#-----------------
-
-	# Fit empirical_hdr to predicted_hdr with isotonic regression
-	isotonic = IsotonicRegression(out_of_bounds='clip')
-	isotonic.fit(empirical_hdr, predicted_hdr)
-
-	# Visualization: Calibration with Isotonic Regression
-	output_image_name = os.path.join(output_dirs.calibration, "plot_calibrate_"+str(idTest)+".pdf")
-	title = "Calibration with Isotonic Regression"
-	plot_HDR_curves(predicted_hdr, isotonic.predict(empirical_hdr), output_image_name, title, show=show_plot)
-
-	#----------------
-
-	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05) # Valores de alpha
-
-	cal_pcts, unc_pcts = get_gt_within_proportions(conf_levels, isotonic, tpred_samples_cal, target_cal, data_cal, sigmas_samples_cal, time_position=time_position, gaussian=gaussian, resample_size=resample_size)
-	unc_pcts2 = []
-	cal_pcts2 = []
-
-	if tpred_samples_test is not None:
-		cal_pcts2, unc_pcts2 = get_gt_within_proportions(conf_levels, isotonic, tpred_samples_test, target_test, data_test, sigmas_samples_test, time_position=time_position, gaussian=gaussian, resample_size=resample_size)
-
-	save_calibration_curves(tpred_samples_test, conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, gaussian=gaussian, idTest=idTest, position=time_position, output_dirs=output_dirs, show=show_plot)
-	return 1-conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2, isotonic
 
 
 def gt_evaluation(target_test, target_test2, trajectory_id, time_position, fk, s_xk_yk, gaussian=False, fk_max=1.0):
@@ -338,61 +274,6 @@ def get_conformal_pcts(displacement_prediction, observations, target, target2, s
 
 	return perc_within_cal, perc_within_unc
 
-
-def calibration_Conformal(displacement_prediction_calibration, observations_calibration, gt_calibration, target_cal2, sigmas_samples_cal, position = 0, idTest=0, method=CALIBRATION_CONFORMAL_FVAL, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, target_test2=None, sigmas_samples_test=None, output_dirs=None, show_plot=False):
-	"""
-	Args:
-		- displacement_prediction_calibration: prediction of displacements on the calibration dataset
-		- observations_calibration: observations (to translate the predictions)
-		- gt_calibration:
-		- target2:
-		- sigmas_prediction_calibration: covariances of the predictions
-		- alpha: confidence level
-		- fa: calibration threshold
-		- position: position in the time horizon
-	Returns:
-		- calibrated percentages for conformal calibration
-		- uncalibrated percentages for conformal calibration
-	"""
-	# Perform calibration for alpha values in the range [0,1]
-	conf_levels = np.arange(start=0.0, stop=1.025, step=0.05)
-
-	unc_pcts = []
-	cal_pcts = []
-	unc_pcts2 = []
-	cal_pcts2 = []
-
-	for i,alpha in enumerate(tqdm(conf_levels)):
-		logging.debug("***** alpha: {}".format(alpha))
-		# Use a conformal approach to obtain a threshold value fa
-		if method==CALIBRATION_CONFORMAL_FVAL:
-			fa = calibration_density(displacement_prediction_calibration, observations_calibration, gt_calibration, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTE: Unique value for the whole calibration dataset
-		elif method==CALIBRATION_CONFORMAL_FREL:
-			fa = calibration_relative_density(displacement_prediction_calibration, observations_calibration, gt_calibration, target_cal2, sigmas_samples_cal, position, alpha=alpha, gaussian=gaussian) # NOTE: Unique value for the whole calibration dataset
-		else:
-			logging.error("Method not implemented.")
-			return -1
-
-		perc_within_cal, perc_within_unc = get_conformal_pcts(displacement_prediction_calibration, observations_calibration, gt_calibration, target_cal2, sigmas_samples_cal, alpha, fa, method, position=position, gaussian=gaussian)
-		# Save batch results for an specific alpha
-		cal_pcts.append(np.mean(perc_within_cal))
-		unc_pcts.append(np.mean(perc_within_unc))
-
-		if tpred_samples_test is not None:
-			perc_within_cal, perc_within_unc = get_conformal_pcts(tpred_samples_test, data_test, target_test, target_test2, sigmas_samples_test, alpha, fa, method, position=position, gaussian=gaussian)
-			# Save batch results for an specific alpha
-			cal_pcts2.append(np.mean(perc_within_cal))
-			unc_pcts2.append(np.mean(perc_within_unc))
-
-	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
-	plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, cal_conformal=True,show=show_plot)
-
-	if tpred_samples_test is not None:
-		output_image_name = os.path.join(output_dirs.confidence , "confidence_level_test_"+str(idTest)+"_conformal"+str(method)+"_"+str(position)+".pdf")
-		plot_calibration_curves(conf_levels, unc_pcts2, cal_pcts2, output_image_name, cal_conformal=True,show=show_plot)
-
-	return conf_levels, unc_pcts, cal_pcts, unc_pcts2, cal_pcts2
-
 def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, position, key):
 	"""
 	Compute MA, MACE and RMSCE calibration metrics and save those into metrics_data dictionary
@@ -404,156 +285,6 @@ def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, 
 	rmsce = root_mean_squared_calibration_error(exp_proportions, obs_proportions)
 	metrics_data.append([key + " pos " + str(position),mace,rmsce,ma])
 	logging.info("{}:  MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(key,mace,rmsce,ma))
-
-def generate_metrics_calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, target_test=None, sigmas_samples_test=None, compute_nll=False, show_plot=False):
-
-	#------------Calibration metrics-------------------
-	metrics_calibration_data = [["","MACE","RMSCE","MA"]]
-	metrics_test_data        = [["","MACE","RMSCE","MA"]]
-	key_before = "Before Recalibration"
-	key_after  = "After  Recalibration"
-	output_dirs = Output_directories()
-
-	# Recorremos cada posicion
-	positions_to_test = [11]
-	for position in positions_to_test:
-		logging.info("Calibration metrics at position: {}".format(position))
-		logging.info("Calibration method: Isotonic regression")
-		# Apply isotonic regression
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 , isotonic = calibration_IsotonicReg(tpred_samples_cal, data_cal, target_cal, sigmas_samples_cal, time_position = position, idTest=id_test, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs,show_plot=show_plot)
-
-		# Calibration metrics
-		logging.info("Calibration metrics (Calibration dataset)")
-		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics_calibration_data, position, key_before)
-		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics_calibration_data, position, key_after)
-
-
-		if tpred_samples_test is not None:
-			logging.info("Calibration evaluation (Test dataset)")
-			# Metrics Calibration on testing data
-			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics_test_data, position, key_before)
-			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics_test_data, position, key_after)
-
-		break
-
-	# Save the metrics results: on calibration dataset
-	df = pd.DataFrame(metrics_calibration_data)
-
-	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_cal_IsotonicRegresion_"+str(id_test)+".csv")
-	df.to_csv(output_csv_name)
-
-	if tpred_samples_test is not None:
-		# Save the metrics results: on test dataset
-		df = pd.DataFrame(metrics_test_data)
-		output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_IsotonicRegresion_"+str(id_test)+".csv")
-		df.to_csv(output_csv_name)
-
-	if compute_nll:
-		# Evaluation of NLL
-		position = 11
-		ll_cal = []
-		ll_uncal = []
-
-		for i in tqdm(range(tpred_samples_test.shape[1])):
-			# Ground Truth
-			gt = target_test[i,position,:].cpu()
-			kde, sample_kde = get_kde(tpred_samples_test, data_test, i, sigmas_samples_test, position=position, gaussian=gaussian, resample_size=1000)
-
-			# Evaluamos la muestra en la pdf
-			sample_pdf = kde.pdf(sample_kde)
-
-			sorted_samples  = sort_sample(sample_pdf)
-			observed_alphas = np.array([get_alpha(sorted_samples,fk) for fk in sample_pdf ])
-
-			modified_alphas = isotonic.transform(observed_alphas)
-			fs_samples_new  = []
-			for alpha in modified_alphas:
-				fs_samples_new.append(get_falpha(sorted_samples,alpha))
-			fs_samples_new    = np.array(fs_samples_new)
-			sorted_samples_new= sort_sample(fs_samples_new)
-			importance_weights= fs_samples_new/sample_pdf
-			# TODO: sometimes transpose, someties not...
-			if (sample_kde.shape[0]==importance_weights.shape[0]):
-				sample_kde = sample_kde.T
-			kernel = gaussian_kde(sample_kde, weights=importance_weights)
-			ll_cal.append(kernel.logpdf(gt))
-			ll_uncal.append(kde.logpdf(gt))
-			#-----
-
-		# Calculamos el Negative LogLikelihood
-		nll_cal   = statistics.median(ll_cal)
-		nll_uncal = statistics.median(ll_uncal)
-
-		df = pd.DataFrame([["calibrated", "uncalibrated"],[nll_cal, nll_uncal]])
-		output_csv_name = os.path.join(output_dirs.calibration, "nll_IsotonicRegresion_"+str(id_test)+".csv")
-		df.to_csv(output_csv_name)
-		print(df)
-
-def generate_metrics_calibration_conformal(tpred_samples_cal, data_cal, targetrel_cal, target_cal, sigmas_samples_cal, id_test, gaussian=False, tpred_samples_test=None, data_test=None, targetrel_test=None, target_test=None, sigmas_samples_test=None, show_plot=False):
-	#--------------------- Calculamos las metricas de calibracion ---------------------------------
-	metrics2      = [["","MACE","RMSCE","MA"]]
-	metrics3      = [["","MACE","RMSCE","MA"]]
-	metrics2_test = [["","MACE","RMSCE","MA"]]
-	metrics3_test = [["","MACE","RMSCE","MA"]]
-	key_before    = "Before Recalibration"
-	key_after     = "After  Recalibration"
-	output_dirs   = Output_directories()
-	# Recorremos cada posicion para calibrar
-	for pos in range(tpred_samples_cal.shape[2]):
-		pos = 11
-		logging.info("Calibration metrics at position: {}".format(pos))
-		gt      = np.cumsum(targetrel_cal, axis=1)
-		gt_test = np.cumsum(targetrel_test, axis=1)
-		# Uncertainty calibration
-		logging.info("Calibration method: Conformal approach with density values")
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=2, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs, show_plot=show_plot)
-
-		# Metrics Calibration
-		logging.info("Calibration metrics (Calibration dataset)")
-		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics2, pos, key_before)
-		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics2, pos, key_after)
-
-		if tpred_samples_test is not None:
-			# Metrics Calibration Test
-			logging.info("Calibration evaluation (Test dataset)")
-			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics2_test, pos, key_before)
-			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics2_test, pos, key_after)
-
-		logging.info("Calibration method: Conformal approach with relative density values")
-		exp_proportions, obs_proportions_unc, obs_proportions_cal, obs_proportions_unc2, obs_proportions_cal2 = calibration_Conformal(tpred_samples_cal, data_cal, gt, target_cal, sigmas_samples_cal, position = pos, idTest=id_test, method=3, gaussian=gaussian, tpred_samples_test=tpred_samples_test, data_test=data_test, target_test=gt_test, target_test2=target_test, sigmas_samples_test=sigmas_samples_test, output_dirs=output_dirs)
-
-		# Metrics Calibration
-		logging.info("Calibration metrics (Calibration dataset)")
-		compute_calibration_metrics(exp_proportions, obs_proportions_unc, metrics3, pos, key_before)
-		compute_calibration_metrics(exp_proportions, obs_proportions_cal, metrics3, pos, key_after)
-
-		if tpred_samples_test is not None:
-			# Metrics Calibration Test
-			logging.info("Calibration evaluation (Test dataset)")
-			compute_calibration_metrics(exp_proportions, obs_proportions_unc2, metrics3_test, pos, key_before)
-			compute_calibration_metrics(exp_proportions, obs_proportions_cal2, metrics3_test, pos, key_after)
-
-		break
-
-	# Guardamos los resultados de las metricas
-	df = pd.DataFrame(metrics2)
-	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_cal_conformal2_"+str(id_test)+".csv")
-	df.to_csv(output_csv_name)
-
-	df = pd.DataFrame(metrics3)
-	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_cal_conformal3_"+str(id_test)+".csv")
-	df.to_csv(output_csv_name)
-
-	if tpred_samples_test is not None:
-		# Guardamos los resultados de las metricas de Test
-		df = pd.DataFrame(metrics2_test)
-		output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_conformal2_"+str(id_test)+".csv")
-		df.to_csv(output_csv_name)
-
-		df = pd.DataFrame(metrics3_test)
-		output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_conformal3_"+str(id_test)+".csv")
-		df.to_csv(output_csv_name)
-
 
 def generate_newKDE(tpred_samples, data_test, targetrel_test, target_test, id_batch=25, position = 0, idTest=0, method=2, test_homography=None, bck=None):
 
@@ -705,9 +436,16 @@ def save_metrics(metrics_cal, metrics_test, method, output_dirs):
 	print(df)
 
 def get_quantile(scores, alpha):
+	"""
+	Get a certain quantile value from a set of values
+	Args:
+	  - scores: set of (conformal) scores
+	  - alpha: confidence level
+	Returns:
+	  - quantile value
+	"""
 	# Sort samples
 	sorted_scores = sorted(scores, reverse=True)
-
 	# Index of alpha-th sample
 	ind = int(np.rint(len(sorted_scores)*alpha))
 	if alpha==0.0:
@@ -864,26 +602,6 @@ def calibrate_relative_density(predictions,sigmas_prediction,groundtruth, time_p
 		return 0.0
 	# The alpha-th largest element gives the threshold
 	return sorted_relative_density_values[ind][0]
-
-#	list_fk = []
-#	s_xk_yk = []
-	# KDE density creation using provided samples
-#	for k in range(tpred_samples.shape[1]):
-#		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
-#		fk_max = fk.pdf(yi).max()
-#		gt_evaluation(target_test, target_test2, k, time_position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
-#		list_fk.append(fk)
-#
-#	# Sort samples
-#	orden = sorted(s_xk_yk, reverse=True)
-	#  Index of alpha-th sample
-#	ind = int(len(orden)*alpha)
-#	if ind==len(orden):
-#		Sa = 0.0
-#	else:
-#		Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
-
-#	return Sa
 
 def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,time_position,method,resample_size=1000, gaussian=[None,None]):
 
