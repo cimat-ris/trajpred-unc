@@ -838,7 +838,7 @@ def evaluate_kde(prediction, sigmas_prediction, ground_truth, resample_size=1000
 	"""
 	if sigmas_prediction is not None:
 		# In this case, we use a Gaussian output and create a KDE representation from it
-		f_density, samples = gaussian_kde_from_gaussianmixture(prediction,sigmas_prediction,resample_size=1000)
+		f_density, samples = gaussian_kde_from_gaussianmixture(prediction,sigmas_prediction,resample_size=resample_size)
 	else:
 		# In this case, we just have samples and create the KDE from them
 		f_density = gaussian_kde(prediction.T)
