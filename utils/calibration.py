@@ -811,7 +811,7 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_si
 		sx, sy, cor = sigmas_samples_ensemble[0], sigmas_samples_ensemble[1], sigmas_samples_ensemble[2]
 		# Predictions arrive here in **absolute coordinates**
 		mean                = prediction[idx_ensemble, :]
-		covariance          = np.array([[sx**2, 0],[0, sy**2]])
+		covariance          = np.array([[sx, 0],[0, sy]])
 		gaussian_mixture.append(multivariate_normal(mean,covariance))
 	# Performs sampling on the Gaussian mixture
 	pi                 = np.ones((len(gaussian_mixture),))/len(gaussian_mixture)
@@ -849,7 +849,7 @@ def evaluate_kde(prediction, sigmas_prediction, ground_truth, resample_size=1000
 	f_ground_truth = f_density.pdf(ground_truth.T)
 	# Evaluate our samples
 	f_samples = f_density.pdf(samples.T)
-	return f_ground_truth, f_samples
+	return f_density, f_ground_truth, f_samples, samples
 
 def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size=1000, sigmas_prediction=None):
 	predicted_hdr = []
@@ -858,10 +858,10 @@ def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size=1
 
 		if sigmas_prediction is not None:
 			# Creamos la funcion de densidad, evaluamos el gt y muestreamos
-			f_gt0, f_samples = evaluate_kde(this_pred_out_abs[:,k,:], sigmas_prediction[:, k, position, :], data_gt[k, position, :], resample_size)
+			__,f_gt0,f_samples,__ = evaluate_kde(this_pred_out_abs[:,k,:], sigmas_prediction[:, k, position, :], data_gt[k, position, :], resample_size)
 		else:
 		  # Creamos la funcion de densidad, evaluamos el gt y muestreamos
-			f_gt0, f_samples = evaluate_kde(this_pred_out_abs[:,k,:],[None,None],data_gt[k, position, :], resample_size)
+			__,f_gt0,f_samples,__ = evaluate_kde(this_pred_out_abs[:,k,:],[None,None],data_gt[k, position, :], resample_size)
 
 		predicted_hdr.append( get_alpha2(f_samples, f_gt0) )
 
@@ -913,12 +913,31 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,pos
 		for k in range(prediction.shape[1]):
 			if gaussian[0] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_gt0, f_samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,position,:],groundtruth[k,position,:], resample_size, )
-				f_gt0_test, f_samples_test = evaluate_kde(prediction_test[:,k,:],gaussian[1][:, k, position, :],groundtruth_test[k, position, :], resample_size, )
+				f_kde, f_gt0, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,position,:],groundtruth[k,position,:], resample_size, )
+				__, f_gt0_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:, k, position, :],groundtruth_test[k, position, :], resample_size, )
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_gt0, f_samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,position,:],resample_size)
-				f_gt0_test, f_samples_test = evaluate_kde(prediction_test[:,k,:],[None,None],groundtruth_test[k, position, :], resample_size)
+				f_kde, f_gt0, f_samples, samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,position,:],resample_size)
+				__, f_gt0_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],[None,None],groundtruth_test[k, position, :], resample_size)
+			#if i==1:
+			#	print(np.mean(f_gt0>f_samples))
+			if True:
+				# Here temporarily only :)
+				xmin = samples[:,0].min()
+				xmax = samples[:,0].max()
+				ymin = samples[:,1].min()
+				ymax = samples[:,1].max()
+				X, Y = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
+				positions = np.vstack([X.ravel(), Y.ravel()])
+				Z = np.reshape(f_kde(positions).T, X.shape)
+				fig, ax = plt.subplots()
+				ax.imshow(np.rot90(Z), cmap=plt.cm.gist_earth_r,extent=[xmin, xmax, ymin, ymax])
+				ax.plot(groundtruth[k,position,0],groundtruth[k,position,1],'ro')
+				ax.plot(samples[:,0],samples[:,1],'g+',alpha=0.05)				
+				ax.set_xlim([xmin, xmax])
+				ax.set_ylim([ymin, ymax])
+				ax.axis('equal')
+				plt.show()
 
 			f_gt.append( f_gt0 )
 			f_gt_test.append( f_gt0_test )
