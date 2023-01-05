@@ -636,8 +636,8 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 		# ------------------------------------------------------------
 		unc_pcts.append(proportion_uncalibrated)
 		cal_pcts.append(proportion_calibrated)
-		cal_pcts_test.append(proportion_uncalibrated_test)
-		unc_pcts_test.append(proportion_calibrated_test)
+		unc_pcts_test.append(proportion_uncalibrated_test)
+		cal_pcts_test.append(proportion_calibrated_test)
 
 	return conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test
 
