@@ -503,17 +503,20 @@ def calibrate_relative_density(gt_density_values, samples_density_values, alpha)
 	# The alpha-th largest element gives the threshold
 	return sorted_relative_density_values[ind]
 
+def check_quantile(gt_density_value, samples_density_values, alpha):
+	return (np.mean((samples_density_values>=gt_density_value))<=alpha)
+
 def get_within_proportions(gt_density_values, samples_density_values, method, fa, alpha):
 	"""
 	Args:
-		- predictions:  trajectory predictions
-		- sigmas_prediction: covariances of the predictions
-		- groundtruth:
+		- gt_density_values: evaluations of ground truth on the KDE
+		- samples_density_values: evaluations of samples on the KDE
+		- method: choice of the calibration method
 		- fa: calibration threshold
 		- alpha: confidence level
 	Returns:
-		- calibrated percentages for conformal calibration
 		- uncalibrated percentages for conformal calibration
+		- calibrated percentages for conformal calibration
 	"""
 	within_cal                 = []
 	within_unc                 = []
@@ -521,8 +524,8 @@ def get_within_proportions(gt_density_values, samples_density_values, method, fa
 	# For each individual trajectory
 	for trajectory_id in range(gt_density_values.shape[0]):
 		# Get quantile value
-		fa_unc = get_quantile(samples_density_values[trajectory_id],alpha)
-		within_unc.append((gt_density_values[trajectory_id]>=fa_unc))
+		within_unc_ = check_quantile(gt_density_values[trajectory_id],samples_density_values[trajectory_id],alpha)
+		within_unc.append(within_unc_)
 		if method==CALIBRATION_CONFORMAL_FVAL:
 			within_cal.append((gt_density_values[trajectory_id]>=fa))
 		elif method==CALIBRATION_CONFORMAL_FREL:
@@ -531,6 +534,7 @@ def get_within_proportions(gt_density_values, samples_density_values, method, fa
 			pass
 			# TODO: METHOD WITH ALPHA TOO
 	return np.mean(np.array(within_unc)), np.mean(np.array(within_cal))
+
 
 def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,time_position,method,resample_size=1000, gaussian=[None,None]):
 
