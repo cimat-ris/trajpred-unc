@@ -159,51 +159,6 @@ def gt_evaluation(target_test, target_test2, trajectory_id, time_position, fk, s
 		fk_yi = fk.pdf(gt)
 		s_xk_yk.append(fk_yi/fk_max)
 
-
-#def calibration_relative_density(tpred_samples, data_test, target_test, target_test2, sigmas_samples, time_position, alpha = 0.85, id_batch=-2, draw=False, gaussian=False, output_dirs=None):
-#
-#	list_fk = []
-#	s_xk_yk = []
-	# KDE density creation using provided samples
-#	for k in range(tpred_samples.shape[1]):
-#		fk, yi = get_kde(tpred_samples, data_test, k, sigmas_samples, time_position=time_position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
-#		fk_max = fk.pdf(yi).max()
-#		gt_evaluation(target_test, target_test2, k, time_position, fk, s_xk_yk, gaussian=gaussian, fk_max=fk_max)
-#		list_fk.append(fk)
-#
-#	# Sort samples
-#	orden = sorted(s_xk_yk, reverse=True)
-	#  Index of alpha-th sample
-#	ind = int(len(orden)*alpha)
-#	if ind==len(orden):
-#		Sa = 0.0
-#	else:
-#		Sa = orden[ind][0] # tomamos el valor del alpha-esimo elemento mas grande
-#
-#	if draw:
-		#-------------- For an specific id_batch ----------------------
-		# Compute alpha that relates the new Sa in p.d.f.
-		# Get sample of interest
-#		yi = tpred_samples[:, id_batch, time_position, :] # Seleccionamos las muestras de una trayectoria
-#		gt = target_test[id_batch, time_position,:].detach().numpy()
-
-		# p.d.f creation and sample evaluation in it
-#		fk = gaussian_kde(yi.T)
-#		fk_yi = fk.pdf(yi.T)
-#		fk_max = fk_yi.max()
-
-		# Sort samples
-#		orden = sorted(fk_yi, reverse=True)
-#		ind = np.where(np.array(orden) >= (fk_max*Sa))[0]
-#		ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
-#		alpha_fk = float(ind)/len(orden)
-
-#		output_image_name = os.path.join(output_dirs.hdr2 , "plot_hdr_%.2f_"%(alpha)+"_"+str(id_batch)+"_"+str(time_position)+"_gt.pdf")
-		# Distribution visualization
-#		plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=alpha)
-
-#	return Sa
-
 # Given a value of alpha and sorted values of te density, deduce the alpha-th value of the density
 # TODO: to be correct, the sorted values should also be normalized
 def get_falpha(orden, alpha):
@@ -220,59 +175,6 @@ def get_falpha(orden, alpha):
 def get_samples_pdfWeight(pdf,num_sample):
 	# Muestreamos de la nueva función de densidad pesada
 	return pdf.resample(num_sample)
-
-def get_conformal_pcts(displacement_prediction, observations, target, target2, sigmas_prediction, alpha, fa, method, position=0, gaussian=False):
-	"""
-	Args:
-		- displacement_prediction: prediction of displacements
-		- observations: observations (to translate the predictions)
-		- target:
-		- target2:
-		- sigmas_prediction: covariances of the predictions
-		- alpha: confidence level
-		- fa: calibration threshold
-		- position: position in the time horizon
-	Returns:
-		- calibrated percentages for conformal calibration
-		- uncalibrated percentages for conformal calibration
-	"""
-	perc_within_cal = []
-	perc_within_unc = []
-	# For each individual trajectory
-	for trajectory_id in range(displacement_prediction.shape[1]):
-
-		kde, sample_kde = get_kde(displacement_prediction, observations, trajectory_id, sigmas_prediction, time_position=position, gaussian=gaussian, resample_size=1000, relative_coords_flag=True)
-
-		# Steps to compute HDRs fa
-		# Evaluate these samples on the p.d.f.
-		sample_pdf = kde.pdf(sample_kde)
-
-		# TODO: instead of sorting the values (in n log n) we could simply count how many of these values are superior to f_pdf
-		# Sort samples
-		sorted_pdf = sorted(sample_pdf, reverse=True)
-
-		# Index corresponding to the alpha-largest value
-		ind = int(len(sorted_pdf)*alpha)
-		if ind==len(sorted_pdf):
-			fa_unc = 0.0
-		else:
-			fa_unc = sorted_pdf[ind] # tomamos el valor del alpha-esimo elemento mas grande
-		# Why?
-		if gaussian:
-			gt = target2[trajectory_id,position,:].cpu()
-		else:
-			gt = target[trajectory_id,position,:].cpu()
-		# GT evaluation on the pdf
-		f_pdf = kde.pdf(gt)
-
-		if method==CALIBRATION_CONFORMAL_FVAL:
-			perc_within_cal.append(f_pdf >= fa)
-		elif method==CALIBRATION_CONFORMAL_FREL:
-			perc_within_cal.append(f_pdf >= sample_pdf.max()*fa)
-
-		perc_within_unc.append(f_pdf >= fa_unc)
-
-	return perc_within_cal, perc_within_unc
 
 def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, position, key):
 	"""
@@ -412,12 +314,12 @@ def generate_uncertainty_evaluation_dataset(batched_test_data, model, num_sample
 	return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full
 
 #-----------------------------------------------------------------------------------
-def generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics, position, method, output_dirs):
+def generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics, position, method, output_dirs, suffix="cal"):
 	# Evaluate metrics before/after calibration
 	compute_calibration_metrics(conf_levels, unc_pcts, metrics, position, "Before Recalibration")
 	compute_calibration_metrics(conf_levels, cal_pcts, metrics, position, "After  Recalibration")
 	# Save plot_calibration_curves
-	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_cal_method_"+str(method)+"_pos_"+str(position)+".pdf")
+	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_"+suffix+"_method_"+str(method)+"_pos_"+str(position)+".pdf")
 	plot_calibration_curves2(conf_levels, unc_pcts, cal_pcts, output_image_name)
 
 def save_metrics(metrics_cal, metrics_test, method, output_dirs):
@@ -479,6 +381,7 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_si
 	"""
 	# This array will hold the parameters of each element of the mixture
 	gaussian_mixture = []
+	np.random.seed(2846)
 	# Form the Gaussian mixture
 	for idx_ensemble in range(sigmas_prediction.shape[0]):
 		# Get means and standard deviations
@@ -553,7 +456,7 @@ def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size=1
 
 	return isotonic
 
-def calibrate_density(predictions, sigmas_prediction, groundtruth, time_position, alpha = 0.85, resample_size = 1000):
+def calibrate_density(gt_density_values, alpha):
 	"""
 	Performs uncertainty calibration by using the density values as conformal scores
 	Args:
@@ -564,21 +467,17 @@ def calibrate_density(predictions, sigmas_prediction, groundtruth, time_position
 	Returns:
 		- Threshold on the density value to be used for marking confidence at least alpha
 	"""
-	gt_density_values = []
-	for trajectory_id in range(predictions.shape[1]):
-		# KDE density creation using provided samples
-		__, gt_density_value, __, __ = evaluate_kde(predictions[:,trajectory_id,:],sigmas_prediction[0][:,trajectory_id,time_position,:],groundtruth[trajectory_id,time_position,:],resample_size)
-		gt_density_values.append(gt_density_value)
 	# Sort GT values by decreasing order
-	sorted_density_values = sorted(gt_density_values, reverse=True)
+	gt_density_values     = gt_density_values.reshape(-1)
+	sorted_density_values = sorted(gt_density_values,reverse=True)
 	# Index of alpha-th sample
-	ind = int(np.rint(len(sorted_density_values)*alpha))
-	if ind==len(sorted_density_values):
+	ind = int(np.rint(gt_density_values.shape[0]*alpha))
+	if ind==gt_density_values.shape[0]:
 		return 0.0
 	# The alpha-th largest element gives the threshold
-	return sorted_density_values[ind][0]
+	return sorted_density_values[ind]
 
-def calibrate_relative_density(predictions,sigmas_prediction,groundtruth, time_position, alpha = 0.85, resample_size = 1000):
+def calibrate_relative_density(gt_density_values, samples_density_values, alpha):
 	"""
 	Performs uncertainty calibration by using the density values as conformal scores
 	Args:
@@ -590,10 +489,11 @@ def calibrate_relative_density(predictions,sigmas_prediction,groundtruth, time_p
 		- Threshold on the density value to be used for marking confidence at least alpha
 	"""
 	gt_relative_density_values = []
-	for trajectory_id in range(predictions.shape[1]):
+	gt_density_values          = gt_density_values.reshape(-1)
+	# Cycle over the calibration dataset trajectories
+	for trajectory_id in range(gt_density_values.shape[0]):
 		# KDE density creation using provided samples
-		__, gt_density_value, samples_density_values, __ = evaluate_kde(predictions[:,trajectory_id,:],sigmas_prediction[0][:,trajectory_id,time_position,:],groundtruth[trajectory_id,time_position,:],resample_size)
-		gt_relative_density_values.append(np.min(1.0,gt_density_value/samples_density_values.max))
+		gt_relative_density_values.append(min(1.0,gt_density_values[trajectory_id]/samples_density_values[trajectory_id].max()))
 	# Sort GT values by decreasing order
 	sorted_relative_density_values = sorted(gt_relative_density_values, reverse=True)
 	# Index of alpha-th sample
@@ -601,7 +501,36 @@ def calibrate_relative_density(predictions,sigmas_prediction,groundtruth, time_p
 	if ind==len(sorted_relative_density_values):
 		return 0.0
 	# The alpha-th largest element gives the threshold
-	return sorted_relative_density_values[ind][0]
+	return sorted_relative_density_values[ind]
+
+def get_within_proportions(gt_density_values, samples_density_values, method, fa, alpha):
+	"""
+	Args:
+		- predictions:  trajectory predictions
+		- sigmas_prediction: covariances of the predictions
+		- groundtruth:
+		- fa: calibration threshold
+		- alpha: confidence level
+	Returns:
+		- calibrated percentages for conformal calibration
+		- uncalibrated percentages for conformal calibration
+	"""
+	within_cal                 = []
+	within_unc                 = []
+	gt_density_values          = gt_density_values.reshape(-1)
+	# For each individual trajectory
+	for trajectory_id in range(gt_density_values.shape[0]):
+		# Get quantile value
+		fa_unc = get_quantile(samples_density_values[trajectory_id],alpha)
+		within_unc.append((gt_density_values[trajectory_id]>=fa_unc))
+		if method==CALIBRATION_CONFORMAL_FVAL:
+			within_cal.append((gt_density_values[trajectory_id]>=fa))
+		elif method==CALIBRATION_CONFORMAL_FREL:
+			within_cal.append((gt_density_values[trajectory_id]>=samples_density_values[trajectory_id].max()*fa))
+		elif method==CALIBRATION_CONFORMAL_ALPHA:
+			pass
+			# TODO: METHOD WITH ALPHA TOO
+	return np.mean(np.array(within_unc)), np.mean(np.array(within_cal))
 
 def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,time_position,method,resample_size=1000, gaussian=[None,None]):
 
@@ -621,30 +550,30 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 	# Cycle over the confidence levels
 	for i,alpha in enumerate(tqdm(conf_levels)):
 		# ------------------------------------------------------------
-		f_gt = []
 		fa_unc = []
 		fa_new = []
-
 		f_density_max = []
-
-		f_gt_test = []
 		fa_unc_test = []
 		fa_new_test = []
 		f_density_max_test = []
+		all_f_samples      = []
+		all_f_samples_test = []
+		all_f_gt           = []
+		all_f_gt_test      = []
 		# Cycle over the trajectories (batch)
 		for k in range(prediction.shape[1]):
 			if gaussian[0] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_kde, f_gt0, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,time_position,:],groundtruth[k,time_position,:], resample_size)
-				__, f_gt0_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:, k, time_position, :],groundtruth_test[k, time_position, :], resample_size, )
+				f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,time_position,:],groundtruth[k,time_position,:], resample_size)
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:, k, time_position, :],groundtruth_test[k, time_position, :], resample_size, )
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_kde, f_gt0, f_samples, samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,time_position,:],resample_size)
-				__, f_gt0_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],[None,None],groundtruth_test[k, time_position, :], resample_size)
-			#if i==0:
-			#	val = np.mean(f_gt0>f_samples)
-			#	if val>0.9:
-			#		print(val)
+				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,time_position,:],resample_size)
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],[None,None],groundtruth_test[k, time_position, :], resample_size)
+			all_f_samples.append(f_samples)
+			all_f_samples_test.append(f_samples_test)
+			all_f_gt.append(f_gt)
+			all_f_gt_test.append(f_gt_test)
 			if False:
 				# Here temporarily only :)
 				xmin = samples[:,0].min()
@@ -663,18 +592,12 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 				ax.axis('equal')
 				plt.show()
 
-			f_gt.append( f_gt0 )
-			f_gt_test.append( f_gt0_test )
-
 			# Obtenemos el cuantil alpha de la distribucion de las muestras
 			fa_unc.append( get_quantile(f_samples, alpha) )
 			fa_unc_test.append( get_quantile(f_samples_test, alpha) )
 
 			# Verificamos la version del metodo conformal a utilizar
-			if method == 1: # conformal relative
-				f_density_max.append( f_samples.max() )
-				f_density_max_test.append( f_samples_test.max() )
-			elif method == 2: # Isotonic
+			if method == 2: # Isotonic
 				# Modified (calibrated) alpha
 				new_alpha = isotonic.transform([alpha])
 				# Obtenemos el cuantil alpha de la distribucion de las muestras
@@ -683,43 +606,38 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 
 
 		# ------------------------------------------------------------
-		f_gt = np.array(f_gt)
-		f_gt_test = np.array(f_gt_test)
+		all_f_gt           = np.array(all_f_gt)
+		all_f_gt_test      = np.array(all_f_gt_test)
+		all_f_samples      = np.array(all_f_samples)
+		all_f_samples_test = np.array(all_f_samples_test)
 
-		if method == 1: # conformal relative
-			# Evaluate conformal scores and deduce the threshold
-			f_density_max      = np.array(f_density_max).reshape(-1,1)
-			f_density_max_test = np.array(f_density_max_test).reshape(-1,1)
-			relative_density   = f_gt/f_density_max
-			fa                 = get_quantile(relative_density, alpha)[0]
+		if method == CALIBRATION_CONFORMAL_FVAL:
+			# Calibration based on the density values
+			fa = calibrate_density(all_f_gt, alpha)
+		elif method == CALIBRATION_CONFORMAL_FREL:
+			# Calibration based on the relative density values
+			fa = calibrate_relative_density(all_f_gt, all_f_samples, alpha)
+		elif method == CALIBRATION_CONFORMAL_ALPHA:
 			# Verificamos con la evaluacion del gt
-			perc_within_cal      = (f_gt >= fa*f_density_max)
-			perc_within_cal_test = (f_gt_test >= fa*f_density_max_test)
-
-		elif method == 2: # Isotonic
-			# Verificamos con la evaluacion del gt
-			perc_within_cal = f_gt >= np.array(fa_new)
-			perc_within_cal_test = f_gt_test >= np.array(fa_new)
-
+			# perc_within_cal_test = f_gt_test >= np.array(fa_new)
+			# TODO
+			pass
 		else:
-			# Obtenemos el cuantil alpha del score
-			fa = get_quantile(f_gt, alpha)
-
-			# Verificamos con la evaluacion del gt
-			perc_within_cal = f_gt >= fa
-			perc_within_cal_test = f_gt_test >= fa
-			Sa = calibrate_density(prediction, gaussian, groundtruth, time_position, alpha, resample_size)
-			# print(time_position, "  a:",alpha,"    fa: ", fa,"   Sa: ",Sa)
-
-		# Verificamos con la evaluacion del gt
-		perc_within_unc      = (f_gt >= np.array(fa_unc))
-		perc_within_unc_test = (f_gt_test >= np.array(fa_unc_test))
-
+			logging.error("Calibration method not implemented")
+			#raise()
+			pass
+		# Evaluation before/after calibration: Calibration dataset
+		proportion_uncalibrated,proportion_calibrated = get_within_proportions(all_f_gt, all_f_samples, method, fa, alpha)
+		# Evaluation before/after calibration: Test dataset
+		proportion_uncalibrated_test,proportion_calibrated_test = get_within_proportions(all_f_gt_test, all_f_samples_test, method, fa, alpha)
+		print("ALPHA ",alpha)
+		print(proportion_uncalibrated,proportion_calibrated)
+		print(proportion_uncalibrated_test,proportion_calibrated_test)
 		# ------------------------------------------------------------
-		cal_pcts.append(np.mean(perc_within_cal))
-		unc_pcts.append(np.mean(perc_within_unc))
-		cal_pcts_test.append(np.mean(perc_within_cal_test))
-		unc_pcts_test.append(np.mean(perc_within_unc_test))
+		unc_pcts.append(proportion_uncalibrated)
+		cal_pcts.append(proportion_calibrated)
+		cal_pcts_test.append(proportion_uncalibrated_test)
+		unc_pcts_test.append(proportion_calibrated_test)
 
 	return conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test
 
@@ -748,10 +666,10 @@ def generate_metrics_calibration(predictions_calibration, observations_calibrati
 			# Metrics Calibration for data calibration
 			logging.info("Calibration metrics (Calibration dataset)")
 			generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics_cal, position, method, output_dirs)
-
+			print(unc_pcts)
 			# Metrics Calibration for data test
 			logging.info("Calibration evaluation (Test dataset)")
-			generate_metrics_curves(conf_levels, unc_pcts_test, cal_pcts_test, metrics_test, position, method, output_dirs)
+			generate_metrics_curves(conf_levels, unc_pcts_test, cal_pcts_test, metrics_test, position, method, output_dirs, suffix='test')
 
 		#--------------------- Guardamos las metricas de calibracion ---------------------------------
 		save_metrics(metrics_cal, metrics_test, method, output_dirs)

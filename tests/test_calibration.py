@@ -11,10 +11,9 @@ import torch
 sys.path.append('.')
 
 from utils.calibration_utils import get_data_for_calibration
-from utils.calibration import generate_metrics_calibration_IsotonicReg, generate_metrics_calibration_conformal
+from utils.calibration import generate_metrics_calibration
 from utils.constants import BITRAP_BT, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
 
-from utils.calibration import generate_metrics_calibration
 
 # Parser arguments
 parser = argparse.ArgumentParser(description='')
@@ -79,14 +78,14 @@ def compute_calibration_metrics2():
 	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,__,__,sigmas_samples,sigmas_samples_full,id_test = get_data_for_calibration(test_name)
 
 	# Resampling parameter
-	resample_size = 1000
+	resample_size = 1500
 
-	# Calibrte and evaluate metrics for the three methods, and for all positions
+	# Calibrate and evaluate metrics for the three methods, and for all positions
 	# 0: Conformal
 	# 1: Conformal con densidad relativa
 	# 2: Regresion Isotonica
 	#generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], resample_size=resample_size)
-	generate_metrics_calibration(predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[0,1,2],resample_size=resample_size, gaussian=[sigmas_samples, sigmas_samples_full])
+	generate_metrics_calibration(predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[1],resample_size=resample_size, gaussian=[sigmas_samples, sigmas_samples_full])
 
 
 if __name__ == "__main__":
