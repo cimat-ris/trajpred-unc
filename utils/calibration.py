@@ -504,6 +504,14 @@ def calibrate_relative_density(gt_density_values, samples_density_values, alpha)
 	return sorted_relative_density_values[ind]
 
 def check_quantile(gt_density_value, samples_density_values, alpha):
+	"""
+	Args:
+		- gt_density_value: evaluations of ground truth on the KDE
+		- samples_density_values: evaluations of samples on the KDE
+		- alpha: confidence level
+	Returns:
+		- True/false whether the GT is within an interval of confidence of alpha
+	"""
 	return (np.mean((samples_density_values>=gt_density_value))<=alpha)
 
 def get_within_proportions(gt_density_values, samples_density_values, method, fa, alpha):
@@ -554,10 +562,8 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 	# Cycle over the confidence levels
 	for i,alpha in enumerate(tqdm(conf_levels)):
 		# ------------------------------------------------------------
-		fa_unc = []
 		fa_new = []
 		f_density_max = []
-		fa_unc_test = []
 		fa_new_test = []
 		f_density_max_test = []
 		all_f_samples      = []
@@ -596,10 +602,6 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 				ax.axis('equal')
 				plt.show()
 
-			# Obtenemos el cuantil alpha de la distribucion de las muestras
-			fa_unc.append( get_quantile(f_samples, alpha) )
-			fa_unc_test.append( get_quantile(f_samples_test, alpha) )
-
 			# Verificamos la version del metodo conformal a utilizar
 			if method == 2: # Isotonic
 				# Modified (calibrated) alpha
@@ -634,9 +636,6 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 		proportion_uncalibrated,proportion_calibrated = get_within_proportions(all_f_gt, all_f_samples, method, fa, alpha)
 		# Evaluation before/after calibration: Test dataset
 		proportion_uncalibrated_test,proportion_calibrated_test = get_within_proportions(all_f_gt_test, all_f_samples_test, method, fa, alpha)
-		print("ALPHA ",alpha)
-		print(proportion_uncalibrated,proportion_calibrated)
-		print(proportion_uncalibrated_test,proportion_calibrated_test)
 		# ------------------------------------------------------------
 		unc_pcts.append(proportion_uncalibrated)
 		cal_pcts.append(proportion_calibrated)
