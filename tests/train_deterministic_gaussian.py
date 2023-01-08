@@ -37,7 +37,7 @@ parser.add_argument('--batch-size', '--b',
 					type=int, default=256, metavar='N',
 					help='input batch size for training (default: 256)')
 parser.add_argument('--epochs', '--e',
-					type=int, default=100, metavar='N',
+					type=int, default=200, metavar='N',
 					help='number of epochs to train (default: 200)')
 parser.add_argument('--examples',
 					type=int, default=1, metavar='N',
@@ -84,7 +84,6 @@ def main():
 	# Get the ETH-UCY data
 	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(args)
 	model_name    = "deterministic_variances"
-
 	# Seed for RNG
 	seed = 1
 
@@ -150,13 +149,13 @@ def main():
 		pred, sigmas = model.predict(datarel_test, dim_pred=12)
 		tpred_samples.append(pred)
 		sigmas_samples.append(sigmas)
-
-		tpred_samples = np.array(tpred_samples)
-		sigmas_samples = np.array(sigmas_samples)
-		# Save these testing data for uncertainty calibration
-		save_data_for_calibration(DETERMINISTIC_GAUSSIAN, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
 		# Only the first batch is used as the calibration dataset
 		break
+
+	tpred_samples = np.array(tpred_samples)
+	sigmas_samples = np.array(sigmas_samples)
+	# Save these testing data for uncertainty calibration
+	save_data_for_calibration(DETERMINISTIC_GAUSSIAN, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
 
 
 if __name__ == "__main__":
