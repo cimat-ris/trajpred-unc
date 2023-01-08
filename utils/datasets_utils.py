@@ -9,7 +9,7 @@ import torch
 from tqdm import tqdm
 from torch.utils.data import Dataset
 from utils.constants import (
-	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,REFERENCE_IMG,
+	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,REFERENCE_IMG,PED_IDS,
 	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, MUN_POS_CSV, DATASETS_DIR, SUBDATASETS_NAMES
 )
 import logging
@@ -34,7 +34,7 @@ class Experiment_Parameters:
 #  Trajectory dataset
 class traj_dataset(Dataset):
 
-	def __init__(self, Xrel_Train, Yrel_Train, X_Train, Y_Train, Frame_Ids=None,transform=None):
+	def __init__(self, Xrel_Train, Yrel_Train, X_Train, Y_Train, Frame_Ids=None,Ped_Ids=None,transform=None):
 		self.Xrel_Train= Xrel_Train
 		self.Yrel_Train= Yrel_Train
 		self.X_Train   = X_Train
@@ -78,8 +78,8 @@ class traj_dataset_bitrap(Dataset):
 			idx = idx.tolist()
 		# Access to elements
 		x = self.X_global[idx]
-		n = self.neighbors[idx]
 		y = self.Y_global[idx]
+		n = self.neighbors[idx]
 		return x, n, y
 
 def get_testing_batch_synthec(testing_data,testing_data_path):
@@ -129,7 +129,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 	seq_acc_all                  = []
 	seq_neighbors_all            = []
 	seq_frames_all               = []  # [N, seq_len]
-
+	seq_ped_ids_all              = []
 	# Scan all the datasets
 	for idx,dataset_name in enumerate(datasets_names):
 		# Raw trajectory coordinates
@@ -150,6 +150,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 			raw_traj_data_per_frame.append(raw_traj_data[raw_traj_data[:, 0]==frame, :])
 		for ped in ped_ids:
 			t  = raw_traj_data[raw_traj_data[:, 1]==ped,0:1]
+			id = raw_traj_data[raw_traj_data[:, 1]==ped,1:2]
 			px = raw_traj_data[raw_traj_data[:, 1]==ped,2]
 			py = raw_traj_data[raw_traj_data[:, 1]==ped,3]
 			if len(px)>1:
@@ -162,7 +163,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 				ay = np.gradient(vy,0.4)
 				vy = np.expand_dims(vy,axis=1)
 				ay = np.expand_dims(ay,axis=1)
-				pv = np.concatenate([t,np.expand_dims(px,axis=1),np.expand_dims(py,axis=1),vx,vy,ax,ay],axis=1)
+				pv = np.concatenate([t,np.expand_dims(px,axis=1),np.expand_dims(py,axis=1),vx,vy,ax,ay,id],axis=1)
 				raw_traj_data_per_ped[ped]=pv
 		counter    = 0
 		last_frame = -parameters.max_overlap
@@ -195,7 +196,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 			theta_seq_data = np.zeros((num_peds_in_seq, seq_len, 1), dtype="float32")
 			# Is the array that have the sequence of Id_person of all people that there are in frame sequence
 			frame_ids_seq_data = np.zeros((num_peds_in_seq, seq_len), dtype="int32")
-
+			ped_ids_seq_data   = np.zeros((num_peds_in_seq, 1), dtype="int32")
 			ped_count = 0
 			# Tensor for holding neighbor data, for each sequence. List of 8x6 tensors
 			neighbors_data = []
@@ -231,7 +232,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 							if temp[0].size != 0:
 								idx             = temp[0][0]
 								if idx<obs_len:
-									neighbor_data[idx,:] = neighbor_seq_data_mod[n_idx,1:]
+									neighbor_data[idx,:] = neighbor_seq_data_mod[n_idx,1:7]
 						neighbors_ped_seq.append(neighbor_data)
 					# Contains the neighbor data per sequence
 					neighbors_data.append(neighbors_ped_seq)
@@ -248,6 +249,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 				# For each tracked person
 				# we keep the list of all the frames in which it is present
 				frame_ids_seq_data[ped_count, :] = ped_seq_data_mod[:,0]
+				ped_ids_seq_data[ped_count, 0]   = ped_seq_data_mod[0,7:8]
 				# Increment ped_count (persons )
 				ped_count += 1
 
@@ -260,6 +262,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 			seq_theta_all.append(theta_seq_data[:ped_count])
 			# Append all the frame ranges (frame_ids_seq_data) starting at this frame
 			seq_frames_all.append(frame_ids_seq_data[:ped_count])
+			seq_ped_ids_all.append(ped_ids_seq_data[:ped_count])
 			# Sets of neighbours for each sequence
 			seq_neighbors_all.extend(neighbors_data)
 	# Upper level (all datasets)
@@ -269,6 +272,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 	seq_acc_all      = np.concatenate(seq_acc_all, axis=0)
 	seq_theta_all    = np.concatenate(seq_theta_all, axis=0)
 	seq_frames_all   = np.concatenate(seq_frames_all, axis=0)
+	seq_ped_ids_all  = np.concatenate(seq_ped_ids_all, axis=0)
 	#seq_neighbors_all= np.concatenate(seq_neighbors_all, axis=0)
 	logging.info("Total number of sample sequences: {}".format(len(seq_pos_all)))
 	# We split into the obs traj and pred_traj
@@ -292,7 +296,8 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 		PRED_TRAJ:      pred_traj,
 		PRED_TRAJ_VEL:  pred_traj_vel,
 		FRAMES_IDS:     frame_obs,
-		OBS_NEIGHBORS:  neighbors_obs
+		OBS_NEIGHBORS:  neighbors_obs,
+		PED_IDS:        seq_ped_ids_all
 	}
 	return data
 
@@ -330,7 +335,8 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 			OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_train],
 			PRED_TRAJ:      train_data[PRED_TRAJ][idx_train],
 			PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_train],
-			FRAMES_IDS:     train_data[FRAMES_IDS][idx_train]
+			FRAMES_IDS:     train_data[FRAMES_IDS][idx_train],
+			PED_IDS:        train_data[PED_IDS][idx_train]
 		}
 		# Test set
 		testing_data = {
@@ -340,7 +346,8 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 			OBS_TRAJ_THETA: test_data[OBS_TRAJ_THETA][:],
 			PRED_TRAJ:      test_data[PRED_TRAJ][:],
 			PRED_TRAJ_VEL:  test_data[PRED_TRAJ_VEL][:],
-			FRAMES_IDS:     test_data[FRAMES_IDS][:]
+			FRAMES_IDS:     test_data[FRAMES_IDS][:],
+			PED_IDS:        test_data[PED_IDS][:]
 		}
 		# Validation set
 		validation_data ={
@@ -350,7 +357,8 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 			OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_val],
 			PRED_TRAJ:      train_data[PRED_TRAJ][idx_val],
 			PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_val],
-			FRAMES_IDS:     train_data[FRAMES_IDS][idx_val]
+			FRAMES_IDS:     train_data[FRAMES_IDS][idx_val],
+			PED_IDS:        train_data[PED_IDS][idx_val]
 		}
 		if use_neighbors:
 			training_data[OBS_NEIGHBORS]   = [train_data[OBS_NEIGHBORS][i] for i in idx_train]
@@ -383,7 +391,6 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 	logging.info("Training data: "+ str(len(training_data[list(training_data.keys())[0]])))
 	logging.info("Test data: "+ str(len(test_data[list(test_data.keys())[0]])))
 	logging.info("Validation data: "+ str(len(validation_data[list(validation_data.keys())[0]])))
-
 	if sdd:
 		test_homography = {}
 	else:
@@ -402,10 +409,9 @@ def get_ethucy_dataset(args):
 	reference_image = plt.imread(os.path.join(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset][args.id_test],REFERENCE_IMG))
 
 	# Torch dataset
-	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
-	val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
-	test_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
-
+	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ], Frame_Ids=training_data[FRAMES_IDS], Ped_Ids=training_data[PED_IDS])
+	val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ],validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ], Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS])
+	test_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS], Ped_Ids=test_data[PED_IDS])
 	# Form batches
 	batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=args.batch_size,shuffle=False)
 	batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
