@@ -4,8 +4,8 @@ description                  : AgentFormer (DLow)
 results_root_dir             : results
 seed                         : 1
 dataset                      : zara1
-data_root_ethucy             : datasets/eth_ucy
-data_root_nuscenes_pred      : datasets/nuscenes_pred
+data_root_ethucy             : ../AgentFormer/datasets/eth_ucy
+data_root_nuscenes_pred      : ../AgentFormer/datasets/nuscenes_pred
 
 # ------------------- Feature Extractor -------------------------
 
@@ -49,4 +49,3 @@ num_epochs                   : 50
 lr_fix_epochs                : 10
 print_freq                   : 20
 model_save_freq              : 5
-
