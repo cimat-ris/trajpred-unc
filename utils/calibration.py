@@ -18,7 +18,7 @@ from utils.plot_utils import plot_calibration_curves, plot_HDR_curves, plot_cali
 # Local utils helpers
 from utils.directory_utils import Output_directories
 # Local constants
-from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES, CALIBRATION_CONFORMAL_FVAL, CALIBRATION_CONFORMAL_FREL
+from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES, CALIBRATION_CONFORMAL_FVAL, CALIBRATION_CONFORMAL_FREL, CALIBRATION_CONFORMAL_ALPHA
 # HDR utils
 from utils.hdr import sort_sample, get_alpha
 # Calibration metrics
@@ -503,6 +503,38 @@ def calibrate_relative_density(gt_density_values, samples_density_values, alpha)
 	# The alpha-th largest element gives the threshold
 	return sorted_relative_density_values[ind]
 
+def calibrate_alpha_density( samples_density_values, alpha, isotonic=None):
+    """
+    
+        - predictions: prediction of the future positions
+        - sigmas_prediction: covariances of the predictions, according to the prediction algorithm
+        - time_position: the position in the time horizon to consider
+        - alpha: confidence value to consider
+        - isotonic: optional, model for isotonic regression
+    Returns:
+        - Threshold on the density value to be used for marking confidence at least alpha
+    """
+    print(samples_density_values.shape)
+    fa = []
+    # Cycle over the calibration dataset trajectories
+    for trajectory_id in range(samples_density_values.shape[0]):
+        # Sort GT values by decreasing order
+        sorted_relative_density_values = sorted(samples_density_values[trajectory_id], reverse=True)
+        # Index of alpha-th sample
+        if isotonic is not None:
+            # Modified (calibrated) alpha
+            new_alpha = isotonic.transform([alpha])
+            ind = int(np.rint(len(sorted_relative_density_values)*new_alpha))
+        else:
+            ind = int(np.rint(len(sorted_relative_density_values)*alpha))
+        if ind==len(sorted_relative_density_values):
+            return 0.0
+        # The alpha-th largest element gives the threshold
+        fa.append( sorted_relative_density_values[ind] )
+    
+    fa = np.array(fa).reshape(-1)
+    return fa
+
 def check_quantile(gt_density_value, samples_density_values, alpha):
 	"""
 	Args:
@@ -539,8 +571,11 @@ def get_within_proportions(gt_density_values, samples_density_values, method, fa
 		elif method==CALIBRATION_CONFORMAL_FREL:
 			within_cal.append((gt_density_values[trajectory_id]>=samples_density_values[trajectory_id].max()*fa))
 		elif method==CALIBRATION_CONFORMAL_ALPHA:
-			pass
-			# TODO: METHOD WITH ALPHA TOO
+			within_cal.append((gt_density_values[trajectory_id]>=fa[trajectory_id]))
+
+		elif method==3:
+			within_cal.append((gt_density_values[trajectory_id]>=fa[trajectory_id]))
+            
 	return np.mean(np.array(within_unc)), np.mean(np.array(within_cal))
 
 
@@ -555,16 +590,14 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 	cal_pcts_test = []
 	unc_pcts_test = []
 
-	if method == 2: # Isotonic
+	if method == 3: # Isotonic
 		# Regresion isotonic training
 		isotonic = regresion_isotonic_fit(prediction,groundtruth,time_position,resample_size,sigmas_prediction=gaussian[0])
 
 	# Cycle over the confidence levels
 	for i,alpha in enumerate(tqdm(conf_levels)):
 		# ------------------------------------------------------------
-		fa_new = []
 		f_density_max = []
-		fa_new_test = []
 		f_density_max_test = []
 		all_f_samples      = []
 		all_f_samples_test = []
@@ -602,14 +635,6 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 				ax.axis('equal')
 				plt.show()
 
-			# Verificamos la version del metodo conformal a utilizar
-			if method == 2: # Isotonic
-				# Modified (calibrated) alpha
-				new_alpha = isotonic.transform([alpha])
-				# Obtenemos el cuantil alpha de la distribucion de las muestras
-				fa_new.append( get_quantile(f_samples, new_alpha) )
-				fa_new_test.append( get_quantile(f_samples_test, new_alpha) )
-
 
 		# ------------------------------------------------------------
 		all_f_gt           = np.array(all_f_gt)
@@ -627,7 +652,12 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 			# Verificamos con la evaluacion del gt
 			# perc_within_cal_test = f_gt_test >= np.array(fa_new)
 			# TODO
-			pass
+			#pass
+                        # Calibration using alpha values on the density values
+			fa = calibrate_alpha_density(all_f_samples, alpha, isotonic=None)
+		elif method == 3:
+			fa = calibrate_alpha_density(all_f_samples, alpha, isotonic=isotonic)
+            
 		else:
 			logging.error("Calibration method not implemented")
 			#raise()
