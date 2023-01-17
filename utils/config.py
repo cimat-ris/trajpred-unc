@@ -23,6 +23,10 @@ def get_config(ensemble=False,dropout=False):
         training_args.add_argument('--dropout-rate',
                                     type=int, default=0.5, metavar='N',
                                     help='dropout rate (default: 0.5)')
+        training_args.add_argument('--dropout-samples',
+                                    type=int, default=100, metavar='N',
+                                    help='number of elements in the ensemble (default: 100)')
+
     training_args.add_argument('--batch-size', '--b',
     					type=int, default=256, metavar='N',
     					help='input batch size for training (default: 256)')
