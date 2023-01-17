@@ -6,7 +6,7 @@
 
 # Imports
 import time
-import sys,os,logging, argparse
+import sys,os,logging
 
 sys.path.append('.')
 
@@ -26,55 +26,21 @@ from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
 from utils.calibration import generate_uncertainty_evaluation_dataset
 from utils.calibration_utils import save_data_for_calibration
 from utils.directory_utils import mkdir_p
+from utils.config import get_config
 import torch.optim as optim
 # Local constants
 from utils.constants import IMAGES_DIR,TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN, SUBDATASETS_NAMES
 
 
 # Parser arguments
-parser = argparse.ArgumentParser(description='')
-parser.add_argument('--batch-size', '--b',
-					type=int, default=256, metavar='N',
-					help='input batch size for training (default: 256)')
-parser.add_argument('--epochs', '--e',
-					type=int, default=100, metavar='N',
-					help='number of epochs to train (default: 200)')
-parser.add_argument('--examples',
-					type=int, default=1, metavar='N',
-					help='number of examples to exhibit (default: 1)')
-parser.add_argument('--id-dataset',
-					type=str, default=0, metavar='N',
-					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
-parser.add_argument('--id-test',
-					type=int, default=2, metavar='N',
-					help='id of the dataset to use as test in LOO (default: 2)')
-parser.add_argument('--learning-rate', '--lr',
-					type=float, default=0.0004, metavar='N',
-					help='learning rate of optimizer (default: 1E-3)')
-parser.add_argument('--teacher-forcing',
-					action='store_true',
-					help='uses teacher forcing during training')
-parser.add_argument('--no-retrain',
-					action='store_true',
-					help='do not retrain the model')
-parser.add_argument('--pickle',
-					action='store_true',
-					help='use previously made pickle files')
-parser.add_argument('--show-plot', default=False,
-					action='store_true', help='show the test plots')
-parser.add_argument('--plot-losses',
-					action='store_true',
-					help='plot losses curves after training')
-parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
-parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
-args = parser.parse_args()
+config = get_config()
 
 
 def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
 	# Loggin format
-	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
+	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
 
 	# Device
 	if torch.cuda.is_available():
@@ -82,14 +48,14 @@ def main():
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	# Get the ETH-UCY data
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(args)
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(config)
 	model_name    = "deterministic_variances"
 
 	# Seed for RNG
 	seed = 1
 
 	# Training
-	if args.no_retrain==False:
+	if config.no_retrain==False:
 		# Choose seed
 		torch.manual_seed(seed)
 		torch.cuda.manual_seed(seed)
@@ -97,12 +63,12 @@ def main():
 		model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
 		model.to(device)
 		# Train the model
-		train(model,device,0,batched_train_data,batched_val_data,args,model_name)
+		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
 
 	# Model instantiation
 	model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
 	# Load the previously trained model
-	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
+	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth"
 	logging.info("Loading {}".format(model_filename))
 	model.load_state_dict(torch.load(model_filename))
 	model.eval()
@@ -113,7 +79,7 @@ def main():
 	mkdir_p(output_dir)
 
 	# Testing a random trajectory index in all batches
-	ind_sample = np.random.randint(args.batch_size)
+	ind_sample = np.random.randint(config.batch_size)
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 		fig, ax = plt.subplots(1,1,figsize=(12,12))
 
@@ -127,15 +93,15 @@ def main():
 		plot_cov_world(pred[ind,:,:],sigmas[ind,:,:],data_test[ind,:,:],ax)
 		plt.legend()
 		plt.savefig(os.path.join(output_dir , "pred_dropout"+".pdf"))
-		if args.show_plot:
+		if config.show_plot:
 			plt.show()
 		plt.close()
-		# Not display more than args.examples
-		if batch_idx==args.examples-1:
+		# Not display more than config.examples
+		if batch_idx==config.examples-1:
 			break
 
 	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, args, device=device)
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Producing data for uncertainty calibration
@@ -154,7 +120,7 @@ def main():
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
 		# Save these testing data for uncertainty calibration
-		save_data_for_calibration(DETERMINISTIC_GAUSSIAN, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
+		save_data_for_calibration(DETERMINISTIC_GAUSSIAN, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
 		# Only the first batch is used as the calibration dataset
 		break
 
