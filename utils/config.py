@@ -53,6 +53,9 @@ def get_config(ensemble=False,dropout=False):
     data_args.add_argument('--pickle',
     					action='store_true',
     					help='use previously made pickle files')
+    data_args.add_argument('--max-overlap',
+	                    type=int, default=1, metavar='N',
+	                    help='Maximal overlap between trajets (default: 1)')
 
     # Visualization arguments
     visualization_args = add_argument_group('Visualization')
