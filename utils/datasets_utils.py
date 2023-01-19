@@ -110,7 +110,7 @@ def get_raw_data(datasets_path, dataset_name, delim):
 
 	return raw_traj_data
 
-def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbors=True):
+def prepare_data(datasets_path, datasets_names, parameters, compute_neighbors=True):
 	datasets = range(len(datasets_names))
 	datasets = list(datasets)
 
@@ -296,7 +296,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 	}
 	return data
 
-def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_neighbors=False,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1, sdd=False, compute_neighbors=True):
+def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_neighbors=False,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1, compute_neighbors=True):
 	# Experiment name is set to the name of the test dataset
 	experiment_name = ds_names[leave_id]
 	# Dataset to be tested
@@ -307,8 +307,8 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 	if not use_pickled_data:
 		# Process data specified by the path to get the trajectories with
 		logging.info('Extracting data from the datasets')
-		test_data  = prepare_data(ds_path, testing_datasets_names, experiment_parameters, sdd=sdd, compute_neighbors=compute_neighbors)
-		train_data = prepare_data(ds_path, training_datasets_names, experiment_parameters, sdd=sdd, compute_neighbors=compute_neighbors)
+		test_data  = prepare_data(ds_path, testing_datasets_names, experiment_parameters, compute_neighbors=compute_neighbors)
+		train_data = prepare_data(ds_path, training_datasets_names, experiment_parameters, compute_neighbors=compute_neighbors)
 
 		# Count how many data we have (sub-sequences of length 8, in pred_traj)
 		n_test_data  = len(test_data[list(test_data.keys())[2]])
@@ -384,7 +384,7 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 	logging.info("Test data: "+ str(len(test_data[list(test_data.keys())[0]])))
 	logging.info("Validation data: "+ str(len(validation_data[list(validation_data.keys())[0]])))
 
-	if sdd:
+	if 'sdd' in ds_path:
 		test_homography = {}
 	else:
 		# Load the homography corresponding to this dataset
@@ -398,7 +398,6 @@ def get_ethucy_dataset(args):
 
 	# Load the dataset and perform the split
 	training_data, validation_data, test_data, homography = setup_loo_experiment(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
-	#training_data, validation_data, test_data, _ = setup_loo_experiment(DATASETS_DIR[1],SUBDATASETS_NAMES[1],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, validation_proportion=args.validation_proportion, sdd=True, compute_neighbors=False)
 
 	# Load the reference image
 	reference_image = plt.imread(os.path.join(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset][args.id_test],REFERENCE_IMG))
