@@ -93,8 +93,8 @@ def get_testing_batch_synthec(testing_data,testing_data_path):
 	for element in filtered_data.as_numpy_iterator():
 		return element
 
-def get_raw_data(datasets_path, dataset_name, delim, sdd):
-	if sdd:
+def get_raw_data(datasets_path, dataset_name, delim):
+	if 'sdd' in datasets_path:
 		traj_data_path = os.path.join(datasets_path, dataset_name)
 		logging.info("Reading "+traj_data_path+'.pickle')
 		 # Unpickle raw datasets
@@ -133,7 +133,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 	# Scan all the datasets
 	for idx,dataset_name in enumerate(datasets_names):
 		# Raw trajectory coordinates
-		raw_traj_data = get_raw_data(datasets_path, dataset_name, parameters.delim, sdd=sdd)
+		raw_traj_data = get_raw_data(datasets_path, dataset_name, parameters.delim)
 
 		# We suppose that the frame ids are in ascending order
 		frame_ids = np.unique(raw_traj_data[:, 0]).tolist()
@@ -398,6 +398,8 @@ def get_ethucy_dataset(args):
 
 	# Load the dataset and perform the split
 	training_data, validation_data, test_data, homography = setup_loo_experiment(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
+	#training_data, validation_data, test_data, _ = setup_loo_experiment(DATASETS_DIR[1],SUBDATASETS_NAMES[1],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, validation_proportion=args.validation_proportion, sdd=True, compute_neighbors=False)
+
 	# Load the reference image
 	reference_image = plt.imread(os.path.join(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset][args.id_test],REFERENCE_IMG))
 
