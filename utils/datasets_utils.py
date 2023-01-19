@@ -94,6 +94,15 @@ def get_testing_batch_synthec(testing_data,testing_data_path):
 		return element
 
 def get_raw_data(datasets_path, dataset_name, delim):
+	"""
+	Open dataset file and returns the raw array
+	Args:
+		- datasets_path: the path to the datasets directory
+		- dataset_name: the name of the sub-dataset to read
+		- delim: delimiter
+	Returns:
+		- the numpy array with all raw data
+	"""
 	if 'sdd' in datasets_path:
 		traj_data_path = os.path.join(datasets_path, dataset_name)
 		logging.info("Reading "+traj_data_path+'.pickle')
@@ -111,6 +120,16 @@ def get_raw_data(datasets_path, dataset_name, delim):
 	return raw_traj_data
 
 def prepare_data(datasets_path, datasets_names, parameters, compute_neighbors=True):
+	"""
+	Open dataset file and returns the raw array
+	Args:
+		- datasets_path: the path to the datasets directory
+		- dataset_names: the names of the sub-datasets to read
+		- parameters: parameters
+		- compute_neighbors: if True, stores the neighbors positions too (memory consuming)
+	Returns:
+		- dictionary with useful data for HTP
+	"""
 	datasets = range(len(datasets_names))
 	datasets = list(datasets)
 
