@@ -505,7 +505,7 @@ def calibrate_relative_density(gt_density_values, samples_density_values, alpha)
 
 def calibrate_alpha_density(gt_density_values, samples_density_values, alpha):
     """
-    
+
         - predictions: prediction of the future positions
         - sigmas_prediction: covariances of the predictions, according to the prediction algorithm
         - time_position: the position in the time horizon to consider
@@ -522,7 +522,7 @@ def calibrate_alpha_density(gt_density_values, samples_density_values, alpha):
         #print(gt_density_values[trajectory_id])
         #print(get_alpha2(samples_density_values[trajectory_id], gt_density_values[trajectory_id]))
         alphas_k.append( get_alpha2(samples_density_values[trajectory_id], gt_density_values[trajectory_id]) )
-    
+
     # Sort GT values by growing order
     sorted_alphas_density_values = sorted(alphas_k)
     #print(sorted_alphas_density_values)
@@ -579,7 +579,7 @@ def get_within_proportions(gt_density_values, samples_density_values, method, fa
 			# The alpha-th largest element gives the threshold
 			fa_new = sorted_relative_density_values[ind-1]
 			within_cal.append((gt_density_values[trajectory_id]>=fa_new))
-            
+
 	return np.mean(np.array(within_unc)), np.mean(np.array(within_cal))
 
 
@@ -607,20 +607,17 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 		all_f_samples_test = []
 		all_f_gt           = []
 		all_f_gt_test      = []
+
 		# Cycle over the trajectories (batch)
 		for k in range(prediction.shape[1]):
 			if gaussian[0] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
 				f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,time_position,:],groundtruth[k,time_position,:], resample_size)
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:, k, time_position, :],groundtruth_test[k, time_position, :], resample_size, )
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
 				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,time_position,:],resample_size)
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],[None,None],groundtruth_test[k, time_position, :], resample_size)
 			all_f_samples.append(f_samples)
-			all_f_samples_test.append(f_samples_test)
 			all_f_gt.append(f_gt)
-			all_f_gt_test.append(f_gt_test)
 			if False:
 				# Here temporarily only :)
 				xmin = samples[:,0].min()
@@ -639,6 +636,16 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 				ax.axis('equal')
 				plt.show()
 
+		for k in range(prediction_test.shape[1]):
+			if gaussian[0] is not None:
+				# Estimate a KDE, produce samples and evaluate the groundtruth on it
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:, k, time_position, :],groundtruth_test[k, time_position, :], resample_size, )
+			else:
+				# Estimate a KDE, produce samples and evaluate the groundtruth on it
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],[None,None],groundtruth_test[k, time_position, :], resample_size)
+			all_f_samples_test.append(f_samples_test)
+			all_f_gt_test.append(f_gt_test)
+
 
 		# ------------------------------------------------------------
 		all_f_gt           = np.array(all_f_gt)
@@ -655,7 +662,7 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 		elif method == CALIBRATION_CONFORMAL_ALPHA:
 			# Calibration using alpha values on the density values
 			fa = calibrate_alpha_density(all_f_gt, all_f_samples, alpha)
-            
+
 		else:
 			logging.error("Calibration method not implemented")
 			#raise()
@@ -673,7 +680,7 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 	return conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test
 
 def generate_metrics_calibration(predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0], resample_size=1000, gaussian=[None,None], relative_coords_flag=True):
-	# Cycle over methods
+	# Cycle over requested methods
 	for method in methods:
 		logging.info("Evaluating calibration method: {}".format(method))
 		#--------------------- Calculamos las metricas de calibracion ---------------------------------
@@ -681,6 +688,7 @@ def generate_metrics_calibration(predictions_calibration, observations_calibrati
 		metrics_test = [["","MACE","RMSCE","MA"]]
 		output_dirs   = Output_directories()
 		# Recorremos cada posicion para calibrar
+		# TODO: specify it in arguments
 		for position in [3,7,11]:
 			if relative_coords_flag:
 				# Convert it to absolute (starting from the last observed position)
