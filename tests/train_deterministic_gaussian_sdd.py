@@ -1,6 +1,6 @@
 # Imports
 import time
-import sys,os,logging, argparse
+import sys,os,logging
 
 sys.path.append('.')
 
@@ -14,7 +14,7 @@ import torch.optim as optim
 
 # Local models
 from models.lstm_encdec import lstm_encdec_gaussian
-from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
+from utils.datasets_utils import get_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
 from utils.calibration import generate_uncertainty_evaluation_dataset
@@ -39,22 +39,10 @@ def main():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	# Load the default parameters, TODO: review parameters for SDD dataset
-	experiment_parameters = Experiment_Parameters(max_overlap=config.max_overlap)
-
+	# Get the SDD data
+	config.id_dataset = 1
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
 	model_name    = "deterministic_variances"
-
-	# Load the dataset and perform the split
-	training_data, validation_data, test_data, _ = setup_loo_experiment(DATASETS_DIR[1],SUBDATASETS_NAMES[1],config.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=config.pickle, validation_proportion=config.validation_proportion, compute_neighbors=False)
-	# Torch dataset
-	train_data = traj_dataset(training_data[OBS_TRAJ_VEL], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
-	val_data   = traj_dataset(validation_data[OBS_TRAJ_VEL], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
-	test_data  = traj_dataset(test_data[OBS_TRAJ_VEL], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ])
-
-	# Form batches
-	batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=config.batch_size,shuffle=False)
-	batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=config.batch_size,shuffle=False)
-	batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=config.batch_size,shuffle=False)
 
 	# Seed for RNG
 	seed = 1
@@ -81,12 +69,12 @@ def main():
 	model.eval()
 	model.to(device)
 
-	ind_sample = np.random.randint(config.batch_size)
 
 	output_dir = os.path.join(IMAGES_DIR)
 	mkdir_p(output_dir)
 
-	# Testing
+	# Testing a random trajectory index in all batches
+	ind_sample = np.random.randint(config.batch_size)
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 		fig, ax = plt.subplots(1,1,figsize=(12,12))
 
@@ -97,33 +85,24 @@ def main():
 		# Plotting
 		ind = np.minimum(ind_sample,pred.shape[0]-1)
 		plot_traj_world(pred[ind,:,:],data_test[ind,:,:],target_test[ind,:,:],ax)
-
+		plot_cov_world(pred[ind,:,:],sigmas[ind,:,:],data_test[ind,:,:],ax)
 		plt.legend()
 		plt.savefig(os.path.join(output_dir , "pred_dropout"+".pdf"))
 		if config.show_plot:
 			plt.show()
 		plt.close()
-		print(datarel_test.shape)
 		# Not display more than config.examples
 		if batch_idx==config.examples-1:
 			break
-	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
+	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
 	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
-	# Testing
-	cont = 0
+	# Producing data for uncertainty calibration
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 
-		tpred_samples = []
+		tpred_samples  = []
 		sigmas_samples = []
-
-		# Cargamos el Modelo
-		model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth"
-		logging.info("Loading {}".format(model_filename))
-		model.load_state_dict(torch.load(model_filename))
-
-		model.eval()
 
 		if torch.cuda.is_available():
 			datarel_test  = datarel_test.to(device)
@@ -135,9 +114,9 @@ def main():
 
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
-
+		# Save these testing data for uncertainty calibration
 		save_data_for_calibration(DETERMINISTIC_GAUSSIAN_SDD, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
-		# Solo se ejecuta para un batch y es usado como dataset de calibración
+		# Only the first batch is used as the calibration dataset
 		break
 
 if __name__ == "__main__":
