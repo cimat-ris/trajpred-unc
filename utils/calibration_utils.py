@@ -5,7 +5,7 @@ import pickle
 from utils.constants import PICKLE_DIR
 from utils.directory_utils import mkdir_p
 
-def save_data_for_calibration(test_name, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_test, id_test):
+def save_data_for_calibration(file_name, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_test, id_test):
 	"""
 	Pickle provided data for future calibration compute
 	Args:
@@ -39,7 +39,8 @@ def save_data_for_calibration(test_name, tpred_samples, tpred_samples_full, data
 	}
 	# Creates pickle directory if does not exists
 	mkdir_p(PICKLE_DIR)
-	pickle_out_name = os.path.join(PICKLE_DIR, test_name+".pickle")
+	pickle_out_name = os.path.join(PICKLE_DIR, file_name+"_calibration.pickle")
+	logging.info("Writing data for uncertainty calibration into: "+pickle_out_name)
 	pickle_out = open(pickle_out_name, "wb")
 	pickle.dump(data_for_calibration, pickle_out, protocol=2)
 	pickle_out.close()

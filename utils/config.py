@@ -60,6 +60,9 @@ def get_config(ensemble=False,dropout=False):
 	data_args.add_argument('--max-overlap',
 						type=int, default=1, metavar='N',
 						help='Maximal overlap between trajets (default: 1)')
+	data_args.add_argument('--no_neighbors',
+						action='store_true',
+						help='Do not compute the neighbors')
 
 	# Visualization arguments
 	visualization_args = add_argument_group('Visualization')

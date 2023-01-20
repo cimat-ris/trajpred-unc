@@ -411,16 +411,19 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 		test_homography = np.genfromtxt(homography_file)
 	return training_data,validation_data,test_data,test_homography
 
-def get_ethucy_dataset(args):
+def get_dataset(args):
+
 	# Load the default parameters
-	experiment_parameters = Experiment_Parameters()
+	experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
 	# Load the dataset and perform the split
-	training_data, validation_data, test_data, homography = setup_loo_experiment(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
+	training_data, validation_data, test_data, homography = setup_loo_experiment(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, validation_proportion=args.validation_proportion, compute_neighbors=not args.no_neighbors)
 
 	# Load the reference image
-	reference_image = plt.imread(os.path.join(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset][args.id_test],REFERENCE_IMG))
-
+	if not 'sdd' in DATASETS_DIR[args.id_dataset]:
+		reference_image = plt.imread(os.path.join(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset][args.id_test],REFERENCE_IMG))
+	else:
+		reference_image = None
 	# Torch dataset
 	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
 	val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
