@@ -12,7 +12,7 @@ sys.path.append('.')
 
 from utils.calibration_utils import get_data_for_calibration
 from utils.calibration import generate_metrics_calibration
-from utils.constants import BITRAP_BT, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
+from utils.constants import SUBDATASETS_NAMES, BITRAP_BT, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
 
 
 # Parser arguments
@@ -22,6 +22,10 @@ parser.add_argument('--gaussian-output', default=False, action='store_true', hel
 parser.add_argument('--show-plot', default=False, action='store_true', help='show the calibration plots')
 parser.add_argument('--nll', default=False, action='store_true', help='Compute the values of GT negative log likelihood before and after calibration')
 parser.add_argument('--test-name', type=str, default='deterministicGaussian', help='Test data to be load (default: deterministic gaussian test)')
+parser.add_argument('--id-dataset',type=str, default=0, metavar='N',
+					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
+parser.add_argument('--id-test',type=int, default=2, metavar='N',
+					help='id of the subdataset to use as test (default: 2)')
 parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
 args = parser.parse_args()
@@ -46,29 +50,11 @@ def get_test_name():
 		}
 	if args.test_name not in valid_test_names.keys():
 		return "ERROR: INVALID TEST NAME!!"
-	return valid_test_names[args.test_name]
+	pickle_filename = valid_test_names[args.test_name]+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_calibration"
+	return pickle_filename
+
 
 def compute_calibration_metrics():
-	"""
-	Compute Isotonic Regression (by default) and conformal calibration metrics (if provided argument)
-	"""
-	test_name = get_test_name()
-	# Load data for calibration compute
-	tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, id_test = get_data_for_calibration(test_name)
-	if args.calibration_conformal:
-		logging.info("*************************************")
-		logging.info("******* Conformal Calibration *******")
-		logging.info("*************************************")
-		generate_metrics_calibration_conformal(tpred_samples, data_test, targetrel_test, target_test, sigmas_samples, id_test, gaussian=args.gaussian_output, tpred_samples_test=tpred_samples_full, data_test=data_test_full, targetrel_test=targetrel_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full,show_plot=args.show_plot)
-
-	# ---------------------------------- Calibration HDR -------------------------------------------------
-	logging.info("*******************************************")
-	logging.info("***** Isotonic Regression Calibration *****")
-	logging.info("*******************************************")
-	generate_metrics_calibration_IsotonicReg(tpred_samples, data_test, target_test, sigmas_samples, id_test, gaussian=args.gaussian_output, tpred_samples_test=tpred_samples_full, data_test=data_test_full, target_test=target_test_full, sigmas_samples_test=sigmas_samples_full,compute_nll=args.nll,show_plot=args.show_plot)
-
-
-def compute_calibration_metrics2():
 	"""
 	Compute Isotonic Regression (by default) and conformal calibration metrics (if provided argument)
 	"""
@@ -91,4 +77,4 @@ def compute_calibration_metrics2():
 if __name__ == "__main__":
 	# Loggin format
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
-	compute_calibration_metrics2()
+	compute_calibration_metrics()
