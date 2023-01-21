@@ -322,19 +322,19 @@ def generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics, position, 
 	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_"+suffix+"_method_"+str(method)+"_pos_"+str(position)+".pdf")
 	plot_calibration_curves2(conf_levels, unc_pcts, cal_pcts, output_image_name)
 
-def save_metrics(metrics_cal, metrics_test, method, output_dirs):
+def save_metrics(prediction_method_name, metrics_cal, metrics_test, method_id, output_dirs):
 	# Guardamos con un data frame
 	df = pd.DataFrame(metrics_cal)
-	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_cal_method_" + str(method) + ".csv")
+	output_csv_name = os.path.join(output_dirs.metrics, "calibration_metrics_cal_"+prediction_method_name+"_" + str(method_id) + ".csv")
 	df.to_csv(output_csv_name)
-	print("Metricas del conjunto de calibracion:")
+	logging.info("Metrics on the calibration set:")
 	print(df)
 
 	# Guardamos con un data frame
 	df = pd.DataFrame(metrics_test)
-	output_csv_name = os.path.join(output_dirs.metrics, "metrics_calibration_test_method_" + str(method) + ".csv")
+	output_csv_name = os.path.join(output_dirs.metrics, "calibration_metrics_test_"+prediction_method_name+"_" + str(method_id) + ".csv")
 	df.to_csv(output_csv_name)
-	print("Metricas del conjunto de test:")
+	logging.info("Metrics on the test set:")
 	print(df)
 
 def get_quantile(scores, alpha):
@@ -679,10 +679,10 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 
 	return conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test
 
-def generate_metrics_calibration(predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0], resample_size=1000, gaussian=[None,None], relative_coords_flag=True):
+def generate_metrics_calibration(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0], resample_size=1000, gaussian=[None,None], relative_coords_flag=True):
 	# Cycle over requested methods
-	for method in methods:
-		logging.info("Evaluating calibration method: {}".format(method))
+	for method_id in methods:
+		logging.info("Evaluating calibration method: {}".format(method_id))
 		#--------------------- Calculamos las metricas de calibracion ---------------------------------
 		metrics_cal  = [["","MACE","RMSCE","MA"]]
 		metrics_test = [["","MACE","RMSCE","MA"]]
@@ -700,17 +700,17 @@ def generate_metrics_calibration(predictions_calibration, observations_calibrati
 
 			# Uncertainty calibration
 			logging.info("Calibration metrics at position: {}".format(position))
-			conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test = calibration_test(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, method, resample_size, gaussian=gaussian)
+			conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test = calibration_test(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, method_id, resample_size, gaussian=gaussian)
 
 			# Metrics Calibration for data calibration
 			logging.info("Calibration metrics (Calibration dataset)")
-			generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics_cal, position, method, output_dirs)
+			generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics_cal, position, method_id, output_dirs)
 			print(unc_pcts)
 			# Metrics Calibration for data test
 			logging.info("Calibration evaluation (Test dataset)")
-			generate_metrics_curves(conf_levels, unc_pcts_test, cal_pcts_test, metrics_test, position, method, output_dirs, suffix='test')
+			generate_metrics_curves(conf_levels, unc_pcts_test, cal_pcts_test, metrics_test, position, method_id, output_dirs, suffix='test')
 
 		#--------------------- Guardamos las metricas de calibracion ---------------------------------
-		save_metrics(metrics_cal, metrics_test, method, output_dirs)
+		save_metrics(prediction_method_name, metrics_cal, metrics_test, method_id, output_dirs)
 
  #---------------------------------------------------------------------------------------

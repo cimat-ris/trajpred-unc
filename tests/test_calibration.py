@@ -30,24 +30,25 @@ parser.add_argument('--log-level',type=int, default=20,help='Log level (default:
 parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
 args = parser.parse_args()
 
+valid_test_names = {
+	"deterministicGaussian": DETERMINISTIC_GAUSSIAN,
+	"ensembles":             ENSEMBLES,
+	"dropout":               DROPOUT,
+	"bitrap":                BITRAP_BT,
+	"variational":           VARIATIONAL,
+	"deterministicGaussianSDD": DETERMINISTIC_GAUSSIAN_SDD,
+	"ensemblesSDD":             ENSEMBLES_SDD,
+	"dropoutSDD":               DROPOUT_SDD,
+	"bitrapSDD":                BITRAP_BT_SDD,
+	"variationalSDD":           VARIATIONAL_SDD
+}
+
 def get_test_name():
 	"""
 	Args:
 	Returns:
 		- test_name
 	"""
-	valid_test_names = {
-		"deterministicGaussian": DETERMINISTIC_GAUSSIAN,
-		"ensembles":             ENSEMBLES,
-		"dropout":               DROPOUT,
-		"bitrap":                BITRAP_BT,
-		"variational":           VARIATIONAL,
-		"deterministicGaussianSDD": DETERMINISTIC_GAUSSIAN_SDD,
-		"ensemblesSDD":             ENSEMBLES_SDD,
-		"dropoutSDD":               DROPOUT_SDD,
-		"bitrapSDD":                BITRAP_BT_SDD,
-		"variationalSDD":           VARIATIONAL_SDD
-		}
 	if args.test_name not in valid_test_names.keys():
 		return "ERROR: INVALID TEST NAME!!"
 	pickle_filename = valid_test_names[args.test_name]+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_calibration"
@@ -70,8 +71,8 @@ def compute_calibration_metrics():
 	# 0: Conformal
 	# 1: Conformal con densidad relativa
 	# 2: Regresion Isotonica
-	#generate_metrics_calibration(data_pred, data_obs, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], resample_size=resample_size)
-	generate_metrics_calibration(predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[1],resample_size=resample_size, gaussian=[sigmas_samples, sigmas_samples_full])
+	method_name = valid_test_names[args.test_name]+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])
+	generate_metrics_calibration(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[1],resample_size=resample_size, gaussian=[sigmas_samples, sigmas_samples_full])
 
 
 if __name__ == "__main__":
