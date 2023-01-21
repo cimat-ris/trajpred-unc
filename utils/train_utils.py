@@ -61,7 +61,7 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 			# Step 3. Compute the gradients, and update the parameters by
 			loss.backward()
 			optimizer.step()
-		logging.info("Trn loss: {:.4f}".format(error/total))
+		logging.info("Trn loss: {:9.4f}".format(error/total))
 		list_loss_train.append(error/total)
 
 		# Validation
@@ -94,9 +94,9 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 		error = error/total
 		ade   = ade/total
 		fde   = fde/total
-		logging.info("Val loss: {:.4f} ".format(error))
-		logging.info("Val ade : {:.4f} ".format(ade))
-		logging.info("Val fde : {:.4f} ".format(fde))
+		logging.info("Val loss: {:9.4f} ".format(error))
+		logging.info("Val ade : {:9.4f} ".format(ade))
+		logging.info("Val fde : {:9.4f} ".format(fde))
 		list_loss_val.append(error)
 		if error<min_val_error:
 			min_val_error = error
