@@ -5,7 +5,7 @@
 # train_torch_bitrap_BT: IsotonicReg with gaussian=False, Conformal with gaussian=False
 
 import argparse
-import logging, sys
+import logging, sys, random
 import numpy as np
 import torch
 sys.path.append('.')
@@ -26,6 +26,7 @@ parser.add_argument('--id-dataset',type=str, default=0, metavar='N',
 					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
 parser.add_argument('--id-test',type=int, default=2, metavar='N',
 					help='id of the subdataset to use as test (default: 2)')
+parser.add_argument('--seed',type=int, default=1,help='Random seed for all randomized functions')
 parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
 args = parser.parse_args()
@@ -76,6 +77,11 @@ def compute_calibration_metrics():
 
 
 if __name__ == "__main__":
+	# Choose seed
+	torch.manual_seed(config.seed)
+	torch.cuda.manual_seed(config.seed)
+	np.random.seed(config.seed)
+	random.seed(config.seed)
 	# Loggin format
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
 	compute_calibration_metrics()
