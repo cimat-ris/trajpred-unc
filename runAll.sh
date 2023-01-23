@@ -1,10 +1,10 @@
 #!/bin/bash
 for idtest in 0 1 2 3 4
 do
-	for try in {1..10}
+	for seed in {1..10}
 	do
-		python tests/train_deterministic_gaussian.py --id-test=$idtest
-		python tests/test_calibration.py --id-test=$idtest
+		python tests/train_deterministic_gaussian.py --id-test=$idtest --seed=$seed
+		python tests/test_calibration.py --id-test=$idtest --seed=$seed
 	done
 done
 

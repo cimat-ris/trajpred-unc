@@ -381,7 +381,6 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_si
 	"""
 	# This array will hold the parameters of each element of the mixture
 	gaussian_mixture = []
-	np.random.seed(2846)
 	# Form the Gaussian mixture
 	for idx_ensemble in range(sigmas_prediction.shape[0]):
 		# Get means and standard deviations

@@ -76,6 +76,7 @@ def get_config(ensemble=False,dropout=False):
 						help='plot losses curves after training')
 
 	misc_args = add_argument_group('Misc')
+	misc_args.add_argument('--seed',type=int, default=1,help='Random seed for all randomized functions')	
 	misc_args.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 	misc_args.add_argument('--log-file',default='',help='Log file (default: standard output)')
 

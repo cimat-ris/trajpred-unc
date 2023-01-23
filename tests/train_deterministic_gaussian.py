@@ -13,7 +13,7 @@ sys.path.append('.')
 import math,numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-
+import random
 import torch
 from torchvision import transforms
 import torch.optim as optim
@@ -50,14 +50,13 @@ def main():
 	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
 	model_name    = DETERMINISTIC_GAUSSIAN
 
-	# Seed for RNG
-	seed = 1
-
 	# Training
 	if config.no_retrain==False:
 		# Choose seed
-		torch.manual_seed(seed)
-		torch.cuda.manual_seed(seed)
+		torch.manual_seed(config.seed)
+		torch.cuda.manual_seed(config.seed)
+		np.random.seed(config.seed)
+		random.seed(config.seed)
 		# Instanciate the model
 		model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
 		model.to(device)
