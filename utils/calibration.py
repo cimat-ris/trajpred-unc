@@ -326,14 +326,14 @@ def save_metrics(prediction_method_name, metrics_cal, metrics_test, method_id, o
 	# Guardamos con un data frame
 	df = pd.DataFrame(metrics_cal)
 	output_csv_name = os.path.join(output_dirs.metrics, "calibration_metrics_cal_"+prediction_method_name+"_" + str(method_id) + ".csv")
-	df.to_csv(output_csv_name)
+	df.to_csv(output_csv_name, mode='a', header=not os.path.exists(output_csv_name))
 	logging.info("Metrics on the calibration set:")
 	print(df)
 
 	# Guardamos con un data frame
 	df = pd.DataFrame(metrics_test)
 	output_csv_name = os.path.join(output_dirs.metrics, "calibration_metrics_test_"+prediction_method_name+"_" + str(method_id) + ".csv")
-	df.to_csv(output_csv_name)
+	df.to_csv(output_csv_name, mode='a', header=not os.path.exists(output_csv_name))
 	logging.info("Metrics on the test set:")
 	print(df)
 
