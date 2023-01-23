@@ -78,10 +78,10 @@ def compute_calibration_metrics():
 
 if __name__ == "__main__":
 	# Choose seed
-	torch.manual_seed(config.seed)
-	torch.cuda.manual_seed(config.seed)
-	np.random.seed(config.seed)
-	random.seed(config.seed)
+	torch.manual_seed(args.seed)
+	torch.cuda.manual_seed(args.seed)
+	np.random.seed(args.seed)
+	random.seed(args.seed)
 	# Loggin format
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
 	compute_calibration_metrics()
