@@ -93,8 +93,17 @@ def get_testing_batch_synthec(testing_data,testing_data_path):
 	for element in filtered_data.as_numpy_iterator():
 		return element
 
-def get_raw_data(datasets_path, dataset_name, delim, sdd):
-	if sdd:
+def get_raw_data(datasets_path, dataset_name, delim):
+	"""
+	Open dataset file and returns the raw array
+	Args:
+		- datasets_path: the path to the datasets directory
+		- dataset_name: the name of the sub-dataset to read
+		- delim: delimiter
+	Returns:
+		- the numpy array with all raw data
+	"""
+	if 'sdd' in datasets_path:
 		traj_data_path = os.path.join(datasets_path, dataset_name)
 		logging.info("Reading "+traj_data_path+'.pickle')
 		 # Unpickle raw datasets
@@ -110,7 +119,17 @@ def get_raw_data(datasets_path, dataset_name, delim, sdd):
 
 	return raw_traj_data
 
-def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbors=True):
+def prepare_data(datasets_path, datasets_names, parameters, compute_neighbors=True):
+	"""
+	Open dataset file and returns the raw array
+	Args:
+		- datasets_path: the path to the datasets directory
+		- dataset_names: the names of the sub-datasets to read
+		- parameters: parameters
+		- compute_neighbors: if True, stores the neighbors positions too (memory consuming)
+	Returns:
+		- dictionary with useful data for HTP
+	"""
 	datasets = range(len(datasets_names))
 	datasets = list(datasets)
 
@@ -133,7 +152,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 	# Scan all the datasets
 	for idx,dataset_name in enumerate(datasets_names):
 		# Raw trajectory coordinates
-		raw_traj_data = get_raw_data(datasets_path, dataset_name, parameters.delim, sdd=sdd)
+		raw_traj_data = get_raw_data(datasets_path, dataset_name, parameters.delim)
 
 		# We suppose that the frame ids are in ascending order
 		frame_ids = np.unique(raw_traj_data[:, 0]).tolist()
@@ -301,7 +320,7 @@ def prepare_data(datasets_path, datasets_names, parameters, sdd, compute_neighbo
 	}
 	return data
 
-def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_neighbors=False,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1, sdd=False, compute_neighbors=True):
+def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_neighbors=False,use_pickled_data=False,pickle_dir='pickle/',validation_proportion=0.1, compute_neighbors=True):
 	# Experiment name is set to the name of the test dataset
 	experiment_name = ds_names[leave_id]
 	# Dataset to be tested
@@ -312,8 +331,8 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 	if not use_pickled_data:
 		# Process data specified by the path to get the trajectories with
 		logging.info('Extracting data from the datasets')
-		test_data  = prepare_data(ds_path, testing_datasets_names, experiment_parameters, sdd=sdd, compute_neighbors=compute_neighbors)
-		train_data = prepare_data(ds_path, training_datasets_names, experiment_parameters, sdd=sdd, compute_neighbors=compute_neighbors)
+		test_data  = prepare_data(ds_path, testing_datasets_names, experiment_parameters, compute_neighbors=compute_neighbors)
+		train_data = prepare_data(ds_path, training_datasets_names, experiment_parameters, compute_neighbors=compute_neighbors)
 
 		# Count how many data we have (sub-sequences of length 8, in pred_traj)
 		n_test_data  = len(test_data[list(test_data.keys())[2]])
@@ -391,7 +410,12 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 	logging.info("Training data: "+ str(len(training_data[list(training_data.keys())[0]])))
 	logging.info("Test data: "+ str(len(test_data[list(test_data.keys())[0]])))
 	logging.info("Validation data: "+ str(len(validation_data[list(validation_data.keys())[0]])))
+<<<<<<< HEAD
 	if sdd:
+=======
+
+	if 'sdd' in ds_path:
+>>>>>>> 7fa41edea4da4a9f3185e770a8ca1a9afc6fe26a
 		test_homography = {}
 	else:
 		# Load the homography corresponding to this dataset
@@ -399,15 +423,19 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 		test_homography = np.genfromtxt(homography_file)
 	return training_data,validation_data,test_data,test_homography
 
-def get_ethucy_dataset(args):
+def get_dataset(args):
+
 	# Load the default parameters
-	experiment_parameters = Experiment_Parameters()
+	experiment_parameters = Experiment_Parameters(max_overlap=args.max_overlap)
 
 	# Load the dataset and perform the split
-	training_data, validation_data, test_data, homography = setup_loo_experiment(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle)
-	# Load the reference image
-	reference_image = plt.imread(os.path.join(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset][args.id_test],REFERENCE_IMG))
+	training_data, validation_data, test_data, homography = setup_loo_experiment(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, validation_proportion=args.validation_proportion, compute_neighbors=not args.no_neighbors)
 
+	# Load the reference image
+	if not 'sdd' in DATASETS_DIR[args.id_dataset]:
+		reference_image = plt.imread(os.path.join(DATASETS_DIR[args.id_dataset],SUBDATASETS_NAMES[args.id_dataset][args.id_test],REFERENCE_IMG))
+	else:
+		reference_image = None
 	# Torch dataset
 	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ], Frame_Ids=training_data[FRAMES_IDS], Ped_Ids=training_data[PED_IDS])
 	val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ],validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ], Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS])

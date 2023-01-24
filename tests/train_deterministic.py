@@ -19,64 +19,31 @@ from models.lstm_encdec import lstm_encdec
 from utils.datasets_utils import get_ethucy_dataset
 from utils.plot_utils import plot_traj_img
 from utils.train_utils import train
+from utils.config import get_config
 
 # Local constants
 from utils.constants import TRAINING_CKPT_DIR,SUBDATASETS_NAMES
 
+
 # Parser arguments
-parser = argparse.ArgumentParser(description='')
-parser.add_argument('--batch-size', '--b',
-					type=int, default=256, metavar='N',
-					help='input batch size for training (default: 256)')
-parser.add_argument('--epochs', '--e',
-					type=int, default=80, metavar='N',
-					help='number of epochs to train (default: 100)')
-parser.add_argument('--examples',
-					type=int, default=1, metavar='N',
-					help='number of examples to exhibit (default: 1)')
-parser.add_argument('--id-dataset',
-					type=str, default=0, metavar='N',
-					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
-parser.add_argument('--id-test',
-					type=int, default=2, metavar='N',
-					help='id of the dataset to use as test in LOO (default: 2)')
-parser.add_argument('--learning-rate', '--lr',
-					type=float, default=0.0002, metavar='N',
-					help='learning rate of optimizer (default: 1E-3)')
-parser.add_argument('--teacher-forcing',
-					action='store_true',
-					help='uses teacher forcing during training')
-parser.add_argument('--no-retrain',
-					action='store_true',
-					help='do not retrain the model')
-parser.add_argument('--pickle',
-					action='store_true',
-					help='use previously made pickle files')
-parser.add_argument('--show-plot', default=False,
-					action='store_true', help='show the test plots')
-parser.add_argument('--plot-losses',
-					action='store_true',
-					help='plot losses curves after training')
-parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
-parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
-args = parser.parse_args()
+config = get_config()
 
 def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
 	# Loggin format
-	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
+	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(args)
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(config)
 	model_name    = 'deterministic'
 
 	# Seed for RNG
 	seed = 17
-	if args.no_retrain==False:
+	if config.no_retrain==False:
 		# Choose seed
 		torch.manual_seed(seed)
 		torch.cuda.manual_seed(seed)
@@ -87,12 +54,12 @@ def main():
 		model.to(device)
 
 		# Train the model
-		train(model,device,0,batched_train_data,batched_val_data,args,model_name)
+		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
 
 	# Model instantiation
 	model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=128, output_size=2)
 	# Load the previously trained model
-	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
+	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth"
 	logging.info("Loading {}".format(model_filename))
 	model.load_state_dict(torch.load(model_filename))
 	model.to(device)
@@ -114,10 +81,10 @@ def main():
 		plot_traj_img(pred[ind_sample,:,:], data_test[ind_sample,:,:], target_test[ind_sample,:,:], homography, reference_image)
 		plt.legend()
 		plt.title('Trajectory samples {}'.format(batch_idx))
-		if args.show_plot:
+		if config.show_plot:
 			plt.show()
 		# Not display more than args.examples
-		if batch_idx==args.examples-1:
+		if batch_idx==config.examples-1:
 			break
 
 	# Testing: Quantitative
