@@ -189,7 +189,7 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_si
 	  - resample_size: number of samples to produce from the KDE
 	Returns:
 	  - kde: PDF estimate through KDE
-	  - sample_kde: Sampled points (x,y) from PDF
+	  - sample_kde: Sampled points (x,y) from the PDF
 	"""
 	# This array will hold the parameters of each element of the mixture
 	gaussian_mixture = []
@@ -200,12 +200,14 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_si
 		sx, sy, cor = sigmas_samples_ensemble[0], sigmas_samples_ensemble[1], sigmas_samples_ensemble[2]
 		# Predictions arrive here in **absolute coordinates**
 		mean                = prediction[idx_ensemble, :]
+		# TODO: use the correlations too?
 		covariance          = np.array([[sx, 0],[0, sy]])
 		gaussian_mixture.append(multivariate_normal(mean,covariance))
 	# Performs sampling on the Gaussian mixture
 	pi                 = np.ones((len(gaussian_mixture),))/len(gaussian_mixture)
 	partition          = multinomial(n=resample_size,p=pi).rvs(size=1)
 	sample_pdf         = []
+	# TODO: avoid the concatenate and fill the final array directly
 	for gaussian_id,gaussian in enumerate(gaussian_mixture):
 		sample_pdf.append(gaussian.rvs(size=partition[0][gaussian_id]))
 	sample_pdf = np.concatenate(sample_pdf,axis=0)
@@ -217,8 +219,8 @@ def evaluate_kde(prediction, sigmas_prediction, ground_truth, resample_size=1000
 	"""
 	Builds a KDE representation for the prediction and evaluate the ground truth on it
 	Args:
-	  - prediction: set of predicted position
-	  - sigmas_prediction: set of covariances on the predicted position
+	  - prediction: set of predicted positions
+	  - sigmas_prediction: set of covariances on the predicted position (may be None)
 	  - ground_truth: set of ground truth positions
 	  - resample_size: number of samples to produce from the KDE
 	Returns:
@@ -288,19 +290,20 @@ def calibrate_density(gt_density_values, alpha):
 
 def calibrate_relative_density(gt_density_values, samples_density_values, alpha):
 	"""
-	Performs uncertainty calibration by using the density values as conformal scores
+	Performs uncertainty calibration by using the relative density values as conformal scores
 	Args:
 		- gt_density_values: array of values of the density function at the GT points (for a set of trajectories)
 		- samples_density_values: array of array of of values of the density function at some samples (for a set of trajectories)
 		- alpha: confidence value to consider
 	Returns:
-		- Threshold on the density value to be used for marking confidence at least alpha
+		- Threshold on the relative density value to be used for marking confidence at least alpha
 	"""
 	gt_relative_density_values = []
 	gt_density_values          = gt_density_values.reshape(-1)
 	# Cycle over the calibration dataset trajectories
 	for trajectory_id in range(gt_density_values.shape[0]):
 		# KDE density creation using provided samples
+		# TODO: avoid the append
 		gt_relative_density_values.append(min(1.0,gt_density_values[trajectory_id]/samples_density_values[trajectory_id].max()))
 	# Sort GT values by decreasing order
 	sorted_relative_density_values = sorted(gt_relative_density_values, reverse=True)

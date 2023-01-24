@@ -410,12 +410,7 @@ def setup_loo_experiment(ds_path,ds_names,leave_id,experiment_parameters,use_nei
 	logging.info("Training data: "+ str(len(training_data[list(training_data.keys())[0]])))
 	logging.info("Test data: "+ str(len(test_data[list(test_data.keys())[0]])))
 	logging.info("Validation data: "+ str(len(validation_data[list(validation_data.keys())[0]])))
-<<<<<<< HEAD
-	if sdd:
-=======
-
 	if 'sdd' in ds_path:
->>>>>>> 7fa41edea4da4a9f3185e770a8ca1a9afc6fe26a
 		test_homography = {}
 	else:
 		# Load the homography corresponding to this dataset

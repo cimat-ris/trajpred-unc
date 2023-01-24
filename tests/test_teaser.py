@@ -29,7 +29,7 @@ from utils.datasets_utils import setup_loo_experiment,Experiment_Parameters,traj
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world,world_to_image_xy
 from utils.calibration import calibration_IsotonicReg, generate_one_batch_test
-from utils.calibration import generate_metrics_calibration_conformal, generate_newKDE
+from utils.calibration import generate_metrics_calibration_conformal
 from utils.hdr import get_alpha,get_alpha_bs,get_falpha,sort_sample
 import torch.optim as optim
 # Local constants
