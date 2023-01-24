@@ -8,6 +8,7 @@ PRED_TRAJ      = 'pred_traj'
 PRED_TRAJ_VEL  = 'pred_traj_vel'
 PRED_TRAJ_ACC  = 'pred_traj_acc'
 FRAMES_IDS     = 'frames_ids'
+PED_IDS        = 'ped_ids'
 KEY_IDX        = 'key_idx'
 
 # Strings used in dataset filenames

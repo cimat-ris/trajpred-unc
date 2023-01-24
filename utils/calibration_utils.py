@@ -44,7 +44,7 @@ def save_data_for_calibration(file_name, tpred_samples, tpred_samples_full, data
 	pickle_out = open(pickle_out_name, "wb")
 	pickle.dump(data_for_calibration, pickle_out, protocol=2)
 	pickle_out.close()
-	logging.info("Pickling data for calibration compute...")
+	logging.info("Pickling data for uncertainty calibration...")
 
 def get_data_for_calibration(test_name):
 	"""
@@ -64,7 +64,7 @@ def get_data_for_calibration(test_name):
 		- sigmas_samples_test
 		- id_test
 	"""
-	logging.info("Unpickling data for calibration compute...")
+	logging.info("Unpickling data for uncertainty calibration...")
 	pickle_in_name = os.path.join(PICKLE_DIR, test_name+".pickle")
 	pickle_in = open(pickle_in_name, "rb")
 	data_for_calibration = pickle.load(pickle_in)

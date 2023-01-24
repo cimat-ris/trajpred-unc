@@ -75,8 +75,9 @@ def generate_uncertainty_evaluation_dataset(batched_test_data, model, num_sample
 	targetrel_test_full = []
 	data_test_full      = []
 	target_test_full    = []
-
+	total_trajectories  = 0
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
+		total_trajectories+=datarel_test.shape[0]
 		# The first batch is used for uncertainty calibration, so we skip it
 		if batch_idx==0:
 			continue
@@ -92,6 +93,7 @@ def generate_uncertainty_evaluation_dataset(batched_test_data, model, num_sample
 	targetrel_test_full = torch.cat( targetrel_test_full, dim=0)
 	data_test_full = torch.cat( data_test_full, dim=0)
 	target_test_full = torch.cat( target_test_full, dim=0)
+	logging.info('Using test data for uncertainty calibration and evaluation: {} trajectories'.format(total_trajectories))
 
 	# Unique batch predictions obtained
 	tpred_samples_full = []

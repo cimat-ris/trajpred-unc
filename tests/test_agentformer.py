@@ -15,8 +15,14 @@ from utils.utils import prepare_seed, print_log, mkdir_if_missing
 
 def get_model_prediction(data, sample_k):
 	model.set_data(data)
+	# Past data: data['pre_motion_3D'] is a list of n 8x2 trajectories
+	# Ground truth: data['fut_motion_3D'] is a list of n 12x2 trajectories
+	print(data.keys())
+	print(data['frame'])
+	print(data['valid_id'])
 	recon_motion_3D, _ = model.inference(mode='recon', sample_num=sample_k)
 	sample_motion_3D, data = model.inference(mode='infer', sample_num=sample_k, need_weights=False)
+	# Output future samples: sample_motion_3D: sample_kxnx12x2
 	sample_motion_3D = sample_motion_3D.transpose(0, 1).contiguous()
 	return recon_motion_3D, sample_motion_3D
 
@@ -141,3 +147,5 @@ if __name__ == '__main__':
 			# remove eval folder to save disk space
 			if args.cleanup:
 				shutil.rmtree(save_dir)
+
+	# TODO: how to use the same batch for calibration?

@@ -114,7 +114,6 @@ def main():
 		pred, sigmas = model.predict(datarel_test, dim_pred=12)
 		tpred_samples.append(pred)
 		sigmas_samples.append(sigmas)
-
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
 		# Save these testing data for uncertainty calibration
@@ -122,6 +121,5 @@ def main():
 		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
 		# Only the first batch is used as the calibration dataset
 		break
-
 if __name__ == "__main__":
 	main()
