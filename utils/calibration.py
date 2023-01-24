@@ -300,11 +300,7 @@ def calibrate_relative_density(gt_density_values, samples_density_values, alpha)
 	"""
 	gt_relative_density_values = []
 	gt_density_values          = gt_density_values.reshape(-1)
-	# Cycle over the calibration dataset trajectories
-	for trajectory_id in range(gt_density_values.shape[0]):
-		# KDE density creation using provided samples
-		# TODO: avoid the append
-		gt_relative_density_values.append(min(1.0,gt_density_values[trajectory_id]/samples_density_values[trajectory_id].max()))
+	gt_relative_density_values = np.minimum(1.0,np.divide(gt_density_values,samples_density_values.max(axis=1)))
 	# Sort GT values by decreasing order
 	sorted_relative_density_values = sorted(gt_relative_density_values, reverse=True)
 	# Index of alpha-th sample
