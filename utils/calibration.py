@@ -2,18 +2,13 @@ import numpy as np
 import pandas as pd
 import os, logging
 from tqdm import tqdm
-from matplotlib import pyplot as plt
-import seaborn as sns
-import statistics
-
+import random
+import timeit
 import torch
 from scipy.stats import gaussian_kde
-from sklearn.neighbors import KernelDensity
-
 from scipy.stats import multivariate_normal,multinomial
 from sklearn.metrics import auc
 from sklearn.isotonic import IsotonicRegression
-
 from utils.plot_utils import plot_calibration_curves, plot_HDR_curves, plot_calibration_pdf, plot_calibration_pdf_traj, plot_traj_world, plot_traj_img_kde
 # Local utils helpers
 from utils.directory_utils import Output_directories
@@ -180,7 +175,7 @@ def get_alpha2(score, fa):
 		alpha_fa = 1.0
 	return alpha_fa
 
-def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_size=1000):
+def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, kde_size=1000, resample_size=100):
 	"""
 	Builds a KDE representation from a Gaussian mixture (output of one of the prediction algorithms)
 	Args:
@@ -205,17 +200,19 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, resample_si
 		gaussian_mixture.append(multivariate_normal(mean,covariance))
 	# Performs sampling on the Gaussian mixture
 	pi                 = np.ones((len(gaussian_mixture),))/len(gaussian_mixture)
-	partition          = multinomial(n=resample_size,p=pi).rvs(size=1)
-	sample_pdf         = []
-	# TODO: avoid the concatenate and fill the final array directly
+	partition          = multinomial(n=kde_size,p=pi).rvs(size=1)
+	sample_pdf         = np.zeros((kde_size,2))
+	sum                = 0
 	for gaussian_id,gaussian in enumerate(gaussian_mixture):
-		sample_pdf.append(gaussian.rvs(size=partition[0][gaussian_id]))
-	sample_pdf = np.concatenate(sample_pdf,axis=0)
+		#sample_pdf.append(gaussian.rvs(size=partition[0][gaussian_id]))
+		sample_pdf[sum:sum+partition[0][gaussian_id]]=gaussian.rvs(size=partition[0][gaussian_id])
+		sum = sum +partition[0][gaussian_id]
 	# Use the samples to generate a KDE
 	f_density = gaussian_kde(sample_pdf.T)
-	return f_density, sample_pdf
+	rows_id = random.sample(range(0,sample_pdf.shape[0]),resample_size)
+	return f_density,sample_pdf[rows_id, :]
 
-def evaluate_kde(prediction, sigmas_prediction, ground_truth, resample_size=1000):
+def evaluate_kde(prediction, sigmas_prediction, ground_truth, kde_size=1000, resample_size=100):
 	"""
 	Builds a KDE representation for the prediction and evaluate the ground truth on it
 	Args:
@@ -227,19 +224,19 @@ def evaluate_kde(prediction, sigmas_prediction, ground_truth, resample_size=1000
 	  - f_ground_truth: PDF values at the ground truth points
 	  - f_samples: PDF values at the samples
 	"""
+	t_0 = timeit.default_timer()
+
 	if sigmas_prediction is not None:
 		# In this case, we use a Gaussian output and create a KDE representation from it
-		f_density, samples = gaussian_kde_from_gaussianmixture(prediction,sigmas_prediction,resample_size=resample_size)
+		f_density, samples = gaussian_kde_from_gaussianmixture(prediction,sigmas_prediction,kde_size=kde_size,resample_size=resample_size)
 	else:
 		# In this case, we just have samples and create the KDE from them
 		f_density = gaussian_kde(prediction.T)
 		# Then we sample from the obtained representation
 		samples = f_density.resample(resample_size,0)
-
-	# Evaluate the GT on the obtained KDE
+	# Evaluate the GT and the samples on the obtained KDE
 	f_ground_truth = f_density.pdf(ground_truth.T)
-	# Evaluate our samples
-	f_samples = f_density.pdf(samples.T)
+	f_samples      = f_density.pdf(samples.T)
 	return f_density, f_ground_truth, f_samples, samples
 
 def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size=1000, sigmas_prediction=None):
@@ -249,10 +246,10 @@ def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size=1
 
 		if sigmas_prediction is not None:
 			# Creamos la funcion de densidad, evaluamos el gt y muestreamos
-			__,f_gt0,f_samples,__ = evaluate_kde(this_pred_out_abs[:,k,:], sigmas_prediction[:, k, position, :], data_gt[k, position, :], resample_size)
+			__,f_gt0,f_samples,__ = evaluate_kde(this_pred_out_abs[:,k,:], sigmas_prediction[:, k, position, :], data_gt[k, position, :], kde_size, resample_size)
 		else:
 		  # Creamos la funcion de densidad, evaluamos el gt y muestreamos
-			__,f_gt0,f_samples,__ = evaluate_kde(this_pred_out_abs[:,k,:],[None,None],data_gt[k, position, :], resample_size)
+			__,f_gt0,f_samples,__ = evaluate_kde(this_pred_out_abs[:,k,:],[None,None],data_gt[k, position, :], kde_size, resample_size)
 
 		predicted_hdr.append( get_alpha2(f_samples, f_gt0) )
 
@@ -298,9 +295,7 @@ def calibrate_relative_density(gt_density_values, samples_density_values, alpha)
 	Returns:
 		- Threshold on the relative density value to be used for marking confidence at least alpha
 	"""
-	gt_relative_density_values = []
-	gt_density_values          = gt_density_values.reshape(-1)
-	gt_relative_density_values = np.minimum(1.0,np.divide(gt_density_values,samples_density_values.max(axis=1)))
+	gt_relative_density_values = np.minimum(1.0,np.divide(gt_density_values.reshape(-1),samples_density_values.max(axis=1)))
 	# Sort GT values by decreasing order
 	sorted_relative_density_values = sorted(gt_relative_density_values, reverse=True)
 	# Index of alpha-th sample
@@ -417,15 +412,14 @@ def calibrate_uncertainty(prediction,groundtruth,time_position,method,resample_s
 		f_density_max = []
 		all_f_samples = []
 		all_f_gt      = []
-
 		# Cycle over the trajectories (batch)
 		for k in range(prediction.shape[1]):
 			if gaussian is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[:,k,time_position,:],groundtruth[k,time_position,:], resample_size)
+				f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[:,k,time_position,:],groundtruth[k,time_position,:],kde_size,resample_size)
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],None,groundtruth[k,time_position,:],resample_size)
+				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],None,groundtruth[k,time_position,:],kde_size,resample_size)
 			all_f_samples.append(f_samples)
 			all_f_gt.append(f_gt)
 
@@ -454,8 +448,7 @@ def calibrate_uncertainty(prediction,groundtruth,time_position,method,resample_s
 
 	return conf_levels, cal_pcts, unc_pcts
 
-def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,time_position,method,resample_size=1000, gaussian=[None,None]):
-
+def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,time_position,method,kde_size=1500,resample_size=200, gaussian=[None,None]):
 	# Perform calibration for alpha values in the range [0,1]
 	step        = 0.05
 	conf_levels = np.arange(start=step, stop=1.0, step=step)
@@ -478,28 +471,28 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 		all_f_samples_test = []
 		all_f_gt           = []
 		all_f_gt_test      = []
+		t_0 = timeit.default_timer()
 
 		# Cycle over the trajectories (batch)
 		for k in range(prediction.shape[1]):
 			if gaussian[0] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,time_position,:],groundtruth[k,time_position,:], resample_size)
+				f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,time_position,:],groundtruth[k,time_position,:],kde_size,resample_size)
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,time_position,:],resample_size)
+				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,time_position,:],kde_size,resample_size)
 			all_f_samples.append(f_samples)
 			all_f_gt.append(f_gt)
 
 		for k in range(prediction_test.shape[1]):
-			if gaussian[0] is not None:
+			if gaussian[1] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:, k, time_position, :],groundtruth_test[k, time_position, :], resample_size, )
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:,k,time_position,:],groundtruth_test[k,time_position, :],kde_size,resample_size)
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],[None,None],groundtruth_test[k, time_position, :], resample_size)
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],None,groundtruth_test[k,time_position,:],kde_size,resample_size)
 			all_f_samples_test.append(f_samples_test)
 			all_f_gt_test.append(f_gt_test)
-
 
 		# ------------------------------------------------------------
 		all_f_gt           = np.array(all_f_gt)
@@ -520,6 +513,7 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 			logging.error("Calibration method not implemented")
 			#raise()
 			pass
+
 		# Evaluation before/after calibration: Calibration dataset
 		proportion_uncalibrated,proportion_calibrated = get_within_proportions(all_f_gt, all_f_samples, method, fa, alpha)
 		# Evaluation before/after calibration: Test dataset
@@ -532,16 +526,15 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 
 	return conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test
 
-def generate_metrics_calibration(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0], resample_size=1000, gaussian=[None,None], relative_coords_flag=True, time_positions = [3,7,11]):
+def generate_metrics_calibration(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0], kde_size=1500, resample_size=100, gaussian=[None,None], relative_coords_flag=True, time_positions = [3,7,11]):
 	# Cycle over requested methods
 	for method_id in methods:
-		logging.info("Evaluating calibration method: {}".format(method_id))
+		logging.info("Evaluating uncertainty calibration method: {}".format(method_id))
 		#--------------------- Calculamos las metricas de calibracion ---------------------------------
 		metrics_cal  = [["","MACE","RMSCE","MA"]]
 		metrics_test = [["","MACE","RMSCE","MA"]]
 		output_dirs   = Output_directories()
 		# Recorremos cada posicion para calibrar
-		# TODO: specify it in arguments
 		for position in time_positions:
 			if relative_coords_flag:
 				# Convert it to absolute (starting from the last observed position)
@@ -553,12 +546,11 @@ def generate_metrics_calibration(prediction_method_name, predictions_calibration
 
 			# Uncertainty calibration
 			logging.info("Calibration metrics at position: {}".format(position))
-			conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test = calibration_test(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, method_id, resample_size, gaussian=gaussian)
+			conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test = calibration_test(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, method_id, kde_size, resample_size, gaussian=gaussian)
 
 			# Metrics Calibration for data calibration
 			logging.info("Calibration metrics (Calibration dataset)")
 			generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics_cal, position, method_id, output_dirs)
-			print(unc_pcts)
 			# Metrics Calibration for data test
 			logging.info("Calibration evaluation (Test dataset)")
 			generate_metrics_curves(conf_levels, unc_pcts_test, cal_pcts_test, metrics_test, position, method_id, output_dirs, suffix='test')
