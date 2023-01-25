@@ -58,22 +58,23 @@ def get_test_name():
 
 def compute_calibration_metrics():
 	"""
-	Compute Isotonic Regression (by default) and conformal calibration metrics (if provided argument)
+	Evaluation of calibration metrics and calibration methods
 	"""
 	test_name = get_test_name()
-
+	logging.info('Uncertainty calibration with '+SUBDATASETS_NAMES[args.id_dataset][args.id_test]+' as test dataset')
 	# Load data for calibration compute
 	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,__,__,sigmas_samples,sigmas_samples_full,id_test = get_data_for_calibration(test_name)
 
 	# Resampling parameter
-	resample_size = 1500
+	kde_size      = 1500
+	resample_size =  200
 
 	# Calibrate and evaluate metrics for the three methods, and for all positions
 	# 0: Conformal
 	# 1: Conformal con densidad relativa
 	# 2: Regresion Isotonica
 	method_name = valid_test_names[args.test_name]+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])
-	generate_metrics_calibration(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[1],resample_size=resample_size, gaussian=[sigmas_samples, sigmas_samples_full])
+	generate_metrics_calibration(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[1],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
 
 
 if __name__ == "__main__":
