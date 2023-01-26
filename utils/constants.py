@@ -8,6 +8,7 @@ PRED_TRAJ      = 'pred_traj'
 PRED_TRAJ_VEL  = 'pred_traj_vel'
 PRED_TRAJ_ACC  = 'pred_traj_acc'
 FRAMES_IDS     = 'frames_ids'
+PED_IDS        = 'ped_ids'
 KEY_IDX        = 'key_idx'
 
 # Strings used in dataset filenames
@@ -42,5 +43,6 @@ REFERENCE_IMG = 'reference.png'
 MUN_POS_CSV   = 'mundo/mun_pos.csv'
 
 
-CALIBRATION_CONFORMAL_FVAL = 2
-CALIBRATION_CONFORMAL_FREL = 3
+CALIBRATION_CONFORMAL_FVAL = 0
+CALIBRATION_CONFORMAL_FREL = 1
+CALIBRATION_CONFORMAL_ALPHA= 2

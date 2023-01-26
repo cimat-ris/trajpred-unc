@@ -6,7 +6,7 @@
 
 # Cargamos las librerias
 import time
-import sys,os,logging, argparse
+import sys,os,logging
 
 ''' TF_CPP_MIN_LOG_LEVEL
 0 = all messages are logged (default behavior)
@@ -32,54 +32,17 @@ import torch.optim as optim
 from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
 from utils.datasets_utils import get_ethucy_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import generate_one_batch_test
+from utils.calibration import generate_uncertainty_evaluation_dataset
 from utils.calibration_utils import save_data_for_calibration
 from utils.train_utils import train
+from utils.config import get_config
 import torch.optim as optim
 
 # Local constants
 from utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Parser arguments
-parser = argparse.ArgumentParser(description='')
-parser.add_argument('--batch-size', '--b',
-					type=int, default=256, metavar='N',
-					help='input batch size for training (default: 256)')
-parser.add_argument('--epochs', '--e',
-					type=int, default=100, metavar='N',
-					help='number of epochs to train (default: 200)')
-parser.add_argument('--id-dataset',
-					type=str, default=0, metavar='N',
-					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
-parser.add_argument('--id-test',
-					type=int, default=2, metavar='N',
-					help='id of the dataset to use as test in LOO (default: 2)')
-parser.add_argument('--mc',
-					type=int, default=100, metavar='N',
-					help='number of elements in the ensemble (default: 100)')
-parser.add_argument('--dropout-rate',
-					type=int, default=0.5, metavar='N',
-					help='dropout rate (default: 0.5)')
-parser.add_argument('--teacher-forcing',
-					action='store_true',
-					help='uses teacher forcing during training')					
-parser.add_argument('--learning-rate', '--lr',
-					type=float, default=0.0004, metavar='N',
-					help='learning rate of optimizer (default: 1E-3)')
-parser.add_argument('--no-retrain',
-					action='store_true',
-					help='do not retrain the model')
-parser.add_argument('--pickle',
-					action='store_true',
-					help='use previously made pickle files')
-parser.add_argument('--show-plot', default=False,
-                    action='store_true', help='show the test plots')
-parser.add_argument('--plot-losses',
-					action='store_true',
-					help='plot losses curves after training')
-parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
-parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
-args = parser.parse_args()
+config = get_config(dropout=True)
 
 model_name = 'deterministic_dropout'
 
@@ -87,11 +50,11 @@ model_name = 'deterministic_dropout'
 # Function to train the models
 def train2(model,device,idTest,train_data,val_data):
 	# Optimizer
-	optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.8)
+	optimizer = optim.Adam(model.parameters(),lr=config.learning_rate, betas=(.5, .999),weight_decay=0.8)
 	list_loss_train = []
 	list_loss_val   = []
 	min_val_error   = 1000.0
-	for epoch in range(args.epochs):
+	for epoch in range(config.epochs):
 		# Training
 		logging.info("Epoch: {}".format(epoch))
 		error = 0
@@ -140,7 +103,7 @@ def train2(model,device,idTest,train_data,val_data):
 			min_val_error = error
 			# Keep the model
 			logging.info("Saving model")
-			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth")
+			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth")
 
 	# Visualizamos los errores
 	plt.figure(figsize=(12,12))
@@ -154,53 +117,52 @@ def train2(model,device,idTest,train_data,val_data):
 def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
-	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
+	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(args)
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(config)
 
-	# Seleccionamos de forma aleatorea las semillas
+	# Set the seed
 	seed = 1
 	logging.info("Seeds: {}".format(seed))
 
 
-
-	if args.no_retrain==False:
+	if config.no_retrain==False:
 		# Seed for RNG
 		torch.manual_seed(seed)
 		torch.cuda.manual_seed(seed)
 		# Instantiate the model
-		model = lstm_encdec_MCDropout(2,128,256,2, dropout_rate = args.dropout_rate)
+		model = lstm_encdec_MCDropout(2,128,256,2,dropout_rate=config.dropout_rate)
 		model.to(device)
 		# Train the model
-		train(model,device,0,batched_train_data,batched_val_data,args,model_name)
+		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
 
-		if args.plot_losses:
+		if config.plot_losses:
 			plt.savefig(IMAGES_DIR+"/loss_"+str(idTest)+".pdf")
 			plt.show()
 
 
 	# Instanciamos el modelo
-	model = lstm_encdec_MCDropout(2,128,256,2, dropout_rate = args.dropout_rate)
+	model = lstm_encdec_MCDropout(2,128,256,2, dropout_rate = config.dropout_rate)
 	model.to(device)
 	# Load the previously trained model
-	file_name = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
+	file_name = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth"
 	model.load_state_dict(torch.load(file_name))
 	model.eval()
 
 
-	ind_sample = np.random.randint(args.batch_size)
+	ind_sample = np.random.randint(config.batch_size)
 
 	# Testing
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 		fig, ax = plt.subplots(1,1,figsize=(12,12))
 		if ind_sample>data_test.shape[0]:
 			continue
-		# For each element of the ensemble
-		for ind in range(args.mc):
+		# Generate samples from the model
+		for ind in range(config.dropout_samples):
 			if torch.cuda.is_available():
 				datarel_test  = datarel_test.to(device)
 
@@ -209,14 +171,15 @@ def main():
 			plot_traj_world(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],ax)
 		plt.legend()
 		plt.title('Trajectory samples')
-		if args.show_plot:
+		if config.show_plot:
 			plt.show()
 
 	# ## Calibramos la incertidumbre
 	draw_ellipse = True
 
 	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.mc, model_name, args, device=device, type="dropout")
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
+
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Testing
@@ -226,7 +189,7 @@ def main():
 		tpred_samples = []
 		sigmas_samples = []
 		# Sampling from inference dropout
-		for ind in range(args.mc):
+		for ind in range(config.dropout_samples):
 
 			if torch.cuda.is_available():
 				datarel_test  = datarel_test.to(device)
@@ -239,7 +202,7 @@ def main():
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
 
-		save_data_for_calibration(DROPOUT, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
+		save_data_for_calibration(DROPOUT, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
 
 		# Solo se ejecuta para un batch
 		break

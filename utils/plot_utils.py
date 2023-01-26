@@ -251,13 +251,14 @@ def plot_calibration_curves2(conf_levels, unc_pcts, cal_pcts, output_image_name)
     # Visualizamos la curva de calibracion
     plt.figure(figsize=(10,7))
     plt.plot([0,1],[0,1],'--', color='grey')
-    plt.plot(conf_levels, unc_pcts_test, '-o', color='purple', label='Uncalibrated')
-    plt.plot(conf_levels, cal_pcts_test, '-o', color='red', label='Calibrated')
+    plt.plot(conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
+    plt.plot(conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
 
     plt.legend(fontsize=14)
     plt.xlabel(r'$\alpha$', fontsize=17)
     plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
     plt.savefig(output_image_name)
-    plt.show()
+    #plt.show()
+    plt.close()
 #---------------------------------------------------------------------------------------
  

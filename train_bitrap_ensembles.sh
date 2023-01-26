@@ -5,6 +5,6 @@ do
 		for ensembleId in 1 2 3 4 5
 		do
 			echo "Ensemble id: $ensembleId"
-			python tests/train_bitrap.py --seed $ensembleId --config_file $idTest
+			python tests/train_bitrap.py --seed $ensembleId --config_file configs/$idTest
 		done
 done

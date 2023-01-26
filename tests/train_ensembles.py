@@ -14,80 +14,43 @@ from utils.calibration_utils import save_data_for_calibration
 
 import math,numpy as np
 import matplotlib as mpl
-#mpl.use('TkAgg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
-import pandas as pd
 
 import torch
 from torchvision import transforms
-import torch.optim as optim
 
 # Local models
 from models.lstm_encdec import lstm_encdec_gaussian
-from utils.datasets_utils import get_ethucy_dataset
+from utils.datasets_utils import get_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import generate_one_batch_test
-import torch.optim as optim
+from utils.calibration import generate_uncertainty_evaluation_dataset
+from utils.config import get_config
 # Local constants
 from utils.constants import REFERENCE_IMG, ENSEMBLES, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Parser arguments
-parser = argparse.ArgumentParser(description='')
-parser.add_argument('--batch-size', '--b',
-					type=int, default=256, metavar='N',
-					help='input batch size for training (default: 256)')
-parser.add_argument('--epochs', '--e',
-					type=int, default=100, metavar='N',
-					help='number of epochs to train (default: 200)')
-parser.add_argument('--id-dataset',
-					type=str, default=0, metavar='N',
-					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
-parser.add_argument('--id-test',
-					type=int, default=2, metavar='N',
-					help='id of the dataset to use as test in LOO (default: 2)')
-parser.add_argument('--num-ensembles',
-					type=int, default=5, metavar='N',
-					help='number of elements in the ensemble (default: 5)')
-parser.add_argument('--learning-rate', '--lr',
-					type=float, default=0.0004, metavar='N',
-					help='learning rate of optimizer (default: 1E-3)')
-parser.add_argument('--teacher-forcing',
-					action='store_true',
-					help='uses teacher forcing during training')
-parser.add_argument('--no-retrain',
-					action='store_true',
-					help='do not retrain the model')
-parser.add_argument('--show-plot', default=False,
-					action='store_true', help='show the test plots')
-parser.add_argument('--pickle',
-					action='store_true',
-					help='use previously made pickle files')
-parser.add_argument('--plot-losses',
-					action='store_true',
-					help='plot losses curves after training')
-parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
-parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
-args = parser.parse_args()
+config = get_config(ensemble=True)
 
 
 def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
-	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
+	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(args)
-	model_name    = 'deterministic_variances_ens'
+	# Get the ETH-UCY data
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
+	model_name    = 'deterministic_gaussian_ensemble'
 
 	# Select random seeds
-	seeds = np.random.choice(99999999, args.num_ensembles , replace=False)
+	seeds = np.random.choice(99999999, config.num_ensembles , replace=False)
 	logging.info("Seeds: {}".format(seeds))
 
-	if args.no_retrain==False:
+	if config.no_retrain==False:
 		# Train model for each seed
 		for ind, seed in enumerate(seeds):
 			# Seed added
@@ -100,23 +63,23 @@ def main():
 
 			# Train the model
 			logging.info("Training for seed: {}\t\t {}/{} ".format(seed,ind,len(seeds)))
-			train(model,device,ind,batched_train_data,batched_val_data,args,model_name)
+			train(model,device,ind,batched_train_data,batched_val_data,config,model_name)
 
 	# Instanciate the model
 	model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
 	model.to(device)
 
 
-	ind_sample = np.random.randint(args.batch_size)
+	ind_sample = np.random.randint(config.batch_size)
 
 	# Testing
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 		fig, ax = plt.subplots(1,1,figsize=(12,12))
 
 		# For each element of the ensemble
-		for ind in range(args.num_ensembles):
+		for ind in range(config.num_ensembles):
 			# Load the previously trained model
-			model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ind)+".pth"
+			model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_"+str(ind)+".pth"
 			logging.info("Loading {}".format(model_filename))
 			model.load_state_dict(torch.load(model_filename))
 			model.eval()
@@ -130,13 +93,13 @@ def main():
 			plot_cov_world(pred[ind_sample,:,:],sigmas[ind_sample,:,:],data_test[ind_sample,:,:],ax)
 		plt.legend()
 		plt.title('Trajectory samples {}'.format(batch_idx))
-		if args.show_plot:
+		if config.show_plot:
 			plt.show()
 		# We just use the first batch to test
 		break
 
-	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.num_ensembles, model_name, args, device=device)
+	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Testing
@@ -146,10 +109,10 @@ def main():
 		tpred_samples = []
 		sigmas_samples = []
 		# Muestreamos con cada modelo
-		for ind in range(args.num_ensembles):
+		for ind in range(config.num_ensembles):
 
 			# Cargamos el Modelo
-			model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ind)+".pth"
+			model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_"+str(ind)+".pth"
 			logging.info("Loading {}".format(model_filename))
 			model.load_state_dict(torch.load(model_filename))
 			model.eval()
@@ -165,7 +128,7 @@ def main():
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
 		# Save these testing data for uncertainty calibration
-		save_data_for_calibration(ENSEMBLES, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
+		save_data_for_calibration(ENSEMBLES, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
 
 		# Only the first batch is used as the calibration dataset
 		break
