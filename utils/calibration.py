@@ -526,7 +526,7 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 
 	return conf_levels, cal_pcts, unc_pcts, cal_pcts_test, unc_pcts_test
 
-def generate_metrics_calibration(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0], kde_size=1500, resample_size=100, gaussian=[None,None], relative_coords_flag=True, time_positions = [3,7,11]):
+def generate_metrics_calibration(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], kde_size=1500, resample_size=100, gaussian=[None,None], relative_coords_flag=True, time_positions = [3,7,11]):
 	# Cycle over requested methods
 	for method_id in methods:
 		logging.info("Evaluating uncertainty calibration method: {}".format(method_id))

@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 import random
 import torch
 from torchvision import transforms
-import torch.optim as optim
 
 # Local models
 from models.lstm_encdec import lstm_encdec_gaussian
@@ -27,7 +26,6 @@ from utils.calibration import generate_uncertainty_evaluation_dataset
 from utils.calibration_utils import save_data_for_calibration
 from utils.directory_utils import mkdir_p
 from utils.config import get_config
-import torch.optim as optim
 # Local constants
 from utils.constants import IMAGES_DIR,TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN, SUBDATASETS_NAMES
 

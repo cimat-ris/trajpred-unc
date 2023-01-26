@@ -74,7 +74,7 @@ def compute_calibration_metrics():
 	# 1: Conformal con densidad relativa
 	# 2: Regresion Isotonica
 	method_name = valid_test_names[args.test_name]+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])
-	generate_metrics_calibration(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[1],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
+	generate_metrics_calibration(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[0,2],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
 
 
 if __name__ == "__main__":
