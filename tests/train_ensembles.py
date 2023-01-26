@@ -14,22 +14,18 @@ from utils.calibration_utils import save_data_for_calibration
 
 import math,numpy as np
 import matplotlib as mpl
-#mpl.use('TkAgg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
-import pandas as pd
 
 import torch
 from torchvision import transforms
-import torch.optim as optim
 
 # Local models
 from models.lstm_encdec import lstm_encdec_gaussian
-from utils.datasets_utils import get_ethucy_dataset
+from utils.datasets_utils import get_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import generate_uncertainty_evaluation_dataset
 from utils.config import get_config
-import torch.optim as optim
 # Local constants
 from utils.constants import REFERENCE_IMG, ENSEMBLES, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
@@ -46,8 +42,9 @@ def main():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(config)
-	model_name    = 'deterministic_variances_ens'
+	# Get the ETH-UCY data
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
+	model_name    = 'deterministic_gaussian_ensemble'
 
 	# Select random seeds
 	seeds = np.random.choice(99999999, config.num_ensembles , replace=False)
