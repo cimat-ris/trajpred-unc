@@ -40,18 +40,18 @@ def main():
 	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
 	model_name    = 'deterministic'
 
+	# Choose seed
+	torch.manual_seed(config.seed)
+	torch.cuda.manual_seed(config.seed)
+	np.random.seed(config.seed)
+	random.seed(config.seed)
+
 	# Model instantiation
 	model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=128, output_size=2)
+	model.to(device)
 
 	# Seed for RNG
 	if config.no_retrain==False:
-		# Choose seed
-		torch.manual_seed(config.seed)
-		torch.cuda.manual_seed(config.seed)
-		np.random.seed(config.seed)
-		random.seed(config.seed)
-		# Instanciate the model
-		model.to(device)
 		# Train the model
 		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
 
