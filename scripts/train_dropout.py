@@ -26,7 +26,6 @@ import pandas as pd
 
 import torch
 from torchvision import transforms
-import torch.optim as optim
 
 # Local models
 from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
@@ -58,18 +57,15 @@ def main():
 
 	# Set the seed
 	logging.info("Seed: {}".format(config.seed))
-
+	torch.manual_seed(config.seed)
+	torch.cuda.manual_seed(config.seed)
+	np.random.seed(config.seed)
+	random.seed(config.seed)
+	# Instantiate the model
+	model = lstm_encdec_MCDropout(2,128,256,2,dropout_rate=config.dropout_rate)
+	model.to(device)
 
 	if config.no_retrain==False:
-		# Seed for RNG
-		torch.manual_seed(config.seed)
-		torch.cuda.manual_seed(config.seed)
-		np.random.seed(config.seed)
-		random.seed(config.seed)
-		# Instantiate the model
-		model = lstm_encdec_MCDropout(2,128,256,2,dropout_rate=config.dropout_rate)
-		model.to(device)
-
 		# Train the model
 		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
 
@@ -77,19 +73,13 @@ def main():
 			plt.savefig(IMAGES_DIR+"/loss_"+str(idTest)+".pdf")
 			plt.show()
 
-
-	# Instanciamos el modelo
-	model = lstm_encdec_MCDropout(2,128,256,2, dropout_rate = config.dropout_rate)
-	model.to(device)
 	# Load the previously trained model
 	file_name = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth"
 	model.load_state_dict(torch.load(file_name))
 	model.eval()
 
-
-	ind_sample = np.random.randint(config.batch_size)
-
 	# Testing
+	ind_sample = np.random.randint(config.batch_size)
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 		fig, ax = plt.subplots(1,1,figsize=(12,12))
 		if ind_sample>data_test.shape[0]:
