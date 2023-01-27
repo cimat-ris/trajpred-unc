@@ -40,7 +40,7 @@ def main():
 	parser.add_argument('--seed', default=1, type=int)
 	parser.add_argument(
 		"--config_file",
-		default="bitrap_np_ETH.yml",
+		default="cfg/bitrap_np_eth.yml",
 		metavar="FILE",
 		help="path to config file",
 		type=str,
