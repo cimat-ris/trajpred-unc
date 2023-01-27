@@ -19,7 +19,7 @@ sys.path.append('.')
 
 from utils.calibration_utils import save_data_for_calibration
 
-import math,numpy as np
+import math,numpy as np,random
 import matplotlib as mpl
 #mpl.use('TkAgg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
@@ -30,71 +30,30 @@ from torchvision import transforms
 
 # Local models
 from models.bayesian_models_gaussian_loss import lstm_encdec_variational
-from utils.datasets_utils import get_ethucy_dataset
+from utils.datasets_utils import get_dataset
 from utils.train_utils import train_variational
 from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
-from utils.calibration import generate_one_batch_test
+from utils.calibration import generate_uncertainty_evaluation_dataset
 from utils.directory_utils import mkdir_p
+from utils.config import get_config
 
 # Local constants
 from utils.constants import IMAGES_DIR, VARIATIONAL, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
-# parameters models
-#initial_lr     = 0.000002
-
 # Parser arguments
-parser = argparse.ArgumentParser(description='')
-parser.add_argument('--batch-size', '--b',
-					type=int, default=256, metavar='N',
-					help='input batch size for training (default: 256)')
-parser.add_argument('--epochs', '--e',
-					type=int, default=20, metavar='N',
-					help='number of epochs to train (default: 200)')
-parser.add_argument('--id-dataset',
-					type=str, default=0, metavar='N',
-					help='id of the dataset to use. 0 is ETH-UCY, 1 is SDD (default: 0)')
-parser.add_argument('--id-test',
-					type=int, default=2, metavar='N',
-					help='id of the dataset to use as test in LOO (default: 2)')
-parser.add_argument('--num-mctrain',
-					type=int, default=5, metavar='N',
-					help='number of sample monte carlo for train (default: 5)')
-parser.add_argument('--num-mctest',
-					type=int, default=5, metavar='N',
-					help='number of monte carlo for test (default: 5)')
-parser.add_argument('--learning-rate', '--lr',
-					type=float, default=0.0004, metavar='N',
-					help='learning rate of optimizer (default: 1E-3)')
-parser.add_argument('--no-retrain',
-					action='store_true',
-					help='do not retrain the model')
-parser.add_argument('--pickle',
-					action='store_true',
-					help='use previously made pickle files')
-parser.add_argument('--plot-losses',
-					action='store_true',
-					help='plot losses curves after training')
-parser.add_argument('--show-plot', default=False,
-					action='store_true', help='show the test plots')
-parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
-parser.add_argument('--log-file',default='',help='Log file (default: standard output)')
-args = parser.parse_args()
-
+config = get_config(variational=True)
 
 def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
-	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
+	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(args)
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
 	model_name    = "deterministic_variational"
-
-	# Seleccionamos una semilla
-	seed = 1
 
 	# TODO: Agregar la los argumentos
 	prior_mu = 0.0
@@ -102,34 +61,27 @@ def main():
 	posterior_mu_init = 0.0
 	posterior_rho_init = -4
 
-
-	if args.no_retrain==False:
-		# Train model for each seed
-		# Seed added
-		torch.manual_seed(seed)
-		torch.cuda.manual_seed(seed)
-
-		# Instanciate the model
-		model = lstm_encdec_variational(2,128,256,2,prior_mu,prior_sigma,posterior_mu_init,posterior_rho_init)
-		model.to(device)
-
-		# Train the model
-		logging.info("Seeds: {}".format(seed))
-		train_variational(model,device,args.id_test,batched_train_data,batched_val_data,args,model_name)
-		if args.plot_losses:
-			plt.savefig(IMAGES_DIR+"/loss_"+str(args.id_test)+".pdf")
-			plt.show()
-
+	# Seed for RNG
+	logging.info("Seed: {}".format(config.seed))
+	torch.manual_seed(config.seed)
+	torch.cuda.manual_seed(config.seed)
+	np.random.seed(config.seed)
+	random.seed(config.seed)
 
 	# Instanciate the model
 	model = lstm_encdec_variational(2,128,256,2,prior_mu,prior_sigma,posterior_mu_init,posterior_rho_init)
 	model.to(device)
 
+	if config.no_retrain==False:
+		# Train the model
+		train_variational(model,device,config.id_test,batched_train_data,batched_val_data,config,model_name)
+		if config.plot_losses:
+			plt.savefig(IMAGES_DIR+"/loss_"+str(config.id_test)+".pdf")
+			plt.show()
 
-	ind_sample = np.random.randint(args.batch_size)
 
 	# Load the previously trained model
-	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth"
+	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth"
 	logging.info("Loading {}".format(model_filename))
 	model.load_state_dict(torch.load(model_filename))
 	model.eval()
@@ -139,11 +91,12 @@ def main():
 		os.makedirs(IMAGES_DIR)
 
 	# Testing
+	ind_sample = np.random.randint(config.batch_size)
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 		fig, ax = plt.subplots(1,1,figsize=(12,12))
 
 		# For each element of the ensemble
-		for ind in range(args.num_mctest):
+		for ind in range(config.num_mctest):
 
 			if torch.cuda.is_available():
 				  datarel_test  = datarel_test.to(device)
@@ -156,7 +109,7 @@ def main():
 		plt.legend()
 		plt.title('Trajectory samples {}'.format(batch_idx))
 		plt.savefig(IMAGES_DIR+"/pred_variational.pdf")
-		if args.show_plot:
+		if config.show_plot:
 			plt.show()
 		plt.close()
 		# Solo aplicamos a un elemento del batch
@@ -166,8 +119,8 @@ def main():
 	# ## Calibramos la incertidumbre
 	draw_ellipse = True
 
-	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_one_batch_test(batched_test_data, model, args.num_mctest, model_name, args, device=device, type="variational")
+	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Testing
@@ -177,7 +130,7 @@ def main():
 		tpred_samples = []
 		sigmas_samples = []
 		# Muestreamos con cada modelo
-		for ind in range(args.num_mctest):
+		for ind in range(config.num_mctest):
 
 			if torch.cuda.is_available():
 				  datarel_test  = datarel_test.to(device)
@@ -190,7 +143,9 @@ def main():
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
 
-		save_data_for_calibration(VARIATIONAL, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, args.id_test)
+		# Save these testing data for uncertainty calibration
+		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])
+		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
 
 
 		# Solo se ejecuta para un batch
