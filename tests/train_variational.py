@@ -47,6 +47,11 @@ def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
+	# Set seed
+	logging.info("Seed: {}".format(config.seed))
+	torch.manual_seed(config.seed)
+	random.seed(config.seed)
+	np.random.seed(config.seed)
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
@@ -60,13 +65,6 @@ def main():
 	prior_sigma = 1.0
 	posterior_mu_init = 0.0
 	posterior_rho_init = -4
-
-	# Seed for RNG
-	logging.info("Seed: {}".format(config.seed))
-	torch.manual_seed(config.seed)
-	torch.cuda.manual_seed(config.seed)
-	np.random.seed(config.seed)
-	random.seed(config.seed)
 
 	# Instanciate the model
 	model = lstm_encdec_variational(2,128,256,2,prior_mu,prior_sigma,posterior_mu_init,posterior_rho_init)
