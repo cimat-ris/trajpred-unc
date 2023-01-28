@@ -30,7 +30,9 @@ def get_config(ensemble=False,dropout=False,variational=False):
 		training_args.add_argument('--num-mctrain',
 					type=int, default=5, metavar='N',
 					help='number of sample monte carlo for train (default: 5)')
-
+		training_args.add_argument('--num-mctest',
+					type=int, default=5, metavar='N',
+					help='number of monte carlo for test (default: 5)')
 	training_args.add_argument('--batch-size', '--b',
 						type=int, default=256, metavar='N',
 						help='input batch size for training (default: 256)')
