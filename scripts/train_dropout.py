@@ -47,6 +47,11 @@ def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
+	# Set the seed
+	logging.info("Seed: {}".format(config.seed))
+	torch.manual_seed(config.seed)
+	np.random.seed(config.seed)
+	random.seed(config.seed)
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
@@ -55,12 +60,6 @@ def main():
 	# Get the ETH-UCY data
 	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
 
-	# Set the seed
-	logging.info("Seed: {}".format(config.seed))
-	torch.manual_seed(config.seed)
-	torch.cuda.manual_seed(config.seed)
-	np.random.seed(config.seed)
-	random.seed(config.seed)
 	# Instantiate the model
 	model = lstm_encdec_MCDropout(2,128,256,2,dropout_rate=config.dropout_rate)
 	model.to(device)
