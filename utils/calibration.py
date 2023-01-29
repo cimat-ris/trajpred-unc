@@ -224,8 +224,6 @@ def evaluate_kde(prediction, sigmas_prediction, ground_truth, kde_size=1000, res
 	  - f_ground_truth: PDF values at the ground truth points
 	  - f_samples: PDF values at the samples
 	"""
-	t_0 = timeit.default_timer()
-
 	if sigmas_prediction is not None:
 		# In this case, we use a Gaussian output and create a KDE representation from it
 		f_density, samples = gaussian_kde_from_gaussianmixture(prediction,sigmas_prediction,kde_size=kde_size,resample_size=resample_size)
@@ -471,7 +469,6 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 		all_f_samples_test = []
 		all_f_gt           = []
 		all_f_gt_test      = []
-		t_0 = timeit.default_timer()
 
 		# Cycle over the trajectories (batch)
 		for k in range(prediction.shape[1]):
@@ -480,7 +477,7 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 				f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,time_position,:],groundtruth[k,time_position,:],kde_size,resample_size)
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,time_position,:],kde_size,resample_size)
+				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],None,groundtruth[k,time_position,:],kde_size,resample_size)
 			all_f_samples.append(f_samples)
 			all_f_gt.append(f_gt)
 
@@ -569,12 +566,12 @@ def calibration_test_all(prediction,groundtruth,prediction_test,groundtruth_test
     unc_pcts0 = []
     cal_pcts_test0 = []
     unc_pcts_test0 = []
-    
+
     cal_pcts1 = []
     unc_pcts1 = []
     cal_pcts_test1 = []
     unc_pcts_test1 = []
-    
+
     cal_pcts2 = []
     unc_pcts2 = []
     cal_pcts_test2 = []
@@ -593,7 +590,6 @@ def calibration_test_all(prediction,groundtruth,prediction_test,groundtruth_test
         all_f_samples_test = []
         all_f_gt           = []
         all_f_gt_test      = []
-        t_0 = timeit.default_timer()
 
         # Cycle over the trajectories (batch)
         for k in range(prediction.shape[1]):
@@ -602,7 +598,7 @@ def calibration_test_all(prediction,groundtruth,prediction_test,groundtruth_test
                 f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,time_position,:],groundtruth[k,time_position,:],kde_size,resample_size)
             else:
                 # Estimate a KDE, produce samples and evaluate the groundtruth on it
-                f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],[None,None],groundtruth[k,time_position,:],kde_size,resample_size)
+                f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],None,groundtruth[k,time_position,:],kde_size,resample_size)
             all_f_samples.append(f_samples)
             all_f_gt.append(f_gt)
 
@@ -651,17 +647,17 @@ def calibration_test_all(prediction,groundtruth,prediction_test,groundtruth_test
         #cal_pcts.append(proportion_calibrated)
         #unc_pcts_test.append(proportion_uncalibrated_test)
         #cal_pcts_test.append(proportion_calibrated_test)
-        
+
         unc_pcts0.append(proportion_uncalibrated0)
         cal_pcts0.append(proportion_calibrated0)
         unc_pcts_test0.append(proportion_uncalibrated_test0)
         cal_pcts_test0.append(proportion_calibrated_test0)
-        
+
         unc_pcts1.append(proportion_uncalibrated1)
         cal_pcts1.append(proportion_calibrated1)
         unc_pcts_test1.append(proportion_uncalibrated_test1)
         cal_pcts_test1.append(proportion_calibrated_test1)
-        
+
         unc_pcts2.append(proportion_uncalibrated2)
         cal_pcts2.append(proportion_calibrated2)
         unc_pcts_test2.append(proportion_uncalibrated_test2)
@@ -672,8 +668,6 @@ def calibration_test_all(prediction,groundtruth,prediction_test,groundtruth_test
  #---------------------------------------------------------------------------------------
 
 def generate_metrics_calibration_all(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, kde_size=1500, resample_size=100, gaussian=[None,None], relative_coords_flag=True, time_positions = [3,7,11]):
-    # Cycle over requested methods
-    
     logging.info("Evaluating uncertainty calibration method: 0, 1, 2")
     #--------------------- Calculamos las metricas de calibracion ---------------------------------
     metrics_cal0  = [["","MACE","RMSCE","MA"]]
