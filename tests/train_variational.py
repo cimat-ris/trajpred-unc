@@ -118,7 +118,7 @@ def main():
 	draw_ellipse = True
 
 	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, type="variational",device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Testing
