@@ -52,8 +52,7 @@ def get_test_name():
 	"""
 	if args.test_name not in valid_test_names.keys():
 		return "ERROR: INVALID TEST NAME!!"
-	pickle_filename = valid_test_names[args.test_name]+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_calibration"
-	return pickle_filename
+	return valid_test_names[args.test_name]+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_calibration"
 
 
 def compute_calibration_metrics():
@@ -74,7 +73,7 @@ def compute_calibration_metrics():
 	# 1: Conformal con densidad relativa
 	# 2: Regresion Isotonica
 	method_name = valid_test_names[args.test_name]+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])
-	#generate_metrics_calibration(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[0,2],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
+	#generate_metrics_calibration(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[0,1,2],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
 	generate_metrics_calibration_all(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test,kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
 
 
