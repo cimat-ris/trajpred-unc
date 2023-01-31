@@ -103,7 +103,7 @@ class lstm_encdec_MCDropout(nn.Module):
             sigma_traj.append(sigma_pos)
             # Update the last position
             if training:
-                last_pos = target.view(len(target_pos), 1, -1)
+                last_pos = target_pos.view(len(target_pos), 1, -1)
             else:
                 last_pos = pred_pos
             means_traj = data_abs[:,-1,:] + torch.cat(pred_traj, dim=1).sum(1)
