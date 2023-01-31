@@ -237,7 +237,7 @@ def evaluate_kde(prediction, sigmas_prediction, ground_truth, kde_size=1000, res
 	f_samples      = f_density.pdf(samples.T)
 	return f_density, f_ground_truth, f_samples, samples
 
-def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, resample_size=1000, sigmas_prediction=None):
+def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, kde_size=1000, resample_size=100, sigmas_prediction=None):
 	predicted_hdr = []
 	# Recorremos todo el conjunto de calibracion (batch)
 	for k in range(this_pred_out_abs.shape[1]):
@@ -383,7 +383,7 @@ def get_within_proportions(gt_density_values, samples_density_values, method, fa
 	return np.mean(np.array(within_unc)), np.mean(np.array(within_cal))
 
 
-def calibrate_uncertainty(prediction,groundtruth,time_position,method,resample_size=1000, gaussian=None):
+def calibrate_uncertainty(prediction,groundtruth,time_position,method,kde_size=1000,resample_size=100, gaussian=None):
 	"""
 	Args:
 		- prediction: output of the prediction algorithm for time_position
