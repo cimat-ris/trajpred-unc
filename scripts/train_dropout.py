@@ -69,7 +69,7 @@ def main():
 		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
 
 		if config.plot_losses:
-			plt.savefig(IMAGES_DIR+"/loss_"+str(idTest)+".pdf")
+			plt.savefig(IMAGES_DIR+"/loss_"+str(config.id_test)+".pdf")
 			plt.show()
 
 	# Load the previously trained model
