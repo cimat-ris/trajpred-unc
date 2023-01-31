@@ -6,7 +6,7 @@
 
 # Imports
 import time
-import sys,os,logging, argparse
+import sys,os,logging,argparse,random
 
 sys.path.append('bayesian-torch')
 sys.path.append('.')
