@@ -115,7 +115,7 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 		plt.xlabel("Epochs")
 		plt.ylabel("Loss")
 		plt.legend()
-		plt.savefig(os.path.join(output_dir , str(ind)+"_"+str(args.id_test)+".pdf"))
+		plt.savefig(os.path.join(output_dir+str(args.id_test)+".pdf"))
 		plt.show()
 
 # Function to train the models
