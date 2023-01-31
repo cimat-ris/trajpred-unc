@@ -37,6 +37,11 @@ def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
+	# Set the seed
+	logging.info("Seed: {}".format(config.seed))
+	torch.manual_seed(config.seed)
+	np.random.seed(config.seed)
+	random.seed(config.seed)
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
@@ -55,7 +60,8 @@ def main():
 		for ind, seed in enumerate(seeds):
 			# Seed added
 			torch.manual_seed(seed)
-			torch.cuda.manual_seed(seed)
+			np.random.seed(seed)
+			random.seed(seed)
 
 			# Instanciate the model
 			model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)

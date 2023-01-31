@@ -3,7 +3,7 @@ import argparse
 arg_lists = []
 
 
-def get_config(ensemble=False,dropout=False):
+def get_config(ensemble=False,dropout=False,variational=False):
 
 	# Parser arguments
 	parser = argparse.ArgumentParser(description='')
@@ -26,7 +26,13 @@ def get_config(ensemble=False,dropout=False):
 		training_args.add_argument('--dropout-samples',
 									type=int, default=100, metavar='N',
 									help='number of elements in the ensemble (default: 100)')
-
+	if variational:
+		training_args.add_argument('--num-mctrain',
+					type=int, default=5, metavar='N',
+					help='number of sample monte carlo for train (default: 5)')
+		training_args.add_argument('--num-mctest',
+					type=int, default=5, metavar='N',
+					help='number of monte carlo for test (default: 5)')
 	training_args.add_argument('--batch-size', '--b',
 						type=int, default=256, metavar='N',
 						help='input batch size for training (default: 256)')
@@ -76,7 +82,7 @@ def get_config(ensemble=False,dropout=False):
 						help='plot losses curves after training')
 
 	misc_args = add_argument_group('Misc')
-	misc_args.add_argument('--seed',type=int, default=1,help='Random seed for all randomized functions')	
+	misc_args.add_argument('--seed',type=int, default=1,help='Random seed for all randomized functions')
 	misc_args.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 	misc_args.add_argument('--log-file',default='',help='Log file (default: standard output)')
 

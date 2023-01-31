@@ -18,7 +18,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sys.path.append('bayesian-torch')
 sys.path.append('.')
 
-import math,numpy as np
+import math,random,numpy as np
 import matplotlib as mpl
 #mpl.use('TkAgg')  # or whatever other backend that you want
 import matplotlib.pyplot as plt
@@ -26,117 +26,45 @@ import pandas as pd
 
 import torch
 from torchvision import transforms
-import torch.optim as optim
 
 # Local models
 from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
-from utils.datasets_utils import get_ethucy_dataset
+from utils.datasets_utils import get_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import generate_uncertainty_evaluation_dataset
 from utils.calibration_utils import save_data_for_calibration
 from utils.train_utils import train
 from utils.config import get_config
-import torch.optim as optim
 
 # Local constants
 from utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Parser arguments
 config = get_config(dropout=True)
-
 model_name = 'deterministic_dropout'
-
-# TODO: move it to train_utils?
-# Function to train the models
-def train2(model,device,idTest,train_data,val_data):
-	# Optimizer
-	optimizer = optim.Adam(model.parameters(),lr=config.learning_rate, betas=(.5, .999),weight_decay=0.8)
-	list_loss_train = []
-	list_loss_val   = []
-	min_val_error   = 1000.0
-	for epoch in range(config.epochs):
-		# Training
-		logging.info("Epoch: {}".format(epoch))
-		error = 0
-		total = 0
-		model.train()
-		# Recorremos cada batch
-		for batch_idx, (data, target, data_abs , target_abs) in enumerate(train_data):
-			# Remember that Pytorch accumulates gradients.
-			# We need to clear them out bDefinefore each instance
-			model.zero_grad()
-			if torch.cuda.is_available():
-				data  = data.to(device)
-				target=target.to(device)
-				data_abs  = data_abs.to(device)
-				target_abs=target_abs.to(device)
-
-			# Run our forward pass and compute the loss
-			loss   = model(data, target, data_abs , target_abs)# , training=True)
-			error += loss
-			total += len(target)
-
-			# Step 3. Compute the gradients, and update the parameters by
-			loss.backward()
-			optimizer.step()
-		logging.info("Training loss: {:6.3f}".format(error.detach().cpu().numpy()/total))
-		list_loss_train.append(error.detach().cpu().numpy()/total)
-
-		# Validation
-		error = 0
-		total = 0
-		model.eval()
-		with torch.no_grad():
-			for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
-				if torch.cuda.is_available():
-					data_val  = data_val.to(device)
-					target_val = target_val.to(device)
-					data_abs  = data_abs.to(device)
-					target_abs = target_abs.to(device)
-				loss_val = model(data_val, target_val, data_abs , target_abs)
-				error += loss_val.cpu().numpy()
-				total += len(target_val)
-		error = error/total
-		logging.info("Validation loss: {:6.3f}".format(error))
-		list_loss_val.append(error)
-		if error<min_val_error:
-			min_val_error = error
-			# Keep the model
-			logging.info("Saving model")
-			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth")
-
-	# Visualizamos los errores
-	plt.figure(figsize=(12,12))
-	plt.plot(list_loss_train, label="loss train")
-	plt.plot(list_loss_val, label="loss val")
-	plt.xlabel("Epochs")
-	plt.ylabel("Loss")
-	plt.legend()
-
 
 def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
+	# Set the seed
+	logging.info("Seed: {}".format(config.seed))
+	torch.manual_seed(config.seed)
+	np.random.seed(config.seed)
+	random.seed(config.seed)
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(config)
+	# Get the ETH-UCY data
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
 
-	# Set the seed
-	seed = 1
-	logging.info("Seeds: {}".format(seed))
-
+	# Instantiate the model
+	model = lstm_encdec_MCDropout(2,128,256,2,dropout_rate=config.dropout_rate)
+	model.to(device)
 
 	if config.no_retrain==False:
-		# Seed for RNG
-		torch.manual_seed(seed)
-		torch.cuda.manual_seed(seed)
-		# Instantiate the model
-		model = lstm_encdec_MCDropout(2,128,256,2,dropout_rate=config.dropout_rate)
-		model.to(device)
 		# Train the model
 		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
 
@@ -144,19 +72,13 @@ def main():
 			plt.savefig(IMAGES_DIR+"/loss_"+str(idTest)+".pdf")
 			plt.show()
 
-
-	# Instanciamos el modelo
-	model = lstm_encdec_MCDropout(2,128,256,2, dropout_rate = config.dropout_rate)
-	model.to(device)
 	# Load the previously trained model
 	file_name = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth"
 	model.load_state_dict(torch.load(file_name))
 	model.eval()
 
-
-	ind_sample = np.random.randint(config.batch_size)
-
 	# Testing
+	ind_sample = np.random.randint(config.batch_size)
 	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
 		fig, ax = plt.subplots(1,1,figsize=(12,12))
 		if ind_sample>data_test.shape[0]:
@@ -165,10 +87,9 @@ def main():
 		for ind in range(config.dropout_samples):
 			if torch.cuda.is_available():
 				datarel_test  = datarel_test.to(device)
-
 			pred, sigmas = model.predict(datarel_test, dim_pred=12)
 			# Plotting
-			plot_traj_world(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],ax)
+			plot_traj_world(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],ax,nolabel=False if ind==config.dropout_samples-1 else True)
 		plt.legend()
 		plt.title('Trajectory samples')
 		if config.show_plot:
@@ -201,8 +122,8 @@ def main():
 
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
-
-		save_data_for_calibration(DROPOUT, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
+		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])
+		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
 
 		# Solo se ejecuta para un batch
 		break

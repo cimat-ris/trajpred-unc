@@ -16,7 +16,6 @@ import matplotlib.pyplot as plt
 import random
 import torch
 from torchvision import transforms
-import torch.optim as optim
 
 # Local models
 from models.lstm_encdec import lstm_encdec_gaussian
@@ -27,7 +26,6 @@ from utils.calibration import generate_uncertainty_evaluation_dataset
 from utils.calibration_utils import save_data_for_calibration
 from utils.directory_utils import mkdir_p
 from utils.config import get_config
-import torch.optim as optim
 # Local constants
 from utils.constants import IMAGES_DIR,TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN, SUBDATASETS_NAMES
 
@@ -40,23 +38,23 @@ def main():
 	torch.set_printoptions(precision=2)
 	# Loggin format
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
-
+	# Choose seed
+	logging.info("Seed: {}".format(config.seed))	
+	torch.manual_seed(config.seed)
+	torch.cuda.manual_seed(config.seed)
+	random.seed(config.seed)
+	np.random.seed(config.seed)
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	# Get the ETH-UCY data
+	# Get the data
 	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
 	model_name    = DETERMINISTIC_GAUSSIAN
 
 	# Training
 	if config.no_retrain==False:
-		# Choose seed
-		torch.manual_seed(config.seed)
-		torch.cuda.manual_seed(config.seed)
-		np.random.seed(config.seed)
-		random.seed(config.seed)
 		# Instanciate the model
 		model = lstm_encdec_gaussian(in_size=2, embedding_dim=128, hidden_dim=256, output_size=2)
 		model.to(device)

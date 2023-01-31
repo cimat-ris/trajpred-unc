@@ -2,7 +2,7 @@
 # coding: utf-8
 
 # Imports
-import time
+import time, random
 import sys,os,logging, argparse
 sys.path.append('.')
 
@@ -12,11 +12,10 @@ from datetime import datetime
 
 import torch
 from torchvision import transforms
-import torch.optim as optim
 
 # Local models
 from models.lstm_encdec import lstm_encdec
-from utils.datasets_utils import get_ethucy_dataset
+from utils.datasets_utils import get_dataset
 from utils.plot_utils import plot_traj_img
 from utils.train_utils import train
 from utils.config import get_config
@@ -38,26 +37,24 @@ def main():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_ethucy_dataset(config)
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
 	model_name    = 'deterministic'
 
-	# Seed for RNG
-	seed = 17
-	if config.no_retrain==False:
-		# Choose seed
-		torch.manual_seed(seed)
-		torch.cuda.manual_seed(seed)
-		np.random.seed(seed)
-
-		# Instanciate the model
-		model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=128, output_size=2)
-		model.to(device)
-
-		# Train the model
-		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
+	# Choose seed
+	torch.manual_seed(config.seed)
+	torch.cuda.manual_seed(config.seed)
+	np.random.seed(config.seed)
+	random.seed(config.seed)
 
 	# Model instantiation
 	model = lstm_encdec(in_size=2, embedding_dim=128, hidden_dim=128, output_size=2)
+	model.to(device)
+
+	# Seed for RNG
+	if config.no_retrain==False:
+		# Train the model
+		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
+
 	# Load the previously trained model
 	model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth"
 	logging.info("Loading {}".format(model_filename))
