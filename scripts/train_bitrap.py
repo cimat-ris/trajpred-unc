@@ -27,7 +27,7 @@ import argparse
 from configs import cfg
 from collections import OrderedDict
 import pdb
-
+config_files = ["cfg/bitrap_np_hotel.yml","cfg/bitrap_np_eth.yml","cfg/bitrap_np_zara1.yml","cfg/bitrap_np_zara2.yml","cfg/bitrap_np_univ.yml"]
 dataset_names  = ['hotel','eth','zara1','zara2','univ']
 def build_optimizer(cfg, model):
 	all_params = model.parameters()
@@ -35,16 +35,14 @@ def build_optimizer(cfg, model):
 	return optimizer
 
 def main():
+
 	parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
 	parser.add_argument('--gpu', default='0', type=str)
 	parser.add_argument('--seed', default=1, type=int)
-	parser.add_argument(
-		"--config_file",
-		default="cfg/bitrap_np_eth.yml",
-		metavar="FILE",
-		help="path to config file",
-		type=str,
-	)
+	parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
+	parser.add_argument('--id-test',
+						type=int, default=0, metavar='N',
+						help='id of the dataset to use as test in LOO (default: 0)')
 	parser.add_argument(
 		"opts",
 		help="Modify config options using the command-line",
@@ -52,11 +50,17 @@ def main():
 		nargs=argparse.REMAINDER,
 	)
 	args = parser.parse_args()
-	cfg.merge_from_file(args.config_file)
+	# Loggin format
+	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
+	logger = logging.getLogger('FOL')
+	logger.setLevel(level=args.log_level)
+	logger.info("Getting configuration")
+	cfg.merge_from_file(config_files[args.id_test])
 	cfg.merge_from_list(args.opts)
 	#cfg.DATASET.NAME = dataset_names[args.id_test]
 	os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 	# build model, optimizer and scheduler
+	logger.info("Build model")
 	model = make_model(cfg)
 	model = model.to(cfg.DEVICE)
 	optimizer = build_optimizer(cfg, model)
@@ -66,14 +70,7 @@ def main():
 	random.seed(args.seed)
 	np.random.seed(args.seed)
 
-	if cfg.USE_WANDB:
-		logger = Logger("FOL",
-						cfg,
-						project = cfg.PROJECT,
-						viz_backend="wandb"
-						)
-	else:
-		logger = logging.Logger("FOL")
+
 
 	dataloader_params ={
 			"batch_size": cfg.SOLVER.BATCH_SIZE,
@@ -85,10 +82,10 @@ def main():
 	train_dataloader = make_dataloader(cfg, 'train')
 	val_dataloader = make_dataloader(cfg, 'val')
 	test_dataloader = make_dataloader(cfg, 'test')
-	logging.info('Dataloader built!')
+	logger.info('Dataloader built!')
 	# get train_val_test engines
 	do_train, do_val, inference = build_engine(cfg)
-	logging.info('Training engine built!')
+	logger.info('Training engine built!')
 
 	save_checkpoint_dir = cfg.CKPT_DIR
 	if not os.path.exists(save_checkpoint_dir):
@@ -129,7 +126,7 @@ def main():
 	else:
 		lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[25, 40], gamma=0.2)
 
-	logging.info('Schedulers built!')
+	logger.info('Schedulers built!')
 
 	for epoch in range(cfg.SOLVER.MAX_EPOCH):
 		logger.info("Epoch:{}".format(epoch))
