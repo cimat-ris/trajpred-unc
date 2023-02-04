@@ -31,22 +31,18 @@ import pdb
 import matplotlib.pyplot as plt
 import random
 
+config_files = ["cfg/bitrap_np_hotel.yml","cfg/bitrap_np_eth.yml","cfg/bitrap_np_zara1.yml","cfg/bitrap_np_zara2.yml","cfg/bitrap_np_univ.yml"]
+
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
 	parser.add_argument('--gpu', default='0', type=str)
+	parser.add_argument('--seed', default=1, type=int)	
 	parser.add_argument('--id-test',
 						type=int, default=2, metavar='N',
 						help='id of the dataset to use as test in LOO (default: 2)')
 	parser.add_argument('--batch-size', '--b',
 						type=int, default=256, metavar='N',
 						help='input batch size for training (default: 256)')
-	parser.add_argument(
-		"--config_file",
-		default="cfg/bitrap_np_eth.yml",
-		metavar="FILE",
-		help="path to config file",
-		type=str,
-	)
 	parser.add_argument(
 		"opts",
 		help="Modify config options using the command-line",
@@ -63,12 +59,10 @@ if __name__ == '__main__':
 	experiment_parameters = Experiment_Parameters()
 
 	#### Data: our way
-	dataset_dir   = "datasets/"
-	dataset_names = ['eth-hotel','eth-univ','ucy-zara01','ucy-zara02','ucy-univ']
-	model_name = 'model_deterministic'
+	model_name = 'bitrap'
 
 	#### Data: BitTrap way
-	cfg.merge_from_file(args.config_file)
+	cfg.merge_from_file(config_files[args.id_test])
 	cfg.merge_from_list(args.opts)
 	cfg.BATCH_SIZE = 1
 	cfg.TEST.BATCH_SIZE = 1
@@ -78,7 +72,7 @@ if __name__ == '__main__':
 	env             = test_dataloader.dataset.dataset.env
 
 	# Load a model
-	cfg.CKPT_DIR = 'training_checkpoints/bitrap/bitrap-zara1-{:02d}.pth'.format(1)
+	cfg.CKPT_DIR = 'training_checkpoints/bitrap/bitrap-{}-{:02d}.pth'.format(cfg.DATASET.NAME,args.seed)
 	# Build model, optimizer and scheduler
 	model = make_model(cfg)
 	model = model.to(cfg.DEVICE)
