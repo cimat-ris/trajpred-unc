@@ -21,6 +21,7 @@ VAL_DATA_STR   = '/validation_data_'
 
 # test names strings used for ETH and SDD calibration
 DETERMINISTIC_GAUSSIAN = 'deterministic_gaussian'
+ENSEMBLES_GAUSSIAN = 'ensembles_gaussian'
 ENSEMBLES = 'deterministic_ensembles'
 DROPOUT = 'deterministic_dropout'
 BITRAP_BT = 'bitrap_BT'
