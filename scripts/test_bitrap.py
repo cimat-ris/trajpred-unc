@@ -20,7 +20,7 @@ from bitrap.engine.utils import print_info, post_process
 from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset_bitrap
 import logging
 # Local constants
-from utils.constants import DATASETS_DIR,SUBDATASETS_NAMES,OBS_TRAJ,OBS_TRAJ_VEL,OBS_TRAJ_ACC,OBS_NEIGHBORS,PRED_TRAJ,BITRAP_BT
+from utils.constants import DATASETS_DIR,SUBDATASETS_NAMES,OBS_TRAJ,OBS_TRAJ_VEL,OBS_TRAJ_ACC,OBS_NEIGHBORS,PRED_TRAJ,BITRAP
 
 import argparse
 from configs import cfg
@@ -36,7 +36,7 @@ config_files = ["cfg/bitrap_np_hotel.yml","cfg/bitrap_np_eth.yml","cfg/bitrap_np
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
 	parser.add_argument('--gpu', default='0', type=str)
-	parser.add_argument('--seed', default=1, type=int)	
+	parser.add_argument('--seed', default=1, type=int)
 	parser.add_argument('--id-test',
 						type=int, default=2, metavar='N',
 						help='id of the dataset to use as test in LOO (default: 2)')
@@ -59,7 +59,7 @@ if __name__ == '__main__':
 	experiment_parameters = Experiment_Parameters()
 
 	#### Data: our way
-	model_name = 'bitrap'
+	model_name = BITRAP
 
 	#### Data: BitTrap way
 	cfg.merge_from_file(config_files[args.id_test])
@@ -147,4 +147,5 @@ if __name__ == '__main__':
 		target_test_full   =  torch.tensor(gt_traj[args.batch_size:,:,:])
 		targetrel_test     =  torch.tensor(gt_traj_rel[:args.batch_size,:,:])
 		targetrel_test_full=  torch.tensor(gt_traj_rel[args.batch_size:,:,:])
-		save_data_for_calibration(BITRAP_BT, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, None, None, args.id_test)
+		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[0][args.id_test])
+		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, None, None, args.id_test)
