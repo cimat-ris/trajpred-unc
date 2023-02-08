@@ -8,7 +8,7 @@ from utils.config import get_config
 
 def test_get_dataset():
 	# Parser arguments
-	config = get_config()
+	config = get_config(argv=['--id-test', '0'])
 	# Loggin format
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
 	# Device
