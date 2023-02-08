@@ -2,9 +2,7 @@ import os
 import pickle
 import numpy as np
 import matplotlib.image as mpimg
-import numpy as np
 import matplotlib.pyplot as plt
-import cv2
 import torch
 from tqdm import tqdm
 from torch.utils.data import Dataset
