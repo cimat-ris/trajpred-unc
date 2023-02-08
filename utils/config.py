@@ -86,5 +86,5 @@ def get_config(ensemble=False,dropout=False,variational=False):
 	misc_args.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 	misc_args.add_argument('--log-file',default='',help='Log file (default: standard output)')
 
-	args = parser.parse_args()
+	args = parser.parse_known_args()
 	return args
