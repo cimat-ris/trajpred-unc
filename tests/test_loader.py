@@ -6,7 +6,7 @@ from utils.datasets_utils import get_dataset
 from utils.config import get_config
 
 
-def main():
+def test_get_dataset():
 	# Parser arguments
 	config = get_config()
 	# Loggin format
@@ -17,6 +17,3 @@ def main():
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 	# Get the data
 	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
-
-if __name__ == "__main__":
-	main()
