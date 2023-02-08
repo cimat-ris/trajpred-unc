@@ -30,7 +30,7 @@ from utils.config import get_config
 from utils.constants import REFERENCE_IMG, ENSEMBLES, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Parser arguments
-config = get_config(ensemble=True)
+config = get_config(argv=sys.argv[1:],ensemble=True)
 
 
 def main():

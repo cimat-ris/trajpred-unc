@@ -40,7 +40,7 @@ from utils.config import get_config
 from utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Parser arguments
-config = get_config(dropout=True)
+config = get_config(argv=sys.argv[1:],dropout=True)
 model_name = 'deterministic_dropout'
 
 def main():

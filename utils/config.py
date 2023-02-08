@@ -3,7 +3,7 @@ import argparse
 arg_lists = []
 
 
-def get_config(ensemble=False,dropout=False,variational=False):
+def get_config(argv=None,ensemble=False,dropout=False,variational=False):
 
 	# Parser arguments
 	parser = argparse.ArgumentParser(description='')
@@ -86,5 +86,5 @@ def get_config(ensemble=False,dropout=False,variational=False):
 	misc_args.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 	misc_args.add_argument('--log-file',default='',help='Log file (default: standard output)')
 
-	args = parser.parse_known_args()
+	args = parser.parse_args(argv)
 	return args

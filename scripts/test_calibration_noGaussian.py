@@ -12,7 +12,7 @@ sys.path.append('.')
 
 from utils.calibration_utils import get_data_for_calibration
 from utils.calibration import generate_metrics_calibration, generate_metrics_calibration_all
-from utils.constants import SUBDATASETS_NAMES, BITRAP_BT, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_GAUSSIAN, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
+from utils.constants import SUBDATASETS_NAMES, BITRAP, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_GAUSSIAN, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
 
 
 # Parser arguments
@@ -36,7 +36,7 @@ valid_test_names = {
     "ensemblesGaussian":     ENSEMBLES_GAUSSIAN,
 	"ensembles":             ENSEMBLES,
 	"dropout":               DROPOUT,
-	"bitrap":                BITRAP_BT,
+	"bitrap":                BITRAP,
 	"variational":           VARIATIONAL,
 	"deterministicGaussianSDD": DETERMINISTIC_GAUSSIAN_SDD,
 	"ensemblesSDD":             ENSEMBLES_SDD,
