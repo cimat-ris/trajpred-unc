@@ -227,14 +227,15 @@ def evaluate_kde(prediction, sigmas_prediction, ground_truth, kde_size=1000, res
 	if sigmas_prediction is not None:
 		# In this case, we use a Gaussian output and create a KDE representation from it
 		f_density, samples = gaussian_kde_from_gaussianmixture(prediction,sigmas_prediction,kde_size=kde_size,resample_size=resample_size)
+		f_samples      = f_density.pdf(samples.T)
 	else:
 		# In this case, we just have samples and create the KDE from them
 		f_density = gaussian_kde(prediction.T)
 		# Then we sample from the obtained representation
-		samples = f_density.resample(resample_size,0)
+		samples   = f_density.resample(resample_size,0)
+		f_samples = f_density.pdf(samples)
 	# Evaluate the GT and the samples on the obtained KDE
 	f_ground_truth = f_density.pdf(ground_truth.T)
-	f_samples      = f_density.pdf(samples.T)
 	return f_density, f_ground_truth, f_samples, samples
 
 def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, kde_size=1000, resample_size=100, sigmas_prediction=None):
