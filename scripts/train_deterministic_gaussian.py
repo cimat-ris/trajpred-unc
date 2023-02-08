@@ -31,7 +31,7 @@ from utils.constants import IMAGES_DIR,TRAINING_CKPT_DIR, DETERMINISTIC_GAUSSIAN
 
 
 # Parser arguments
-config = get_config()
+config = get_config(argv=sys.argv[1:])
 
 def main():
 	# Printing parameters
@@ -39,7 +39,7 @@ def main():
 	# Loggin format
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
 	# Choose seed
-	logging.info("Seed: {}".format(config.seed))	
+	logging.info("Seed: {}".format(config.seed))
 	torch.manual_seed(config.seed)
 	torch.cuda.manual_seed(config.seed)
 	random.seed(config.seed)

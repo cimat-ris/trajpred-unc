@@ -41,7 +41,7 @@ from utils.config import get_config
 from utils.constants import IMAGES_DIR, VARIATIONAL, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Parser arguments
-config = get_config(variational=True)
+config = get_config(sys.argv[1:],variational=True)
 
 def main():
 	# Printing parameters

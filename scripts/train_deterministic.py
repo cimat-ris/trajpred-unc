@@ -25,7 +25,7 @@ from utils.constants import TRAINING_CKPT_DIR,SUBDATASETS_NAMES
 
 
 # Parser arguments
-config = get_config()
+config = get_config(argv=sys.argv[1:])
 
 def main():
 	# Printing parameters
