@@ -1,3 +1,5 @@
+[![PyPi license](https://badgen.net/pypi/license/pip/)](https://pypi.org/project/pip/)
+[![Tests status](https://github.com/cimat-ris/trajpred-bdl/actions/workflows/python-app.yml/badge.svg)](https://github.com/cimat-ris/trajpred-bdl/actions/workflows/python-app.yml)
 # trajpred-bdl
 
 ## Training
