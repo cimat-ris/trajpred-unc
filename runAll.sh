@@ -12,6 +12,10 @@ do
 		then
 			python scripts/train_dropout.py --id-test=$idtest --seed=$seed
 			python scripts/test_calibration.py --id-test=$idtest --seed=$seed --test-name="dropout"  --gaussian_output
+		elif [[ $algorithm == "variational" ]]
+		then
+			python scripts/train_variational.py --id-test=$idtest --seed=$seed
+			python scripts/test_calibration.py --id-test=$idtest --seed=$seed --test-name="variational"  --gaussian_output
 		elif [[ $algorithm == "bitrap" ]]
 		then
 			python scripts/train_bitrap.py --id-test=$idtest --seed=$seed
