@@ -4,13 +4,15 @@ import os, logging
 import sys
 import subprocess
 import shutil
-
 sys.path.append('../AgentFormer')
 from data.dataloader import data_generator
-from utils.torch import *
-from utils.config import Config
+from lib.torch import *
+from lib.config import Config
 from model.model_lib import model_dict
-from utils.utils import prepare_seed, print_log, mkdir_if_missing
+from lib.utils import prepare_seed, print_log, mkdir_if_missing
+sys.path.append('.')
+from utils.datasets_utils import get_dataset
+from utils.config import get_config
 
 
 def get_model_prediction(data, sample_k):
@@ -95,57 +97,54 @@ def test_model(generator, save_dir, cfg):
 		assert total_num_pred == scene_num[generator.split]
 
 if __name__ == '__main__':
-
-	parser = argparse.ArgumentParser()
-	parser.add_argument('--cfg', default=None)
-	parser.add_argument('--data_eval', default='test')
-	parser.add_argument('--epochs', default=None)
-	parser.add_argument('--gpu', type=int, default=0)
-	parser.add_argument('--cached', action='store_true', default=False)
-	parser.add_argument('--cleanup', action='store_true', default=False)
-	args = parser.parse_args()
 	# Loggin format
+	config = get_config(agentformer=True)
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=20)
+	# Device
+	if torch.cuda.is_available():
+		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
+	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+	# Get the data
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
 
 	""" setup """
-	cfg = Config(args.cfg)
-	if args.epochs is None:
+	cfg = Config(config.cfg)
+	if config.epochs is None:
+		print(cfg)
 		epochs = [cfg.get_last_epoch()]
+		print(epochs)
 	else:
-		epochs = [int(x) for x in args.epochs.split(',')]
-
+		epochs = [int(x) for x in config.epochs.split(',')]
 	torch.set_default_dtype(torch.float32)
-	device = torch.device('cuda', index=args.gpu) if args.gpu >= 0 and torch.cuda.is_available() else torch.device('cpu')
-	if torch.cuda.is_available(): torch.cuda.set_device(args.gpu)
 	torch.set_grad_enabled(False)
 	log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 
 	for epoch in epochs:
 		prepare_seed(cfg.seed)
 		""" model """
-		if not args.cached:
+		if not config.cached:
 			model_id = cfg.get('model_id', 'agentformer')
 			model = model_dict[model_id](cfg)
 			model.set_device(device)
 			model.eval()
 			if epoch > 0:
 				cp_path = cfg.model_path % epoch
-				print_log(f'loading model from checkpoint: {cp_path}', log, display=True)
+				logging.info(f'loading model from checkpoint: {cp_path}')
 				model_cp = torch.load(cp_path, map_location='cpu')
 				model.load_state_dict(model_cp['model_dict'], strict=False)
 
 		""" save results and compute metrics """
-		data_splits = [args.data_eval]
+		data_splits = [config.data_eval]
 
 		for split in data_splits:
 			generator = data_generator(cfg, log, split=split, phase='testing')
 			save_dir = f'{cfg.result_dir}/epoch_{epoch:04d}/{split}'; mkdir_if_missing(save_dir)
 			eval_dir = f'{save_dir}/samples'
-			if not args.cached:
+			if not config.cached:
 				test_model(generator, save_dir, cfg)
 
 			# remove eval folder to save disk space
-			if args.cleanup:
+			if config.cleanup:
 				shutil.rmtree(save_dir)
 
 	# TODO: how to use the same batch for calibration?

@@ -3,7 +3,7 @@ import argparse
 arg_lists = []
 
 
-def get_config(argv=None,ensemble=False,dropout=False,variational=False):
+def get_config(argv=None,ensemble=False,dropout=False,variational=False,agentformer=False):
 
 	# Parser arguments
 	parser = argparse.ArgumentParser(description='')
@@ -36,9 +36,12 @@ def get_config(argv=None,ensemble=False,dropout=False,variational=False):
 	training_args.add_argument('--batch-size', '--b',
 						type=int, default=256, metavar='N',
 						help='input batch size for training (default: 256)')
-	training_args.add_argument('--epochs', '--e',
-						type=int, default=100, metavar='N',
-						help='number of epochs to train (default: 200)')
+	if not agentformer:
+		training_args.add_argument('--epochs', '--e',type=int, default=100, metavar='N',
+								help='number of epochs to train (default: 200)')
+	else:
+		training_args.add_argument('--epochs', default=None)
+
 	training_args.add_argument('--learning-rate', '--lr',
 						type=float, default=0.0004, metavar='N',
 						help='learning rate of optimizer (default: 1E-3)')
@@ -80,6 +83,12 @@ def get_config(argv=None,ensemble=False,dropout=False,variational=False):
 	visualization_args.add_argument('--plot-losses',
 						action='store_true',
 						help='plot losses curves after training')
+	if agentformer:
+		agentformer_args = add_argument_group('Visualization')
+		agentformer_args.add_argument('--cfg', default=None)
+		agentformer_args.add_argument('--data_eval', default='test')
+		agentformer_args.add_argument('--cached', action='store_true', default=False)
+		agentformer_args.add_argument('--cleanup', action='store_true', default=False)
 
 	misc_args = add_argument_group('Misc')
 	misc_args.add_argument('--seed',type=int, default=1,help='Random seed for all randomized functions')
