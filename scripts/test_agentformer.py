@@ -19,9 +19,6 @@ def get_model_prediction(data, sample_k):
 	model.set_data(data)
 	# Past data: data['pre_motion_3D'] is a list of n 8x2 trajectories
 	# Ground truth: data['fut_motion_3D'] is a list of n 12x2 trajectories
-	print(data.keys())
-	print(data['frame'])
-	print(data['valid_id'])
 	recon_motion_3D, _     = model.inference(mode='recon', sample_num=sample_k)
 	sample_motion_3D, data = model.inference(mode='infer', sample_num=sample_k, need_weights=False)
 	# Output future samples: sample_motion_3D: sample_kxnx12x2
@@ -31,7 +28,14 @@ def get_model_prediction(data, sample_k):
 def get_trajectories(predictions, raw_data):
 	pred_num = 0
 	fut_data, seq_name, frame, valid_id, pred_mask = raw_data['fut_data'], raw_data['seq'], raw_data['frame'], raw_data['valid_id'], raw_data['pred_mask']
-	pred_samples = []
+	# print(raw_data['pre_motion_3D'][0])
+	#print('-----')
+	#print(len(raw_data['pre_motion_3D']),len(raw_data['fut_motion_3D']),len(valid_id))
+	#print(raw_data['fut_motion_3D'][0].shape)
+	#print(fut_data[0].shape)
+	#print(raw_data.keys())
+	#print(fut_data)
+	pred_samples    = []
 	for s in range(predictions.shape[0]): # Cycle over the samples
 		pred_arr = []
 		for i in range(len(valid_id)):    # Cycle over the agents
@@ -61,9 +65,11 @@ def get_trajectories(predictions, raw_data):
 			pred_samples.append(pred_arr)
 	return np.array(pred_samples)
 
-def test_model(generator, cfg):
+def apply_model(generator, cfg):
 	total_num_pred = 0
 	all_predictions= []
+	all_gt         = []
+	all_obs        = []
 	while not generator.is_epoch_end():
 		data = generator()
 		if data is None:
@@ -72,8 +78,8 @@ def test_model(generator, cfg):
 		frame = int(frame)
 		sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))
 		sys.stdout.flush()
-
-		gt_motion_3D = torch.stack(data['fut_motion_3D'], dim=0).to(device) * cfg.traj_scale
+		all_obs.append(torch.stack(data['pre_motion_3D'], dim=0).to(device) * cfg.traj_scale)
+		all_gt.append(torch.stack(data['fut_motion_3D'], dim=0).to(device) * cfg.traj_scale)
 		with torch.no_grad():
 			recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
 		recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
@@ -82,10 +88,11 @@ def test_model(generator, cfg):
 		all_predictions.append(get_trajectories(sample_motion_3D,data))
 
 	all_predictions = np.concatenate(all_predictions,axis=1)
+	all_gt          = torch.concatenate(all_gt,axis=0)
+	all_obs         = torch.concatenate(all_obs,axis=0)
 	total_num_pred  = all_predictions.shape[1]
 	logging.info(f'\n\n Number of predicted trajectories: {total_num_pred}')
-	return all_predictions
-	# save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
+	return all_predictions,all_gt,all_obs
 
 if __name__ == '__main__':
 	# Loggin format
@@ -117,6 +124,23 @@ if __name__ == '__main__':
 
 	""" Save results and compute metrics """
 	generator = data_generator(cfg, log, split='test', phase='testing')
-	test_model(generator, cfg)
+	tpred_samples,gt_trajectories,obs_trajectories = apply_model(generator, cfg)
+	select = np.random.permutation(gt_trajectories.shape[0])
+	tpred_samples   = tpred_samples[:,select,:,:]
+	gt_trajectories = gt_trajectories[select,:,:]
+	obs_trajectories= obs_trajectories[select,:,:]
+	tpred_samples_cal =tpred_samples[:,:256,:,:]
+	tpred_samples_test=tpred_samples[:,256:,:,:]
+	data_cal          = obs_trajectories[:256,:,:]
+	data_test         = obs_trajectories[256:,:,:]
+	target_cal        = gt_trajectories[:256,:,:]
+	target_test       = gt_trajectories[256:,:,:]
+	targetrel_cal     = gt_trajectories[:256,:,:]
+	targetrel_test    = gt_trajectories[256:,:,:]
+	print(tpred_samples_cal.shape)
+	print(tpred_samples_test.shape)
+	print(target_cal.shape)
+	print(target_test.shape)
+	#save_data_for_calibration(pickle_filename, tpred_samples_cal, tpred_samples_test, data_cal, data_test, target_cal, target_test, targetrel_cal, targetrel_test, None, None, config.id_test)
 
 	# TODO: how to use the same batch for calibration?
