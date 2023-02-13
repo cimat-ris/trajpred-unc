@@ -12,10 +12,11 @@ from model.model_lib import model_dict
 from lib.utils import prepare_seed, print_log, mkdir_if_missing
 sys.path.append('.')
 from utils.datasets_utils import get_dataset
+from utils.calibration_utils import save_data_for_calibration
 from utils.config import get_config
 from utils.constants import SUBDATASETS_NAMES,AGENTFORMER
 
-
+configurations = ['hotel_agentformer_pre','eth_agentformer_pre','zara1_agentformer_pre','zara2_agentformer_pre','univ_agentformer_pre']
 def get_model_prediction(data, sample_k):
 	model.set_data(data)
 	# Past data: data['pre_motion_3D'] is a list of n 8x2 trajectories
@@ -78,8 +79,8 @@ def apply_model(generator, cfg):
 		frame = int(frame)
 		sys.stdout.write('testing seq: %s, frame: %06d                \r' % (seq_name, frame))
 		sys.stdout.flush()
-		all_obs.append(torch.stack(data['pre_motion_3D'], dim=0).to(device) * cfg.traj_scale)
-		all_gt.append(torch.stack(data['fut_motion_3D'], dim=0).to(device) * cfg.traj_scale)
+		all_obs.append(torch.stack(data['pre_motion_3D'], dim=0) * cfg.traj_scale)
+		all_gt.append(torch.stack(data['fut_motion_3D'], dim=0) * cfg.traj_scale)
 		with torch.no_grad():
 			recon_motion_3D, sample_motion_3D = get_model_prediction(data, cfg.sample_k)
 		recon_motion_3D, sample_motion_3D = recon_motion_3D * cfg.traj_scale, sample_motion_3D * cfg.traj_scale
@@ -105,7 +106,7 @@ if __name__ == '__main__':
 
 	model_name = AGENTFORMER
 	""" setup """
-	cfg   = Config(config.cfg)
+	cfg   = Config(configurations[config.id_test])
 	epoch = cfg.get_last_epoch()
 	torch.set_default_dtype(torch.float32)
 	torch.set_grad_enabled(False)
@@ -138,13 +139,7 @@ if __name__ == '__main__':
 	target_test       = gt_trajectories[256:,:,:]
 	targetrel_cal     = gt_trajectories[:256,:,:]
 	targetrel_test    = gt_trajectories[256:,:,:]
-	print(tpred_samples_cal.shape)
-	print(tpred_samples_test.shape)
-	print(target_cal.shape)
-	print(target_test.shape)
-	print(tpred_samples_cal[0,0])
-	print(target_cal[0])
 	pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[0][config.id_test])
-	#save_data_for_calibration(pickle_filename, tpred_samples_cal, tpred_samples_test, data_cal, data_test, target_cal, target_test, targetrel_cal, targetrel_test, None, None, config.id_test)
+	save_data_for_calibration(pickle_filename, tpred_samples_cal, tpred_samples_test, data_cal, data_test, target_cal, target_test, None, None, config.id_test)
 
 	# TODO: how to use the same batch for calibration?
