@@ -13,6 +13,7 @@ from lib.utils import prepare_seed, print_log, mkdir_if_missing
 sys.path.append('.')
 from utils.datasets_utils import get_dataset
 from utils.config import get_config
+from utils.constants import SUBDATASETS_NAMES,AGENTFORMER
 
 
 def get_model_prediction(data, sample_k):
@@ -55,12 +56,11 @@ def get_trajectories(predictions, raw_data):
 				frame_data[[13, 15]] = predictions[s, i, j].cpu().numpy()   # [13, 15] corresponds to 2D pos
 				most_recent_data = frame_data.copy()
 				trajectory.append(frame_data)
-				#pred_arr.append(all_data)
 			trajectory = np.array(trajectory)
 			pred_arr.append(trajectory)
 		if len(pred_arr) > 0:
 			pred_arr = np.array(pred_arr)
-			indices = [0, 1, 13, 15]            # frame, ID, x, z (remove y which is the height)
+			indices = [13, 15]            # x, z (remove y which is the height)
 			pred_arr = pred_arr[:,:,indices]
 			pred_samples.append(pred_arr)
 	return np.array(pred_samples)
@@ -103,6 +103,7 @@ if __name__ == '__main__':
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+	model_name = AGENTFORMER
 	""" setup """
 	cfg   = Config(config.cfg)
 	epoch = cfg.get_last_epoch()
@@ -141,6 +142,9 @@ if __name__ == '__main__':
 	print(tpred_samples_test.shape)
 	print(target_cal.shape)
 	print(target_test.shape)
+	print(tpred_samples_cal[0,0])
+	print(target_cal[0])
+	pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[0][config.id_test])
 	#save_data_for_calibration(pickle_filename, tpred_samples_cal, tpred_samples_test, data_cal, data_test, target_cal, target_test, targetrel_cal, targetrel_test, None, None, config.id_test)
 
 	# TODO: how to use the same batch for calibration?

@@ -63,7 +63,7 @@ def compute_calibration_metrics():
 	test_name = get_test_name()
 	logging.info('Uncertainty calibration with '+SUBDATASETS_NAMES[args.id_dataset][args.id_test]+' as test dataset')
 	# Load data for calibration compute
-	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,__,__,sigmas_samples,sigmas_samples_full,id_test = get_data_for_calibration(test_name)
+	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,sigmas_samples,sigmas_samples_full,id_test = get_data_for_calibration(test_name)
 
 	# Resampling parameter
 	kde_size      = 1500

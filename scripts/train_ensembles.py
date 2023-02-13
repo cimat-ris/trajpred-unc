@@ -134,7 +134,7 @@ def main():
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
 		# Save these testing data for uncertainty calibration
-		save_data_for_calibration(ENSEMBLES, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
+		save_data_for_calibration(ENSEMBLES, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
 
 		# Only the first batch is used as the calibration dataset
 		break

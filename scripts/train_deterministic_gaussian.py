@@ -116,7 +116,7 @@ def main():
 		sigmas_samples_cal= np.array(sigmas_samples_cal)
 		# Save these testing data for uncertainty calibration
 		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])
-		save_data_for_calibration(pickle_filename, tpred_samples_cal, tpred_samples_test, data_cal, data_test, target_cal, target_test, targetrel_cal, targetrel_test, sigmas_samples_cal, sigmas_samples_test, config.id_test)
+		save_data_for_calibration(pickle_filename, tpred_samples_cal, tpred_samples_test, data_cal, data_test, target_cal, target_test, sigmas_samples_cal, sigmas_samples_test, config.id_test)
 		# Only the first batch is used as the calibration dataset
 		break
 if __name__ == "__main__":

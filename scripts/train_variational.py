@@ -143,7 +143,7 @@ def main():
 
 		# Save these testing data for uncertainty calibration
 		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])
-		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
+		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
 
 
 		# Solo se ejecuta para un batch

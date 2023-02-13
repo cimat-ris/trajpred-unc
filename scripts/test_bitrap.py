@@ -148,4 +148,4 @@ if __name__ == '__main__':
 		targetrel_test     =  torch.tensor(gt_traj_rel[:args.batch_size,:,:])
 		targetrel_test_full=  torch.tensor(gt_traj_rel[args.batch_size:,:,:])
 		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[0][args.id_test])
-		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, None, None, args.id_test)
+		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, None, None, args.id_test)
