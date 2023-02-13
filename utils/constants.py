@@ -26,7 +26,7 @@ ENSEMBLES = 'deterministic_ensembles'
 DROPOUT = 'deterministic_dropout'
 BITRAP = 'bitrap'
 VARIATIONAL = 'deterministic_variational'
-
+AGENTFORMER = 'agentformer'
 DETERMINISTIC_GAUSSIAN_SDD = 'deterministic_gaussian_sdd'
 ENSEMBLES_SDD = 'ensembles_sdd'
 DROPOUT_SDD = 'dropout_sdd'

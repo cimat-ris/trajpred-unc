@@ -5,7 +5,7 @@ import pickle
 from utils.constants import PICKLE_DIR
 from utils.directory_utils import mkdir_p
 
-def save_data_for_calibration(file_name, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_test, id_test):
+def save_data_for_calibration(file_name, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, sigmas_samples, sigmas_samples_test, id_test):
 	"""
 	Pickle provided data for future calibration compute
 	Args:
@@ -16,8 +16,6 @@ def save_data_for_calibration(file_name, tpred_samples, tpred_samples_full, data
 		- data_test_full
 		- target_test
 		- target_test_full
-		- targetrel_test
-		- targetrel_test_full
 		- sigmas_samples
 		- sigmas_samples_test
 		- id_test
@@ -31,8 +29,6 @@ def save_data_for_calibration(file_name, tpred_samples, tpred_samples_full, data
 		"DATA_TEST_FULL":       data_test_full.numpy(),
 		"TARGET_TEST":          target_test.numpy(),
 		"TARGET_TEST_FULL":     target_test_full.numpy(),
-		"TARGETREL_TEST":       targetrel_test.numpy(),
-		"TARGETREL_TEST_FULL":  targetrel_test_full.numpy(),
 		"SIGMAS_SAMPLES":       sigmas_samples,
 		"SIGMAS_SAMPLES_TEST":  sigmas_samples_test,
 		"ID_TEST":              id_test
@@ -58,8 +54,6 @@ def get_data_for_calibration(test_name):
 		- data_test_full
 		- target_test
 		- target_test_full
-		- targetrel_test
-		- targetrel_test_full
 		- sigmas_samples
 		- sigmas_samples_test
 		- id_test
