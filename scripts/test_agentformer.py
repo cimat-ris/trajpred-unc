@@ -4,6 +4,7 @@ import os, logging
 import sys
 import subprocess
 import shutil
+import matplotlib.pyplot as plt
 sys.path.append('../AgentFormer')
 from data.dataloader import data_generator
 from lib.torch import *
@@ -30,13 +31,6 @@ def get_model_prediction(data, sample_k):
 def get_trajectories(predictions, raw_data):
 	pred_num = 0
 	fut_data, seq_name, frame, valid_id, pred_mask = raw_data['fut_data'], raw_data['seq'], raw_data['frame'], raw_data['valid_id'], raw_data['pred_mask']
-	# print(raw_data['pre_motion_3D'][0])
-	#print('-----')
-	#print(len(raw_data['pre_motion_3D']),len(raw_data['fut_motion_3D']),len(valid_id))
-	#print(raw_data['fut_motion_3D'][0].shape)
-	#print(fut_data[0].shape)
-	#print(raw_data.keys())
-	#print(fut_data)
 	pred_samples    = []
 	for s in range(predictions.shape[0]): # Cycle over the samples
 		pred_arr = []
@@ -107,15 +101,25 @@ if __name__ == '__main__':
 	model_name = AGENTFORMER
 	""" setup """
 	cfg   = Config(configurations[config.id_test])
+	cfg.seed = config.seed
 	epoch = cfg.get_last_epoch()
 	torch.set_default_dtype(torch.float32)
 	torch.set_grad_enabled(False)
 	log = open(os.path.join(cfg.log_dir, 'log_test.txt'), 'w')
 
+	# Set seed
+	logging.info("Seed: {}".format(config.seed))
 	prepare_seed(cfg.seed)
+	torch.manual_seed(config.seed)
+	torch.cuda.manual_seed(config.seed)
+	random.seed(config.seed)
+	np.random.seed(config.seed)
 	""" Load model """
 	model_id = cfg.get('model_id', 'agentformer')
 	model = model_dict[model_id](cfg)
+	if epoch is None:
+		logging.error("Could not identify model")
+		sys.exit()
 	model.set_device(device)
 	model.eval()
 	if epoch > 0:
@@ -137,9 +141,15 @@ if __name__ == '__main__':
 	data_test         = obs_trajectories[256:,:,:]
 	target_cal        = gt_trajectories[:256,:,:]
 	target_test       = gt_trajectories[256:,:,:]
-	targetrel_cal     = gt_trajectories[:256,:,:]
-	targetrel_test    = gt_trajectories[256:,:,:]
 	pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[0][config.id_test])
 	save_data_for_calibration(pickle_filename, tpred_samples_cal, tpred_samples_test, data_cal, data_test, target_cal, target_test, None, None, config.id_test)
-
+	for k in range(config.examples):
+		idx = np.random.choice(data_cal.shape[0],1)[0]
+		plt.figure()
+		plt.plot(data_cal[idx,:,0],data_cal[idx,:,1],'g-')
+		for j in range(tpred_samples_cal.shape[0]):
+			plt.plot(tpred_samples_cal[j,idx,:,0],tpred_samples_cal[j,idx,:,1],'b-')
+		plt.plot(target_cal[idx,:,0],target_cal[idx,:,1],'r-')
+		plt.axis('equal')
+		plt.show()
 	# TODO: how to use the same batch for calibration?

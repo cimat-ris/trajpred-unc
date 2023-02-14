@@ -76,16 +76,15 @@ def get_config(argv=None,ensemble=False,dropout=False,variational=False,agentfor
 	# Visualization arguments
 	visualization_args = add_argument_group('Visualization')
 	visualization_args.add_argument('--examples',
-						type=int, default=1, metavar='N',
-						help='number of examples to exhibit (default: 1)')
+						type=int, default=0, metavar='N',
+						help='number of examples to exhibit (default: 0)')
 	visualization_args.add_argument('--show-plot', default=False,
 						action='store_true', help='show the test plots')
 	visualization_args.add_argument('--plot-losses',
 						action='store_true',
 						help='plot losses curves after training')
 	if agentformer:
-		agentformer_args = add_argument_group('Visualization')
-		agentformer_args.add_argument('--cfg', default=None)
+		agentformer_args = add_argument_group('Agentformer')
 		agentformer_args.add_argument('--data_eval', default='test')
 		agentformer_args.add_argument('--cached', action='store_true', default=False)
 		agentformer_args.add_argument('--cleanup', action='store_true', default=False)
