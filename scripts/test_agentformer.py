@@ -1,6 +1,6 @@
 import numpy as np
 import argparse
-import os, logging
+import os, logging, random
 import sys
 import subprocess
 import shutil
