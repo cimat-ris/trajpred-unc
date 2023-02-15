@@ -6,13 +6,19 @@ def sort_sample(sample_pdf):
     sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
     return sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
 
-# Given a value on the pdf, deduce alpha
-def get_alpha(orden, f_pdf):
-    # Predicted HDR
-    ind = np.where(np.array(orden)[:,0] >= f_pdf)[0]
-    ind = 0 if ind.size == 0 else ind[-1] # Validamos que no sea el primer elemento mas grande
-    alpha = np.array(orden)[:ind+1,1].sum()
-    return alpha
+# Given a set of pdf values from samples on the pdf, and a pdf value, deduce alpha
+def get_alpha(scores, fa):
+	# Sort samples pdf values
+	sorted_scores = sorted(scores, reverse=True)
+	# Select all samples for which the pdf value is above the one of GT
+	ind = np.where(sorted_scores < fa)[0]
+	if ind.shape[0] > 0:
+		# Probability mass above fa
+		alpha_fa =  sum(sorted_scores[:ind[0]])/sum(sorted_scores)
+	else:
+		# All samples have a pdf value >= fa
+		alpha_fa = 1.0
+	return alpha_fa
 
 def bs(orden,imin,imax,f_pdf):
     if imax==imin:

@@ -163,18 +163,6 @@ def get_quantile(scores, alpha):
 		return 0.0
 	return sorted_scores[ind]
 
-def get_alpha2(score, fa):
-	# Sort samples
-	orden = sorted(score, reverse=True)
-
-	# Select all samples for which the pdf value is above the one of GT
-	ind = np.where(orden < fa)[0]
-	if ind.shape[0] > 0:
-		# TODO: doubt, I think it should be the sum of the scores superior to fa 
-		alpha_fa = ind[0]/len(orden)
-	else:
-		alpha_fa = 1.0
-	return alpha_fa
 
 def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, kde_size=1000, resample_size=100):
 	"""
@@ -251,7 +239,7 @@ def regresion_isotonic_fit(this_pred_out_abs, data_gt, position, kde_size=1000, 
 		  # Creamos la funcion de densidad, evaluamos el gt y muestreamos
 			__,f_gt0,f_samples,__ = evaluate_kde(this_pred_out_abs[:,k,:],[None,None],data_gt[k, position, :], kde_size, resample_size)
 
-		predicted_hdr.append( get_alpha2(f_samples, f_gt0) )
+		predicted_hdr.append(get_alpha(f_samples,f_gt0))
 
 	# Empirical HDR
 	empirical_hdr = np.zeros(len(predicted_hdr))
@@ -295,7 +283,7 @@ def calibrate_relative_density(gt_density_values, samples_density_values, alpha)
 	Returns:
 		- Threshold on the relative density value to be used for marking confidence at least alpha
 	"""
-	gt_relative_density_values = np.minimum(1.0,np.divide(gt_density_values.reshape(-1),samples_density_values.max(axis=1)))
+	gt_relative_density_values = np.divide(gt_density_values.reshape(-1),1.5*samples_density_values.max(axis=1))
 	# Sort GT values by decreasing order
 	sorted_relative_density_values = sorted(gt_relative_density_values, reverse=True)
 	# Index of alpha-th sample
@@ -319,20 +307,15 @@ def calibrate_alpha_density(gt_density_values, samples_density_values, alpha):
 	gt_density_values          = gt_density_values.reshape(-1)
 	# Cycle over the calibration dataset trajectories
 	for trajectory_id in range(samples_density_values.shape[0]):
-		#print(samples_density_values[trajectory_id].shape)
-		#print(gt_density_values[trajectory_id])
-		#print(get_alpha2(samples_density_values[trajectory_id], gt_density_values[trajectory_id]))
-		alphas_k.append( get_alpha2(samples_density_values[trajectory_id], gt_density_values[trajectory_id]) )
+		alphas_k.append(get_alpha(samples_density_values[trajectory_id], gt_density_values[trajectory_id]) )
 
-	# Sort GT values by growing order
+	# Sort GT values by increasing order
 	sorted_alphas_density_values = sorted(alphas_k)
-	#print(sorted_alphas_density_values)
-	#aaaa
-	# Index of alpha-th sample
+	# Index of alpha-th smallest sample
 	ind = int(np.rint(len(sorted_alphas_density_values)*alpha))
 	if ind==len(sorted_alphas_density_values):
 		return 0.0
-	# The alpha-th largest element gives the threshold
+	# The alpha-th smallest element gives the threshold
 	return sorted_alphas_density_values[ind]
 
 def check_quantile(gt_density_value, samples_density_values, alpha):
@@ -369,16 +352,18 @@ def get_within_proportions(gt_density_values, samples_density_values, method, fa
 		if method==CALIBRATION_CONFORMAL_FVAL:
 			within_cal.append((gt_density_values[trajectory_id]>=fa))
 		elif method==CALIBRATION_CONFORMAL_FREL:
-			within_cal.append((gt_density_values[trajectory_id]>=samples_density_values[trajectory_id].max()*fa))
+			within_cal.append((gt_density_values[trajectory_id]>=samples_density_values[trajectory_id].max()*1.5*fa))
 		elif method==CALIBRATION_CONFORMAL_ALPHA:
 			# Sort samples p.d.f. values by decreasing order
-			sorted_density_values = sorted(samples_density_values[trajectory_id], reverse=True)
+			sorted_density_values = np.array(sorted(samples_density_values[trajectory_id], reverse=True))
+			accum_density_values  = (sorted_density_values/sorted_density_values.sum()).cumsum()
+			# First index where accumulated density is superior to fa
+			ind                   = np.where(accum_density_values>fa)[0][0]
 			# Index of alpha-th sample
-			ind = int(np.rint(len(sorted_density_values)*fa))
 			if ind==len(sorted_density_values):
 				fa_new = 0.0
 			# The alpha-th largest element gives the threshold
-			fa_new = sorted_density_values[ind-1]
+			fa_new = sorted_density_values[ind]
 			within_cal.append((gt_density_values[trajectory_id]>=fa_new))
 
 	return np.mean(np.array(within_unc)), np.mean(np.array(within_cal))
