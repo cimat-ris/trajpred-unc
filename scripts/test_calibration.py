@@ -68,7 +68,7 @@ def compute_calibration_metrics():
 
 	# Resampling parameter
 	kde_size      = 1500
-	resample_size =  200
+	resample_size = 1000
 
 	# Calibrate and evaluate metrics for the three methods, and for all positions
 	# 0: Conformal

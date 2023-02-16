@@ -358,7 +358,10 @@ def get_within_proportions(gt_density_values, samples_density_values, method, fa
 			sorted_density_values = np.array(sorted(samples_density_values[trajectory_id], reverse=True))
 			accum_density_values  = (sorted_density_values/sorted_density_values.sum()).cumsum()
 			# First index where accumulated density is superior to fa
-			ind                   = np.where(accum_density_values>fa)[0][0]
+			ind                   = np.where(accum_density_values>=fa)[0][0]
+			#if (gt_density_values[trajectory_id]>sorted_density_values.max()):
+			#	print(accum_density_values,alpha,fa,ind,gt_density_values[trajectory_id],sorted_density_values.max())
+			#	print(sorted_density_values.shape[0])
 			# Index of alpha-th sample
 			if ind==len(sorted_density_values):
 				fa_new = 0.0
@@ -500,7 +503,7 @@ def calibration_test(prediction,groundtruth,prediction_test,groundtruth_test,tim
 		# Evaluation before/after calibration: Calibration dataset
 		proportion_uncalibrated,proportion_calibrated = get_within_proportions(all_f_gt, all_f_samples, method, fa, alpha)
 		# Evaluation before/after calibration: Test dataset
-		proportion_uncalibrated_test,proportion_calibrated_test = get_within_proportions(all_f_gt_test, all_f_samples_test, method, fa, alpha)
+		# proportion_uncalibrated_test,proportion_calibrated_test = get_within_proportions(all_f_gt_test, all_f_samples_test, method, fa, alpha)
 		# ------------------------------------------------------------
 		unc_pcts.append(proportion_uncalibrated)
 		cal_pcts.append(proportion_calibrated)
