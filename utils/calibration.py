@@ -358,6 +358,7 @@ def get_within_proportions(gt_density_values, samples_density_values, method, fa
 			sorted_density_values = np.array(sorted(samples_density_values[trajectory_id], reverse=True))
 			accum_density_values  = (sorted_density_values/sorted_density_values.sum()).cumsum()
 			# First index where accumulated density is superior to fa
+			accum_density_value[-1] = 1.0
 			ind                   = np.where(accum_density_values>=fa)[0][0]
 			#if (gt_density_values[trajectory_id]>sorted_density_values.max()):
 			#	print(accum_density_values,alpha,fa,ind,gt_density_values[trajectory_id],sorted_density_values.max())
