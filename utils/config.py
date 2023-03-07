@@ -15,8 +15,7 @@ def get_config(argv=None,ensemble=False,dropout=False,variational=False,agentfor
 
 	# Training / test parameters
 	training_args = add_argument_group('Training')
-	if ensemble:
-		training_args.add_argument('--num-ensembles',
+	training_args.add_argument('--num-ensembles',
 							type=int, default=5, metavar='N',
 							help='number of elements in the ensemble (default: 5)')
 	if dropout:
