@@ -239,15 +239,13 @@ def regression_isotonic_fit(predictions_calibration,gt_calibration,position, kde
 		# Deduce predicted alpha
 		predicted_hdr.append(get_alpha(f_samples,f_gt0))
 
-	# Sort GT values by increasing order
+	# Sort GT values in increasing order
 	sorted_alphas_density_values = sorted(predicted_hdr)
 	new_hdr = np.zeros(len(predicted_hdr))
-
 	for i, alpha in enumerate(predicted_hdr):
 		# Index of alpha-th smallest sample
 		ind        = int(np.rint((len(sorted_alphas_density_values)-1)*alpha))
 		new_hdr[i] = sorted_alphas_density_values[ind]
-		print(predicted_hdr[i],new_hdr[i])
 	# Fit empirical_hdr to predicted_hdr with isotonic regression
 	isotonic = IsotonicRegression(out_of_bounds='clip')
 	isotonic.fit(predicted_hdr,new_hdr)
@@ -300,7 +298,7 @@ def calibrate_alpha_density(gt_density_values, samples_density_values, alpha):
 		- samples_density_values: array of array of of values of the density function at some samples (for a set of trajectories)
 		- alpha: confidence value to consider
 	Returns:
-		- Threshold on the density value to be used for marking confidence at least alpha
+		- Threshold on the alpha value to be used for marking confidence at least alpha
 	"""
 	alphas_k = []
 	gt_density_values          = gt_density_values.reshape(-1)
@@ -324,9 +322,21 @@ def check_quantile(gt_density_value, samples_density_values, alpha):
 		- samples_density_values: evaluations of samples on the KDE
 		- alpha: confidence level
 	Returns:
-		- True/false whether the GT is within an interval of confidence of alpha
+		- True/False for test whether the GT is within the R-alpha region
 	"""
-	return (np.mean((samples_density_values>=gt_density_value))<=alpha)
+	# Sort samples p.d.f. values by decreasing order
+	sorted_density_values    = np.array(sorted(samples_density_values, reverse=True))
+	accum_density_values     = (sorted_density_values/sorted_density_values.sum()).cumsum()
+	accum_density_values[-1] = 1.0
+	# First index where accumulated density is superior to alpha
+	ind                      = np.where(accum_density_values>=alpha)[0][0]
+	# Index of alpha-th sample
+	if ind==len(sorted_density_values):
+		falpha = 0.0
+	else:
+		# The alpha-th largest element gives the threshold
+		falpha = sorted_density_values[ind]
+	return (gt_density_value>=falpha)
 
 def get_within_proportions(gt_density_values, samples_density_values, method, fa, alpha):
 	"""
@@ -353,22 +363,7 @@ def get_within_proportions(gt_density_values, samples_density_values, method, fa
 		elif method==CALIBRATION_CONFORMAL_FREL:
 			within_cal.append((gt_density_values[trajectory_id]>=samples_density_values[trajectory_id].max()*1.5*fa))
 		elif method==CALIBRATION_CONFORMAL_ALPHA:
-			# Sort samples p.d.f. values by decreasing order
-			sorted_density_values = np.array(sorted(samples_density_values[trajectory_id], reverse=True))
-			accum_density_values  = (sorted_density_values/sorted_density_values.sum()).cumsum()
-			accum_density_values[-1] = 1.0
-			# First index where accumulated density is superior to fa
-			ind                   = np.where(accum_density_values>=fa)[0][0]
-			#if (gt_density_values[trajectory_id]>sorted_density_values.max()):
-			#	print(accum_density_values,alpha,fa,ind,gt_density_values[trajectory_id],sorted_density_values.max())
-			#	print(sorted_density_values.shape[0])
-			# Index of alpha-th sample
-			if ind==len(sorted_density_values):
-				fa_new = 0.0
-			# The alpha-th largest element gives the threshold
-			fa_new = sorted_density_values[ind]
-			within_cal.append((gt_density_values[trajectory_id]>=fa_new))
-
+			within_cal.append(check_quantile(gt_density_values[trajectory_id],samples_density_values[trajectory_id],fa))
 	return np.mean(np.array(within_unc)), np.mean(np.array(within_cal))
 
 def calibrate_and_test(prediction,groundtruth,prediction_test,groundtruth_test,time_position,method,kde_size=1500,resample_size=200, gaussian=[None,None]):
@@ -394,10 +389,6 @@ def calibrate_and_test(prediction,groundtruth,prediction_test,groundtruth_test,t
 	unc_pcts = []
 	cal_pcts_test = []
 	unc_pcts_test = []
-
-	#if method == 3: # Isotonic
-	#	# Regresion isotonic training
-	#	isotonic = regresion_isotonic_fit(prediction,groundtruth,time_position,resample_size,sigmas_prediction=gaussian[0])
 
 	# Cycle over the confidence levels
 	for i,alpha in enumerate(tqdm(conf_levels)):
@@ -496,7 +487,7 @@ def generate_metrics_calibration(prediction_method_name, predictions_calibration
 
  #---------------------------------------------------------------------------------------
 
-def calibration_test_all(prediction,groundtruth,prediction_test,groundtruth_test,time_position,kde_size=1500,resample_size=200, gaussian=[None,None]):
+def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_test,time_position,kde_size=1500,resample_size=200, gaussian=[None,None]):
 	# Perform calibration for alpha values in the range [0,1]
 	step        = 0.05
 	conf_levels = np.arange(start=step, stop=1.0, step=step)
@@ -558,21 +549,14 @@ def calibration_test_all(prediction,groundtruth,prediction_test,groundtruth_test
 		fa2 = calibrate_alpha_density(all_f_gt, all_f_samples, alpha)
 
 		# Evaluation before/after calibration: Calibration dataset
-		#proportion_uncalibrated,proportion_calibrated = get_within_proportions(all_f_gt, all_f_samples, method, fa, alpha)
 		proportion_uncalibrated0, proportion_calibrated0 = get_within_proportions(all_f_gt, all_f_samples, 0, fa0, alpha)
 		proportion_uncalibrated1, proportion_calibrated1 = get_within_proportions(all_f_gt, all_f_samples, 1, fa1, alpha)
 		proportion_uncalibrated2, proportion_calibrated2 = get_within_proportions(all_f_gt, all_f_samples, 2, fa2, alpha)
 		# Evaluation before/after calibration: Test dataset
-		#proportion_uncalibrated_test,proportion_calibrated_test = get_within_proportions(all_f_gt_test, all_f_samples_test, method, fa, alpha)
 		proportion_uncalibrated_test0, proportion_calibrated_test0 = get_within_proportions(all_f_gt_test, all_f_samples_test, 0, fa0, alpha)
 		proportion_uncalibrated_test1, proportion_calibrated_test1 = get_within_proportions(all_f_gt_test, all_f_samples_test, 1, fa1, alpha)
 		proportion_uncalibrated_test2, proportion_calibrated_test2 = get_within_proportions(all_f_gt_test, all_f_samples_test, 2, fa2, alpha)
 		# ------------------------------------------------------------
-		#unc_pcts.append(proportion_uncalibrated)
-		#cal_pcts.append(proportion_calibrated)
-		#unc_pcts_test.append(proportion_uncalibrated_test)
-		#cal_pcts_test.append(proportion_calibrated_test)
-
 		unc_pcts0.append(proportion_uncalibrated0)
 		cal_pcts0.append(proportion_calibrated0)
 		unc_pcts_test0.append(proportion_uncalibrated_test0)
@@ -614,7 +598,7 @@ def generate_metrics_calibration_all(prediction_method_name, predictions_calibra
 
 		# Uncertainty calibration
 		logging.info("Calibration metrics at position: {}".format(position))
-		conf_cal = calibration_test_all(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, kde_size, resample_size, gaussian=gaussian)
+		conf_cal = calibrate_and_test_all(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, kde_size, resample_size, gaussian=gaussian)
 		conf_levels0, cal_pcts0, unc_pcts0, cal_pcts_test0, unc_pcts_test0 = conf_cal[0]
 		conf_levels1, cal_pcts1, unc_pcts1, cal_pcts_test1, unc_pcts_test1 = conf_cal[1]
 		conf_levels2, cal_pcts2, unc_pcts2, cal_pcts_test2, unc_pcts_test2 = conf_cal[2]
