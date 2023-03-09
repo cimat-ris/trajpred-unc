@@ -504,7 +504,7 @@ def generate_metrics_calibration(prediction_method_name, predictions_calibration
 def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_test,time_position,kde_size=1500,resample_size=200, gaussian=[None,None]):
 	# Perform calibration for alpha values in the range [0,1]
 	step        = 0.05
-	conf_levels = np.arange(start=step, stop=1.0, step=step)
+	conf_levels = np.arange(start=0.0, stop=1.0+step, step=step)
 
 	cal_pcts0 = []
 	unc_pcts0 = []
@@ -523,6 +523,19 @@ def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_te
 
 	# Cycle over the confidence levels
 	for i,alpha in enumerate(tqdm(conf_levels)):
+		if alpha==0.0:
+			unc_pcts.append(0.0)
+			cal_pcts.append(0.0)
+			unc_pcts_test.append(0.0)
+			cal_pcts_test.append(0.0)
+			continue
+		if alpha==1.0:
+			unc_pcts.append(1.0)
+			cal_pcts.append(1.0)
+			unc_pcts_test.append(1.0)
+			cal_pcts_test.append(1.0)
+			continue
+			
 		# ------------------------------------------------------------
 		f_density_max = []
 		f_density_max_test = []
