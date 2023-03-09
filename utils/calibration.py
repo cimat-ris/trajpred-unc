@@ -249,7 +249,9 @@ def regression_isotonic_fit(predictions_calibration,gt_calibration,position, kde
 	# Fit empirical_hdr to predicted_hdr with isotonic regression
 	isotonic = IsotonicRegression(out_of_bounds='clip')
 	isotonic.fit(predicted_hdr,new_hdr)
-	return isotonic
+	isotonic_inverse = IsotonicRegression(out_of_bounds='clip')
+	isotonic_inverse.fit(new_hdr,predicted_hdr)
+	return isotonic, isotonic_inverse
 
 def calibrate_density(gt_density_values, alpha):
 	"""
@@ -383,7 +385,7 @@ def calibrate_and_test(prediction,groundtruth,prediction_test,groundtruth_test,t
 	"""
 	# Perform calibration for alpha values in the range [0,1]
 	step        = 0.05
-	conf_levels = np.arange(start=step, stop=1.0, step=step)
+	conf_levels = np.arange(start=0.0, stop=1.0+step, step=step)
 
 	cal_pcts = []
 	unc_pcts = []
@@ -392,6 +394,18 @@ def calibrate_and_test(prediction,groundtruth,prediction_test,groundtruth_test,t
 
 	# Cycle over the confidence levels
 	for i,alpha in enumerate(tqdm(conf_levels)):
+		if alpha==0.0:
+			unc_pcts.append(0.0)
+			cal_pcts.append(0.0)
+			unc_pcts_test.append(0.0)
+			cal_pcts_test.append(0.0)
+			continue
+		if alpha==1.0:
+			unc_pcts.append(1.0)
+			cal_pcts.append(1.0)
+			unc_pcts_test.append(1.0)
+			cal_pcts_test.append(1.0)
+			continue
 		# ------------------------------------------------------------
 		f_density_max = []
 		f_density_max_test = []

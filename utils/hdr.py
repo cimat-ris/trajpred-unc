@@ -20,6 +20,23 @@ def get_alpha(scores, fa):
 		alpha_fa = 1.0
 	return alpha_fa
 
+def samples_to_alphas(kde,samples):
+	# Evaluate our samples on it
+	fs_samples      = kde.evaluate(samples)
+	sorted_samples  = sort_sample(fs_samples)
+	# Alphas corresponding to each sample
+	observed_alphas = []
+	for fk in fs_samples:
+		observed_alpha = 0.0
+		for p in sorted_samples:
+			if fk>p[0]:
+				break
+			# Accumulate density here
+			observed_alpha += p[1]
+		observed_alphas.append(observed_alpha)
+	observed_alphas = np.array(observed_alphas)
+	return observed_alphas,fs_samples,sorted_samples
+
 def bs(orden,imin,imax,f_pdf):
     if imax==imin:
         return imin
