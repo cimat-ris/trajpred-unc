@@ -29,7 +29,7 @@ from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import setup_loo_experiment,Experiment_Parameters,traj_dataset
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world,world_to_image_xy
-from utils.hdr import get_alpha,get_alpha_bs,get_falpha,sort_sample
+from utils.hdr import get_alpha,get_falpha,sort_sample,samples_to_alphas
 from utils.calibration import generate_uncertainty_evaluation_dataset,regression_isotonic_fit,calibrate_and_test
 from utils.config import get_config
 import torch.optim as optim
@@ -74,9 +74,9 @@ def main():
 	training_data, validation_data, test_data, test_homography = setup_loo_experiment(DATASETS_DIR[0],SUBDATASETS_NAMES[0],config.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=config.pickle)
 
 	# Torch dataset
-	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
-	val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
-	testing_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ],test_data[FRAMES_IDS])
+	train_data  = traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ])
+	val_data    = traj_dataset(validation_data[OBS_TRAJ_VEL ], validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ])
+	testing_data= traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ],test_data[FRAMES_IDS])
 
 	# Form batches
 	batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=config.batch_size,shuffle=False)
@@ -166,11 +166,16 @@ def main():
 		logging.info("Calibration at position: {}".format(11))
 		conf_levels,cal_pcts,unc_pcts,__,__= calibrate_and_test(predictions_calibration,gt_calibration,None,None,11,2,gaussian=(sigmas_calibration,None))
 
-		# Isotonic regression
-		iso_reg = regression_isotonic_fit(predictions_calibration,gt_calibration,11,kde_size=1000,resample_size=100,sigmas_prediction=sigmas_calibration)
+		# Isotonic regression: Gives a mapping from predicted alpha to corrected alpha
+		iso_reg, iso_inv = regression_isotonic_fit(predictions_calibration,gt_calibration,11,kde_size=1000,resample_size=100,sigmas_prediction=sigmas_calibration)
 
-		plt.plot(conf_levels,unc_pcts,'purple')
-		plt.plot(conf_levels,cal_pcts,'r')
+		# Plot calibration curves (before/after calibration)
+		plt.gca().set_aspect('equal')
+		plt.plot(conf_levels,unc_pcts,'purple',label=r'$\hat{P}_{\alpha}$ (uncalibrated)')
+		plt.plot(conf_levels,cal_pcts,'red',label=r'$\hat{P}_{\alpha}$ (calibrated)')
+		plt.plot(conf_levels,iso_reg.transform(conf_levels),'green',label=r'$a_\alpha$')
+		plt.xlabel(r'$\alpha$', fontsize=10)
+		plt.legend(fontsize=10)
 		plt.show()
 		break
 
@@ -180,24 +185,26 @@ def main():
 	# Get the homography
 	homography_to_img = np.linalg.inv(test_homography)
 
-	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-		for traj_idx in range(len(datarel_test)):
+	for batch_idx, (observations_rel_test, targetrel_test,observations_test, target_test) in enumerate(batched_test_data):
+		logging.info("Trajectories {}".format(len(observations_rel_test)))
+		# Cycle over the trajectories of this batch
+		for traj_idx in range(len(observations_rel_test)):
 			# Output for each element of the ensemble
-			preds =[]
-			sigmas=[]
+			predictions = []
+			sigmas      = []
 			for idx in range(config.num_ensembles):
 				if torch.cuda.is_available():
-					  datarel_test  = datarel_test.to(device)
-				pred, sigma = models[idx].predict(datarel_test, dim_pred=12)
-				preds.append(pred[traj_idx]),sigmas.append(sigma[traj_idx])
-			# Sampling from the mixture
+					observations_rel_test  = observations_rel_test.to(device)
+				prediction, sigma = models[idx].predict(observations_rel_test, dim_pred=12)
+				predictions.append(prediction[traj_idx]),sigmas.append(sigma[traj_idx])
+			# Sampling 1000 samples from the mixture
 			xs = []
 			ys = []
 			for i in range(1000):
 				k      = np.random.randint(config.num_ensembles)
-				mean   = preds[k][11]
+				mean   = predictions[k][11]
 				cov    = np.array([[sigmas[k][11,0],sigmas[k][11,2]],[sigmas[k][11,2],sigmas[k][11,1]]])
-				sample = np.random.multivariate_normal(mean, cov, 1)[0]+ np.array([data_test[traj_idx,-1].numpy()])
+				sample = np.random.multivariate_normal(mean, cov, 1)[0]+ np.array([observations_test[traj_idx,-1].numpy()])
 				xs.append(sample[0,0])
 				ys.append(sample[0,1])
 
@@ -213,20 +220,10 @@ def main():
 			# Prediction samples
 			world_samples   = np.vstack([xs, ys])
 			image_samples   = world_to_image_xy(np.transpose(world_samples),homography_to_img,flip=False)
-			# Build a Kernel Density Estimator
-			kernel          = st.gaussian_kde(world_samples)
-			fs_samples      = kernel.evaluate(world_samples)
-			sorted_samples  = sort_sample(fs_samples)
-			# Alphas
-			observed_alphas = []
-			for fk in fs_samples:
-				observed_alpha = 0.0
-				for p in sorted_samples:
-					if fk>p[0]:
-						break
-					observed_alpha += p[1]
-				observed_alphas.append(observed_alpha)
-			observed_alphas = np.array(observed_alphas)
+			# Build a Kernel Density Estimator with these samples
+			kde             = st.gaussian_kde(world_samples)
+			# Evaluate our samples on it
+			alphas_samples, fs_samples, sorted_samples = samples_to_alphas(kde,world_samples)
 
 			# Visualization of the uncalibrated KDE with its level curves
 			alphas = np.linspace(1.0,0.0,num=5,endpoint=False)
@@ -234,15 +231,15 @@ def main():
 			for alpha in alphas:
 				level = get_falpha(sorted_samples,alpha)
 				levels.append(level)
-			f_unc        = np.reshape(kernel(np.transpose(world_grid)).T, xx.shape)
-			norm_f_unc   = np.rot90(f_unc)/np.max(f_unc)
-			transparency = norm_f_unc
+			# Apply the KDE on the points of the world grid
+			f_unc        = np.reshape(kde(np.transpose(world_grid)).T, xx.shape)
+			transparency = np.rot90(f_unc)/np.max(f_unc)
 
 			## Or kernel density estimate plot instead of the contourf plot
 			figs, axs = plt.subplots(1,2,figsize=(24,12),constrained_layout = True)
 			axs[0].legend_ = None
 			axs[0].imshow(test_bckgd)
-			observations = world_to_image_xy(data_test[traj_idx,:,:], homography_to_img, flip=False)
+			observations = world_to_image_xy(observations_test[traj_idx,:,:], homography_to_img, flip=False)
 			groundtruth  = world_to_image_xy(target_test[traj_idx,:,:], homography_to_img, flip=False)
 			# Contour plot
 			cset = axs[0].contour(xx, yy, f_unc, colors='darkgreen',levels=levels[1:],linewidths=0.75)
@@ -255,10 +252,12 @@ def main():
 			axs[0].set_ylim(ymax,ymin)
 			axs[0].axes.xaxis.set_visible(False)
 			axs[0].axes.yaxis.set_visible(False)
-			axs[0].imshow(transparency,alpha=transparency,cmap=plt.cm.Greens_r,extent=[xmin, xmax, ymin, ymax])
+			# Plot the pdf
+			axs[0].imshow(transparency,alpha=np.sqrt(transparency),cmap=plt.cm.Greens_r,extent=[xmin, xmax, ymin, ymax])
 
 			# Testing/visualization **calibrated** KDE
-			modified_alphas = iso_reg.transform(observed_alphas)
+			modified_alphas = iso_inv.transform(alphas_samples)
+
 			# New values for f
 			fs_samples_new  = []
 			for alpha in modified_alphas:
@@ -266,15 +265,16 @@ def main():
 			fs_samples_new    = np.array(fs_samples_new)
 			sorted_samples_new= sort_sample(fs_samples_new)
 			importance_weights= fs_samples_new/fs_samples
-			kernel            = st.gaussian_kde(world_samples,weights=importance_weights/np.sum(importance_weights))
-			f_cal             = np.reshape(kernel(np.transpose(world_grid)).T, xx.shape)
+			kde               = st.gaussian_kde(world_samples,weights=importance_weights)
+			alphas_samples, fs_samples, sorted_samples = samples_to_alphas(kde,world_samples)
+			f_cal             = np.reshape(kde(np.transpose(world_grid)).T, xx.shape)
 			norm_f_cal        = np.rot90(f_cal)/np.max(f_unc)
 			transparency      = np.minimum(norm_f_cal,1.0)
 			# Visualization of the calibrated KDE
 			alphas = np.linspace(1.0,0.0,num=5,endpoint=False)
 			levels = []
 			for alpha in alphas:
-				level = get_falpha(sorted_samples_new,alpha)
+				level = get_falpha(sorted_samples,alpha)
 				levels.append(level)
 			cset = axs[1].contour(xx, yy, f_cal, colors='darkgreen',levels=levels[1:],linewidths=0.75)
 			cset.levels = np.array(alphas[1:])
@@ -287,7 +287,7 @@ def main():
 			axs[1].set_ylim(ymax,ymin)
 			axs[1].axes.xaxis.set_visible(False)
 			axs[1].axes.yaxis.set_visible(False)
-			axs[1].imshow(norm_f_cal,alpha=transparency,cmap=plt.cm.Greens_r, extent=[xmin, xmax, ymin, ymax])
+			axs[1].imshow(norm_f_cal,alpha=np.sqrt(transparency),cmap=plt.cm.Greens_r, extent=[xmin, xmax, ymin, ymax])
 			plt.show()
 
 
