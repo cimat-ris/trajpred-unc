@@ -524,16 +524,36 @@ def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_te
 	# Cycle over the confidence levels
 	for i,alpha in enumerate(tqdm(conf_levels)):
 		if alpha==0.0:
-			unc_pcts.append(0.0)
-			cal_pcts.append(0.0)
-			unc_pcts_test.append(0.0)
-			cal_pcts_test.append(0.0)
+			unc_pcts0.append(0.0)
+			cal_pcts0.append(0.0)
+			unc_pcts_test0.append(0.0)
+			cal_pcts_test0.append(0.0)
+			
+			unc_pcts1.append(0.0)
+			cal_pcts1.append(0.0)
+			unc_pcts_test1.append(0.0)
+			cal_pcts_test1.append(0.0)
+			
+			unc_pcts2.append(0.0)
+			cal_pcts2.append(0.0)
+			unc_pcts_test2.append(0.0)
+			cal_pcts_test2.append(0.0)
 			continue
 		if alpha==1.0:
-			unc_pcts.append(1.0)
-			cal_pcts.append(1.0)
-			unc_pcts_test.append(1.0)
-			cal_pcts_test.append(1.0)
+			unc_pcts0.append(1.0)
+			cal_pcts0.append(1.0)
+			unc_pcts_test0.append(1.0)
+			cal_pcts_test0.append(1.0)
+			
+			unc_pcts1.append(1.0)
+			cal_pcts1.append(1.0)
+			unc_pcts_test1.append(1.0)
+			cal_pcts_test1.append(1.0)
+			
+			unc_pcts2.append(1.0)
+			cal_pcts2.append(1.0)
+			unc_pcts_test2.append(1.0)
+			cal_pcts_test2.append(1.0)
 			continue
 			
 		# ------------------------------------------------------------
