@@ -4,6 +4,7 @@ import os, logging
 from tqdm import tqdm
 import random
 import timeit
+import time
 import torch
 from scipy.stats import gaussian_kde
 from scipy.stats import multivariate_normal,multinomial
@@ -120,12 +121,12 @@ def generate_uncertainty_evaluation_dataset(batched_test_data, model, num_sample
 	return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full
 
 #-----------------------------------------------------------------------------------
-def generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics, position, method, output_dirs, suffix="cal"):
+def generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics, position, method, output_dirs, prediction_method_name, suffix="cal"):
 	# Evaluate metrics before/after calibration
 	compute_calibration_metrics(conf_levels, unc_pcts, metrics, position, "Before Recalibration")
 	compute_calibration_metrics(conf_levels, cal_pcts, metrics, position, "After  Recalibration")
 	# Save plot_calibration_curves
-	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_"+suffix+"_method_"+str(method)+"_pos_"+str(position)+".pdf")
+	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_"+suffix+"_"+prediction_method_name+"_method_"+str(method)+"_pos_"+str(position)+"_"+ str(time.time())+".pdf")
 	plot_calibration_curves2(conf_levels, unc_pcts, cal_pcts, output_image_name)
 
 def save_metrics(prediction_method_name, metrics_cal, metrics_test, method_id, output_dirs):
@@ -491,10 +492,10 @@ def generate_metrics_calibration(prediction_method_name, predictions_calibration
 
 			# Metrics Calibration for data calibration
 			logging.info("Calibration metrics (Calibration dataset)")
-			generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics_cal, position, method_id, output_dirs)
+			generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics_cal, position, method_id, output_dirs, prediction_method_name, )
 			# Metrics Calibration for data test
 			logging.info("Calibration evaluation (Test dataset)")
-			generate_metrics_curves(conf_levels, unc_pcts_test, cal_pcts_test, metrics_test, position, method_id, output_dirs, suffix='test')
+			generate_metrics_curves(conf_levels, unc_pcts_test, cal_pcts_test, metrics_test, position, method_id, output_dirs, prediction_method_name, suffix='test')
 
 		#--------------------- Guardamos las metricas de calibracion ---------------------------------
 		save_metrics(prediction_method_name, metrics_cal, metrics_test, method_id, output_dirs)
@@ -652,14 +653,14 @@ def generate_metrics_calibration_all(prediction_method_name, predictions_calibra
 
 		# Metrics Calibration for data calibration
 		logging.info("Calibration metrics (Calibration dataset)")
-		generate_metrics_curves(conf_levels0, unc_pcts0, cal_pcts0, metrics_cal0, position, 0, output_dirs)
-		generate_metrics_curves(conf_levels1, unc_pcts1, cal_pcts1, metrics_cal1, position, 1, output_dirs)
-		generate_metrics_curves(conf_levels2, unc_pcts2, cal_pcts2, metrics_cal2, position, 2, output_dirs)
+		generate_metrics_curves(conf_levels0, unc_pcts0, cal_pcts0, metrics_cal0, position, 0, output_dirs, prediction_method_name)
+		generate_metrics_curves(conf_levels1, unc_pcts1, cal_pcts1, metrics_cal1, position, 1, output_dirs, prediction_method_name)
+		generate_metrics_curves(conf_levels2, unc_pcts2, cal_pcts2, metrics_cal2, position, 2, output_dirs, prediction_method_name)
 		# Metrics Calibration for data test
 		logging.info("Calibration evaluation (Test dataset)")
-		generate_metrics_curves(conf_levels0, unc_pcts_test0, cal_pcts_test0, metrics_test0, position, 0, output_dirs, suffix='test')
-		generate_metrics_curves(conf_levels1, unc_pcts_test1, cal_pcts_test1, metrics_test1, position, 1, output_dirs, suffix='test')
-		generate_metrics_curves(conf_levels2, unc_pcts_test2, cal_pcts_test2, metrics_test2, position, 2, output_dirs, suffix='test')
+		generate_metrics_curves(conf_levels0, unc_pcts_test0, cal_pcts_test0, metrics_test0, position, 0, output_dirs, prediction_method_name, suffix='test')
+		generate_metrics_curves(conf_levels1, unc_pcts_test1, cal_pcts_test1, metrics_test1, position, 1, output_dirs, prediction_method_name, suffix='test')
+		generate_metrics_curves(conf_levels2, unc_pcts_test2, cal_pcts_test2, metrics_test2, position, 2, output_dirs, prediction_method_name, suffix='test')
 
 	#--------------------- Guardamos las metricas de calibracion ---------------------------------
 	save_metrics(prediction_method_name, metrics_cal0, metrics_test0, 0, output_dirs)
