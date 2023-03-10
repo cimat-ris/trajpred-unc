@@ -26,7 +26,7 @@ import scipy.stats as st
 
 # Local models
 from models.lstm_encdec import lstm_encdec_gaussian
-from utils.datasets_utils import setup_loo_experiment,Experiment_Parameters,traj_dataset
+from utils.datasets_utils import setup_loo_experiment,Experiment_Parameters,traj_dataset,get_testing_batch
 from utils.train_utils import train
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world,world_to_image_xy
 from utils.hdr import get_alpha,get_falpha,sort_sample,samples_to_alphas
@@ -38,24 +38,6 @@ from utils.constants import (
 	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,FRAMES_IDS,
 	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, IMAGES_DIR, MUN_POS_CSV, DATASETS_DIR, SUBDATASETS_NAMES, TRAINING_CKPT_DIR
 )
-
-# Gets a testing batch of trajectories starting at the same frame (for visualization)
-def get_testing_batch(testing_data,testing_data_path):
-	# A trajectory id
-	randomtrajId     = np.random.randint(len(testing_data),size=1)[0]
-	# Last observed frame id for a random trajectory in the testing dataset
-	frame_id         = testing_data.Frame_Ids[randomtrajId][7]
-	idx              = np.where((testing_data.Frame_Ids[:,7]==frame_id))[0]
-	# Get the video corresponding to the testing
-	cap   = cv2.VideoCapture(testing_data_path+'/video.avi')
-	frame = 0
-	while(cap.isOpened()):
-		ret, test_bckgd = cap.read()
-		if frame == frame_id:
-			break
-		frame = frame + 1
-	# Form the batch
-	return frame_id, traj_dataset(*(testing_data[idx])), test_bckgd
 
 # Parser arguments
 config = get_config(argv=sys.argv[1:])
