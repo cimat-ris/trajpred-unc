@@ -105,7 +105,7 @@ def main():
 		break
 
 	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, config.num_ensembles, model_name, config, device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Testing
@@ -134,7 +134,8 @@ def main():
 		tpred_samples = np.array(tpred_samples)
 		sigmas_samples = np.array(sigmas_samples)
 		# Save these testing data for uncertainty calibration
-		save_data_for_calibration(ENSEMBLES, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
+		pickle_filename = ENSEMBLES+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])
+		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
 
 		# Only the first batch is used as the calibration dataset
 		break
