@@ -101,6 +101,11 @@ if __name__ == '__main__':
 	test_data_bitrap  = traj_dataset_bitrap(X_test,test_data[OBS_NEIGHBORS],test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS])
 	# Form batches
 	batched_test_data  = torch.utils.data.DataLoader(test_data_bitrap,batch_size=1,shuffle=False)
+	pred_traj  = np.zeros((model.K, len(batched_test_data), 12, 2))
+	obs_traj   = np.zeros((len(batched_test_data), 8,2))
+	gt_traj    = np.zeros((len(batched_test_data),12,2))
+	gt_traj_rel= np.zeros((len(batched_test_data),12,2))
+
 	for batch_idx, (observations_test, neighbors_test, target_test) in enumerate(batched_test_data):
 		# Cycle over the trajectories of this batch
 		for traj_idx in range(len(observations_test)):
@@ -136,9 +141,21 @@ if __name__ == '__main__':
 			# Transfer back to global coordinates
 			ret = post_process(cfg, X_global, y_global, pred_traj_, pred_goal=pred_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
 			X_global_, y_global_, pred_goal_, pred_traj_, dist_traj_, dist_goal_ = ret
+			pred_traj[:,ind,:,:] = np.swapaxes(pred_traj_[0,:,:,:], 0, 1)
+			obs_traj[ind,:,:]    = data_test[0,:,:2].numpy()
+			gt_traj[ind,:,:]     = target_test[0,:,:].numpy()
+			gt_traj_rel[ind,:,:] = target_test[0,:,:].numpy() - data_test[0,-1,:2].numpy()
 
 
+	# Uncertainty calibration
+	logging.info("Calibration at position: {}".format(11))
+	conf_levels,cal_pcts,unc_pcts,__,__= calibrate_and_test(pred_traj,gt_traj,None,None,11,2,gaussian=(None,None))
 
+	# Isotonic regression: Gives a mapping from predicted alpha to corrected alpha
+	#iso_reg, iso_inv = regression_isotonic_fit(predictions_calibration,gt_calibration,11,kde_size=1000,resample_size=100,sigmas_prediction=sigmas_calibration)
+
+
+	# Testing
 	frame_id, batch, test_bckgd = get_testing_batch_bitrap(test_data_bitrap,DATASETS_DIR[0]+SUBDATASETS_NAMES[0][args.id_test])
 	# Form batches
 	batched_test_data  = torch.utils.data.DataLoader(batch,batch_size=len(batch))
