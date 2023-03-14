@@ -96,31 +96,30 @@ if __name__ == '__main__':
 	__, __, test_data, test_homography = setup_loo_experiment(DATASETS_DIR[0],SUBDATASETS_NAMES[0],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, compute_neighbors=True)
 	testing_data= traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ],test_data[FRAMES_IDS])
 
-	#with torch.set_grad_enabled(False):
-	if False:
-		predictions         = np.zeros((model.K, len(batched_test_data), 12, 2))
-		observations        = np.zeros((len(batched_test_data), 8,2))
-		groundtruth         = np.zeros((len(batched_test_data),12,2))
-		groundtruth_relative= np.zeros((len(batched_test_data),12,2))
-		# Cycle over the testing data
-		for ind, (observations_test, neighbors_test, groundtruth_test) in enumerate(batched_test_data):
-			logging.info("Processing batch {}".format(ind))
+	# Calibration
+	X_test            = np.concatenate([test_data[OBS_TRAJ],test_data[OBS_TRAJ_VEL],test_data[OBS_TRAJ_ACC]],axis=2)
+	test_data_bitrap  = traj_dataset_bitrap(X_test,test_data[OBS_NEIGHBORS],test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS])
+	# Form batches
+	batched_test_data  = torch.utils.data.DataLoader(test_data_bitrap,batch_size=1,shuffle=False)
+	for batch_idx, (observations_test, neighbors_test, target_test) in enumerate(batched_test_data):
+		# Cycle over the trajectories of this batch
+		for traj_idx in range(len(observations_test)):
 			# Input: batch_sizex8x6 (un-normalized)
-			X_global     = torch.Tensor(observations_test).to(cfg.DEVICE)
+			X_global     = torch.Tensor(observations_test[traj_idx:traj_idx+1]).to(cfg.DEVICE)
 			# This is the GT: batch_sizex12x2 (un-normalized)
-			y_global     = torch.Tensor(groundtruth_test)
+			y_global     = torch.Tensor(target_test[traj_idx:traj_idx+1])
 			# Input: batch_sizex8x6 (**normalized**)
 			node_type = env.NodeType[0]
 			state     = {'position':['x','y'], 'velocity':['x','y'], 'acceleration':['x','y']}
 			_, std    = env.get_standardize_params(state, node_type)
 			std[0:2]  = env.attention_radius[(node_type, node_type)]
 			# Reference point: the last observed position, batch_size x 6
-			observations_reference       = np.zeros_like(observations_test[:,0])
-			observations_reference[:,0:2]= np.array(observations_test)[:,-1, 0:2]
+			observations_reference       = np.zeros_like(observations_test[traj_idx:traj_idx+1,0])
+			observations_reference[:,0:2]= np.array(observations_test)[traj_idx:traj_idx+1,-1, 0:2]
 			observations_reference       = np.expand_dims(observations_reference,axis=1)
 			# Normalize the inputs
-			input_x         = env.standardize(observations_test,state,node_type,mean=observations_reference,std=std)
-			input_x         = torch.tensor(input_x,dtype=torch.float).to(cfg.DEVICE)
+			input_x                      = env.standardize(observations_test[traj_idx:traj_idx+1],state,node_type,mean=observations_reference,std=std)
+			input_x                      = torch.tensor(input_x,dtype=torch.float).to(cfg.DEVICE)
 			# Neighbors
 			input_neighbors = {}
 			input_neighbors[(node_type,node_type)] = [[]]
@@ -133,19 +132,13 @@ if __name__ == '__main__':
 			input_adjacency = {}
 			input_adjacency[(node_type,node_type)] = [torch.tensor(np.ones(n_neighbors))]
 			# Sample a trajectory
-			prediction_goal_, prediction_trajectory_, _, dist_goal_, dist_traj_ = model(input_x,neighbors_st=input_neighbors,adjacency=input_adjacency,z_mode=False,cur_pos=X_global[:,-1,:2],
-							 first_history_indices=torch.tensor([0],dtype=int))
+			pred_goal_, pred_traj_, _, dist_goal_, dist_traj_ = model(input_x,neighbors_st=input_neighbors,adjacency=input_adjacency,z_mode=False,cur_pos=X_global[:,-1,:2],first_history_indices=torch.tensor([0],dtype=int))
 			# Transfer back to global coordinates
-			ret = post_process(cfg, X_global, y_global, prediction_trajectory_, pred_goal=prediction_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
-			X_global_, y_gget_testing_batch_bitraplobal_, prediction_goal_, prediction_trajectory_, dist_traj_, dist_goal_ = ret
-			predictions[:,ind,:,:]        = np.swapaxes(prediction_trajectory_[0,:,:,:], 0, 1)
-			observations[ind,:,:]         = observations_test[0,:,:2].numpy()
-			groundtruth[ind,:,:]          = groundtruth_test[0,:,:].numpy()
-			groundtruth_relative[ind,:,:] = groundtruth_test[0,:,:].numpy() - observations_test[0,-1,:2].numpy()
+			ret = post_process(cfg, X_global, y_global, pred_traj_, pred_goal=pred_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
+			X_global_, y_global_, pred_goal_, pred_traj_, dist_traj_, dist_goal_ = ret
 
-	# Testing
-	X_test            = np.concatenate([test_data[OBS_TRAJ],test_data[OBS_TRAJ_VEL],test_data[OBS_TRAJ_ACC]],axis=2)
-	test_data_bitrap  = traj_dataset_bitrap(X_test,test_data[OBS_NEIGHBORS],test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS])
+
+
 	frame_id, batch, test_bckgd = get_testing_batch_bitrap(test_data_bitrap,DATASETS_DIR[0]+SUBDATASETS_NAMES[0][args.id_test])
 	# Form batches
 	batched_test_data  = torch.utils.data.DataLoader(batch,batch_size=len(batch))
@@ -246,4 +239,39 @@ if __name__ == '__main__':
 			if world_samples.shape[1]>0:
 				# Plot the pdf
 				axs[0].imshow(transparency,alpha=np.sqrt(transparency),cmap=plt.cm.Greens_r,extent=[xmin, xmax, ymin, ymax])
+
+			# Testing/visualization **calibrated** KDE
+			# TODO: use the calibration
+			modified_alphas = alphas_samples
+			# modified_alphas = iso_inv.transform(alphas_samples)
+
+			# New values for f
+			fs_samples_new  = []
+			for alpha in modified_alphas:
+				fs_samples_new.append(get_falpha(sorted_samples,alpha))
+			fs_samples_new    = np.array(fs_samples_new)
+			importance_weights= fs_samples_new/fs_samples
+			kde               = st.gaussian_kde(world_samples,weights=importance_weights)
+			alphas_samples, fs_samples, sorted_samples = samples_to_alphas(kde,world_samples)
+			f_cal             = np.reshape(kde(np.transpose(world_grid)).T, xx.shape)
+			norm_f_cal        = np.rot90(f_cal)/np.max(f_unc)
+			transparency      = np.minimum(norm_f_cal,1.0)
+			# Visualization of the calibrated KDE
+			alphas = np.linspace(1.0,0.0,num=5,endpoint=False)
+			levels = []
+			for alpha in alphas:
+				level = get_falpha(sorted_samples,alpha)
+				levels.append(level)
+			cset = axs[1].contour(xx, yy, f_cal, colors='darkgreen',levels=levels[1:],linewidths=0.75)
+			cset.levels = np.array(alphas[1:])
+			axs[1].clabel(cset, cset.levels,fontsize=8)
+			axs[1].plot(observations[:,0],observations[:,1],color='blue')
+			axs[1].plot([observations[-1,0],groundtruth[0,0]],[observations[-1,1],groundtruth[0,1]],color='red')
+			axs[1].plot(groundtruth[:,0],groundtruth[:,1],color='red')
+			axs[1].imshow(test_bckgd)
+			axs[1].set_xlim(xmin,xmax)
+			axs[1].set_ylim(ymax,ymin)
+			axs[1].axes.xaxis.set_visible(False)
+			axs[1].axes.yaxis.set_visible(False)
+			axs[1].imshow(norm_f_cal,alpha=np.sqrt(transparency),cmap=plt.cm.Greens_r, extent=[xmin, xmax, ymin, ymax])
 			plt.show()
