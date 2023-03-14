@@ -23,6 +23,7 @@ import logging
 from utils.constants import DATASETS_DIR,SUBDATASETS_NAMES,FRAMES_IDS,OBS_TRAJ,PRED_TRAJ_VEL,OBS_TRAJ_VEL,OBS_TRAJ_ACC,OBS_NEIGHBORS,PRED_TRAJ,BITRAP
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world,world_to_image_xy
 from utils.hdr import get_alpha,get_falpha,sort_sample,samples_to_alphas
+from utils.calibration import generate_uncertainty_evaluation_dataset,regression_isotonic_fit,calibrate_and_test
 
 import argparse
 from configs import cfg
@@ -141,14 +142,15 @@ if __name__ == '__main__':
 			# Transfer back to global coordinates
 			ret = post_process(cfg, X_global, y_global, pred_traj_, pred_goal=pred_goal_, dist_traj=dist_traj_, dist_goal=dist_goal_)
 			X_global_, y_global_, pred_goal_, pred_traj_, dist_traj_, dist_goal_ = ret
-			pred_traj[:,ind,:,:] = np.swapaxes(pred_traj_[0,:,:,:], 0, 1)
-			obs_traj[ind,:,:]    = data_test[0,:,:2].numpy()
-			gt_traj[ind,:,:]     = target_test[0,:,:].numpy()
-			gt_traj_rel[ind,:,:] = target_test[0,:,:].numpy() - data_test[0,-1,:2].numpy()
+			pred_traj[:,batch_idx,:,:] = np.swapaxes(pred_traj_[0,:,:,:], 0, 1)
+			obs_traj[batch_idx,:,:]    = observations_test[0,:,:2].numpy()
+			gt_traj[batch_idx,:,:]     = target_test[0,:,:].numpy()
+			gt_traj_rel[batch_idx,:,:] = target_test[0,:,:].numpy() - observations_test[0,-1,:2].numpy()
 
 
 	# Uncertainty calibration
 	logging.info("Calibration at position: {}".format(11))
+	pred_traj= pred_traj[:,:,11,:]
 	conf_levels,cal_pcts,unc_pcts,__,__= calibrate_and_test(pred_traj,gt_traj,None,None,11,2,gaussian=(None,None))
 
 	# Isotonic regression: Gives a mapping from predicted alpha to corrected alpha
