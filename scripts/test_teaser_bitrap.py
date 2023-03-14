@@ -154,7 +154,7 @@ if __name__ == '__main__':
 	conf_levels,cal_pcts,unc_pcts,__,__= calibrate_and_test(pred_traj,gt_traj,None,None,11,2,gaussian=(None,None))
 
 	# Isotonic regression: Gives a mapping from predicted alpha to corrected alpha
-	#iso_reg, iso_inv = regression_isotonic_fit(predictions_calibration,gt_calibration,11,kde_size=1000,resample_size=100,sigmas_prediction=sigmas_calibration)
+	iso_reg, iso_inv = regression_isotonic_fit(pred_traj,gt_traj,11,kde_size=1000,resample_size=100,sigmas_prediction=None)
 
 
 	# Testing
@@ -261,8 +261,8 @@ if __name__ == '__main__':
 
 			# Testing/visualization **calibrated** KDE
 			# TODO: use the calibration
-			modified_alphas = alphas_samples
-			# modified_alphas = iso_inv.transform(alphas_samples)
+			#modified_alphas = alphas_samples
+			modified_alphas = iso_inv.transform(alphas_samples)
 
 			# New values for f
 			fs_samples_new  = []
