@@ -40,9 +40,9 @@ config_files = ["cfg/bitrap_np_hotel.yml","cfg/bitrap_np_eth.yml","cfg/bitrap_np
 if __name__ == '__main__':
 	parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
 	parser.add_argument('--gpu', default='0', type=str)
-	parser.add_argument('--seed', default=1, type=int)
+	parser.add_argument('--seed', default=2, type=int)
 	parser.add_argument('--id-test',
-						type=int, default=1, metavar='N',
+						type=int, default=4, metavar='N',
 						help='id of the dataset to use as test in LOO (default: 2)')
 	parser.add_argument('--batch-size', '--b',
 						type=int, default=256, metavar='N',
@@ -67,7 +67,7 @@ if __name__ == '__main__':
 
 	#### Data: our way
 	model_name = BITRAP
-
+	flipImage  = False
 	#### Data: BitTrap way
 	cfg.merge_from_file(config_files[args.id_test])
 	cfg.merge_from_list(args.opts)
@@ -217,10 +217,10 @@ if __name__ == '__main__':
 
 			# Testing/visualization uncalibrated KDE
 			image_grid      = np.vstack([xx.ravel(), yy.ravel()])
-			world_grid      = world_to_image_xy(np.transpose(image_grid),test_homography,flip=True)
+			world_grid      = world_to_image_xy(np.transpose(image_grid),test_homography,flip=flipImage)
 			# Prediction samples
 			world_samples   = np.vstack([xs, ys])
-			image_samples   = world_to_image_xy(np.transpose(world_samples),homography_to_img,flip=True)
+			image_samples   = world_to_image_xy(np.transpose(world_samples),homography_to_img,flip=flipImage)
 			if world_samples.shape[1]>0:
 				# Build a Kernel Density Estimator with these samples
 				kde             = st.gaussian_kde(world_samples)
@@ -241,13 +241,14 @@ if __name__ == '__main__':
 			figs, axs = plt.subplots(1,2,figsize=(24,12),constrained_layout = True)
 			axs[0].legend_ = None
 			axs[0].imshow(test_bckgd)
-			observations = world_to_image_xy(observations_test[traj_idx,:,:2], homography_to_img, flip=True)
-			groundtruth  = world_to_image_xy(target_test[traj_idx,:,:2], homography_to_img, flip=True)
+			observations = world_to_image_xy(observations_test[traj_idx,:,:2], homography_to_img, flip=flipImage)
+			groundtruth  = world_to_image_xy(target_test[traj_idx,:,:2], homography_to_img, flip=flipImage)
 			if world_samples.shape[1]>0:
 				# Contour plot
 				cset = axs[0].contour(xx, yy, f_unc, colors='darkgreen',levels=levels[1:],linewidths=0.75)
-				cset.levels = np.array(alphas[1:])
-				axs[0].clabel(cset, cset.levels,fontsize=8)
+				if len(cset.levels)>1:
+					cset.levels = np.array(alphas[1:])
+					axs[0].clabel(cset, cset.levels,fontsize=8)
 			axs[0].plot(observations[:,0],observations[:,1],color='blue')
 			axs[0].plot([observations[-1,0],groundtruth[0,0]],[observations[-1,1],groundtruth[0,1]],color='red')
 			axs[0].plot(groundtruth[:,0],groundtruth[:,1],color='red')
@@ -282,8 +283,9 @@ if __name__ == '__main__':
 				level = get_falpha(sorted_samples,alpha)
 				levels.append(level)
 			cset = axs[1].contour(xx, yy, f_cal, colors='darkgreen',levels=levels[1:],linewidths=0.75)
-			cset.levels = np.array(alphas[1:])
-			axs[1].clabel(cset, cset.levels,fontsize=8)
+			if len(cset.levels)>1:
+				cset.levels = np.array(alphas[1:])
+				axs[1].clabel(cset, cset.levels,fontsize=8)
 			axs[1].plot(observations[:,0],observations[:,1],color='blue')
 			axs[1].plot([observations[-1,0],groundtruth[0,0]],[observations[-1,1],groundtruth[0,1]],color='red')
 			axs[1].plot(groundtruth[:,0],groundtruth[:,1],color='red')
