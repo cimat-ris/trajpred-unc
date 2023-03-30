@@ -194,3 +194,44 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 	plt.xlabel("Epochs")
 	plt.ylabel("Loss")
 	plt.legend()
+
+	
+# Perform quantitative evaluation
+#def evaluation_minadefde(model,test_data,config):
+def evaluation_minadefde( model, tpred_samples, data_test, target_test, model_name=''):
+    l2dis = []
+    
+    print("----> tpred_samples.shape: ", tpred_samples.shape)
+    print("----> data_test.shape: ", data_test.shape)
+    print("----> target_test.shape: ", target_test.shape)
+    for i in range(tpred_samples.shape[1]): # se mueve en las trayectorias del batch
+        #normin = 1000.0
+        normin = 999999999999.0
+        diffmin= None
+        for k in range(tpred_samples.shape[0]): # se mueve en las muestrass
+            # Error for ade/fde
+            diff = target_test[i,:,:].detach().numpy() - (tpred_samples[k,i,:,:]+data_test[i,-1,:].detach().numpy())
+            #print(target_test[i,:,:].detach().numpy().shape)
+            #print(tpred_samples[k,i,:,:].shape)
+            #print(diff.shape)
+            #print("-------")
+            diff = diff**2
+            diff = np.sqrt(np.sum(diff, axis=1))
+            # To keep the min
+            if np.linalg.norm(diff)<normin:
+                normin  = np.linalg.norm(diff)
+                diffmin = diff
+        l2dis.append(diffmin)
+
+
+    ade = [t for o in l2dis for t in o] # average displacement
+    fde = [o[-1] for o in l2dis] # final displacement
+    results = [["mADE", "mFDE"], [np.mean(ade), np.mean(fde)]]
+    
+    output_csv_name = "images/calibration/" + model_name +"_min_ade_fde.csv"
+    df = pd.DataFrame(results)
+    df.to_csv(output_csv_name, mode='a', header=not os.path.exists(output_csv_name))
+    print(df)
+        
+    print(results)
+    return results	
