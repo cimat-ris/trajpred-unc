@@ -33,7 +33,7 @@ from utils.datasets_utils import get_dataset
 from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
 from utils.calibration import generate_uncertainty_evaluation_dataset
 from utils.calibration_utils import save_data_for_calibration
-from utils.train_utils import train
+from utils.train_utils import train, evaluation_minadefde
 from utils.config import get_config
 
 # Local constants
@@ -99,9 +99,10 @@ def main():
 	draw_ellipse = True
 
 	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
-
-	#---------------------------------------------------------------------------------------------------------------
+	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertancertainty_evaluation_dataset(batched_test_data, model, config.dropout_samples, model_name, config, device=device, type="dropout_gaussian")
+        print("tpred_samples_full.shape: ", tpred_samples_full.shape)
+        evaluation_minadefde( model, tpred_samples_full, data_test_full, target_test_full, "dropout_gaussian")
+        #---------------------------------------------------------------------------------------------------------------
 
 	# Testing
 	cont = 0
