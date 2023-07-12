@@ -87,7 +87,7 @@ if __name__ == '__main__':
 	##################################################################
 	# With our data (to show how to use BitTrap normalization)
 	# Load the dataset and perform the split
-	training_data, validation_data, testing_data, homography = setup_loo_experiment(DATASETS_DIR[0],SUBDATASETS_NAMES[0],2,experiment_parameters,pickle_dir='pickle',use_pickled_data=False, compute_neighbors=True)
+	training_data, validation_data, testing_data, homography = setup_loo_experiment(DATASETS_DIR[0],SUBDATASETS_NAMES[0],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False, compute_neighbors=True)
 	# Torch dataset
 	X_test            = np.concatenate([testing_data[OBS_TRAJ],testing_data[OBS_TRAJ_VEL],testing_data[OBS_TRAJ_ACC]],axis=2)
 	test_data         = traj_dataset_bitrap(X_test,testing_data[OBS_NEIGHBORS],testing_data[PRED_TRAJ])
@@ -148,4 +148,4 @@ if __name__ == '__main__':
 		targetrel_test     =  torch.tensor(gt_traj_rel[:args.batch_size,:,:])
 		targetrel_test_full=  torch.tensor(gt_traj_rel[args.batch_size:,:,:])
 		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[0][args.id_test])
-		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, None, None, args.id_test)
+		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, None, None, args.id_test)

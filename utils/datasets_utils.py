@@ -1,5 +1,6 @@
 import os
 import pickle
+import cv2
 import numpy as np
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
@@ -77,7 +78,10 @@ class traj_dataset_bitrap(Dataset):
 		# Access to elements
 		x = self.X_global[idx]
 		y = self.Y_global[idx]
-		n = self.neighbors[idx]
+		if isinstance(idx, int):
+			n = self.neighbors[idx]
+		else:
+			n = [self.neighbors[i] for i in idx]
 		return x, n, y
 
 def get_testing_batch_synthec(testing_data,testing_data_path):
@@ -438,3 +442,40 @@ def get_dataset(args):
 	batched_val_data   = torch.utils.data.DataLoader(val_data,batch_size=args.batch_size,shuffle=False)
 	batched_test_data  = torch.utils.data.DataLoader(test_data,batch_size=args.batch_size,shuffle=True)
 	return batched_train_data,batched_val_data,batched_test_data,homography,reference_image
+
+# Gets a testing batch of trajectories starting at the same frame (for visualization)
+def get_testing_batch(testing_data,testing_data_path):
+	# A trajectory id
+	randomtrajId     = np.random.randint(len(testing_data),size=1)[0]
+	# Last observed frame id for a random trajectory in the testing dataset
+	frame_id         = testing_data.Frame_Ids[randomtrajId][7]
+	idx              = np.where((testing_data.Frame_Ids[:,7]==frame_id))[0]
+	# Get the video corresponding to the testing
+	cap   = cv2.VideoCapture(testing_data_path+'/video.avi')
+	frame = 0
+	while(cap.isOpened()):
+		ret, test_bckgd = cap.read()
+		if frame == frame_id:
+			break
+		frame = frame + 1
+	# Form the batch
+	return frame_id, traj_dataset(*(testing_data[idx])), test_bckgd
+
+# Gets a testing batch of trajectories starting at the same frame (for visualization)
+def get_testing_batch_bitrap(testing_data,testing_data_path):
+	# A trajectory id
+	randomtrajId     = np.random.randint(len(testing_data),size=1)[0]
+	# Last observed frame id for a random trajectory in the testing dataset
+	frame_id         = testing_data.Frame_Ids[randomtrajId][7]
+	logging.info("Frame ID: {}".format(frame_id))
+	idx              = np.where((testing_data.Frame_Ids[:,7]==frame_id))[0]
+	# Get the video corresponding to the testing
+	cap   = cv2.VideoCapture(testing_data_path+'/video.avi')
+	frame = 0
+	while(cap.isOpened()):
+		ret, test_bckgd = cap.read()
+		if frame == frame_id:
+			break
+		frame = frame + 1
+	# Form the batch
+	return frame_id, traj_dataset_bitrap(*(testing_data[idx])), test_bckgd

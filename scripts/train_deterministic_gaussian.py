@@ -96,27 +96,27 @@ def main():
 		if batch_idx==config.examples-1:
 			break
 
-	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
+	#------------------ Generates testing sub-dataset for calibration evaluation ---------------------------
+	datarel_test, targetrel_test, data_test, target_test, tpred_samples_test, sigmas_samples_test = generate_uncertainty_evaluation_dataset(batched_test_data, model, 1, model_name, config, device=device)
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Producing data for uncertainty calibration
-	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
+	for batch_idx, (datarel_cal, targetrel_cal, data_cal, target_cal) in enumerate(batched_test_data):
 
-		tpred_samples  = []
-		sigmas_samples = []
+		tpred_samples_cal  = []
+		sigmas_samples_cal = []
 
 		if torch.cuda.is_available():
-			datarel_test  = datarel_test.to(device)
+			datarel_cal  = datarel_cal.to(device)
 
-		pred, sigmas = model.predict(datarel_test, dim_pred=12)
-		tpred_samples.append(pred)
-		sigmas_samples.append(sigmas)
-		tpred_samples = np.array(tpred_samples)
-		sigmas_samples = np.array(sigmas_samples)
+		pred, sigmas = model.predict(datarel_cal, dim_pred=12)
+		tpred_samples_cal.append(pred)
+		sigmas_samples_cal.append(sigmas)
+		tpred_samples_cal = np.array(tpred_samples_cal)
+		sigmas_samples_cal= np.array(sigmas_samples_cal)
 		# Save these testing data for uncertainty calibration
 		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])
-		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, targetrel_test, targetrel_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
+		save_data_for_calibration(pickle_filename, tpred_samples_cal, tpred_samples_test, data_cal, data_test, target_cal, target_test, sigmas_samples_cal, sigmas_samples_test, config.id_test)
 		# Only the first batch is used as the calibration dataset
 		break
 if __name__ == "__main__":

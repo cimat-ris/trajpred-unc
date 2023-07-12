@@ -4,8 +4,8 @@ description                  : AgentFormer (Before DLow)
 results_root_dir             : results
 seed                         : 1
 dataset                      : hotel
-data_root_ethucy             : datasets/eth_ucy
-data_root_nuscenes_pred      : datasets/nuscenes_pred
+data_root_ethucy             : ../AgentFormer/datasets/eth_ucy
+data_root_nuscenes_pred      : ../AgentFormer/datasets/nuscenes_pred
 
 # ------------------- Feature Extractor -------------------------
 
@@ -45,7 +45,7 @@ future_encoder:
 # ------------------- VAE-------------------------
 
 nz                           : 32
-sample_k                     : 20
+sample_k                     : 100
 learn_prior                  : true
 
 # ------------------- Training Parameters -------------------------
@@ -68,4 +68,3 @@ decay_step: 10
 decay_gamma: 0.5
 print_freq                   : 20
 model_save_freq              : 10
-

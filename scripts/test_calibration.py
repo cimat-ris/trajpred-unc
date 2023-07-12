@@ -12,7 +12,7 @@ sys.path.append('.')
 
 from utils.calibration_utils import get_data_for_calibration
 from utils.calibration import generate_metrics_calibration, generate_metrics_calibration_all
-from utils.constants import SUBDATASETS_NAMES, BITRAP, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
+from utils.constants import SUBDATASETS_NAMES, AGENTFORMER, BITRAP, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
 
 
 # Parser arguments
@@ -34,6 +34,7 @@ args = parser.parse_args()
 
 valid_test_names = {
 	"deterministicGaussian": DETERMINISTIC_GAUSSIAN,
+	"agentformer":           AGENTFORMER,
 	"ensembles":             ENSEMBLES,
 	"dropout":               DROPOUT,
 	"bitrap":                BITRAP,
@@ -63,11 +64,11 @@ def compute_calibration_metrics():
 	test_name = get_test_name()
 	logging.info('Uncertainty calibration with '+SUBDATASETS_NAMES[args.id_dataset][args.id_test]+' as test dataset')
 	# Load data for calibration compute
-	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,__,__,sigmas_samples,sigmas_samples_full,id_test = get_data_for_calibration(test_name)
+	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,sigmas_samples,sigmas_samples_full,id_test = get_data_for_calibration(test_name)
 
 	# Resampling parameter
 	kde_size      = 1500
-	resample_size =  200
+	resample_size = 1000
 
 	# Calibrate and evaluate metrics for the three methods, and for all positions
 	# 0: Conformal
