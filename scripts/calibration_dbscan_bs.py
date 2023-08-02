@@ -272,7 +272,8 @@ def get_alpha_calibration(predictions_calibration, groundtruth_calibration, alph
 				
 				if alpha_update > 1.0:
 					print("*** Truncando alpha a 1.0 ***")
-					return Pa_unc, Pa_hat, 1.0
+					return Pa_unc, list_Pa_hat[np.argmin(error_cal)], list_alpha_update[np.argmin(error_cal)]
+					#return Pa_unc, Pa_hat, 1.0
 			else:
 				# Si ya se cumplio detenemos la calibracion
 				print("*** Deteniendo calibracion ***")
@@ -288,14 +289,13 @@ def get_alpha_calibration(predictions_calibration, groundtruth_calibration, alph
 				
 				if alpha_update < 0.0:
 					print("*** Truncando alpha a 0.0 ***")
-					print('___')
-					print(error_cal)
-					print(list_alpha_update)
-					print(list_Pa_hat)
-					print(np.argmin(error_cal))
-					print(Pa_unc, list_Pa_hat[np.argmin(error_cal)], list_alpha_update[np.argmin(error_cal)])
+					#print('___')
+					#print(error_cal)
+					#print(list_alpha_update)
+					#print(list_Pa_hat)
+					#print(np.argmin(error_cal))
 					return Pa_unc, list_Pa_hat[np.argmin(error_cal)], list_alpha_update[np.argmin(error_cal)]
-					return Pa_unc, Pa_hat, 0.0
+					#return Pa_unc, Pa_hat, 0.0
 			else:
 				# Si ya se cumplio detenemos la calibracion
 				print("*** Deteniendo calibracion ***")
@@ -306,7 +306,91 @@ def get_alpha_calibration(predictions_calibration, groundtruth_calibration, alph
 		#break # Parar iteraciones de calibracion
 	print("Se salio del for por numero maximo de iteraciones..")
 	# Para el caso donde el gt no pertenezca al HDR
+	#return Pa_unc, list_Pa_hat[np.argmin(error_cal)], list_alpha_update[np.argmin(error_cal)]
 	return Pa_unc, 0.0, alpha_update
+
+def get_alpha_calibration_bs(predictions_calibration, groundtruth_calibration, alpha, alpha_step=0.01, join_positions=False):
+
+        # Inicializamos la variable iterativa
+        alpha_update = alpha
+        error_cal = []
+        list_alpha_update = []
+        list_Pa_hat = []
+                
+        # Iteramos el ciclo de calibracion
+        for it in range(int(1/alpha_step)):
+                
+                # --------------------------------------------------------------------------
+                pa = []
+                # Recorremos todas las trayectorias del dataset
+                for i in range(predictions_calibration.shape[1]):
+                                
+                        # Procesamos de acuerdo a la dimension de los datos a considerar
+                        if join_positions:
+                                # Consideramos una dimensión de num_positions*axis_coord
+                                dim1, dim2, dim3, dim4 = predictions_calibration.shape
+                                X = predictions_calibration.reshape(dim1,dim2,dim3*dim4)
+                                y = groundtruth_calibration.reshape(dim2,dim3*dim4)
+                                #print("New dim for dbscan: ", X.shape)
+                                        
+                                # Clusterizamos con dbscan
+                                #comp, core_samples_mask, hdr_samples_mask = calib_dbscan(X[:,i,:], gt=y[i,:], alpha=alpha_update)
+                                comp, core_samples_mask, hdr_samples_mask = calib_dbscan_binsearch(X[:,i,:], gt=y[i,:], alpha=alpha_update)
+                        else:
+                                # Consideramos una posición de 2 dimensiones para una posicion de la trayectoria
+                                # Clusterizamos con dbscan
+                                #comp, core_samples_mask, hdr_samples_mask = calib_dbscan(predictions_calibration[:,i,-1,:], gt=groundtruth_calibration[i,-1,:], alpha=alpha_update)
+                                comp, core_samples_mask, hdr_samples_mask = calib_dbscan_binsearch(predictions_calibration[:,i,-1,:], gt=groundtruth_calibration[i,-1,:], alpha=alpha_update)
+			
+			# Guardamos el resultado de comparar el gt con el HDR
+                        pa.append(comp)
+
+		# Estimamos la probabilidad empirica
+                Pa_hat = np.mean(pa)
+                error_cal.append(np.abs(Pa_hat-alpha))
+                list_Pa_hat.append(Pa_hat)
+                list_alpha_update.append(alpha_update)
+
+                print("-------->")
+                print(pa)
+                print(it, alpha, Pa_hat, np.sum(pa), len(pa), alpha_step, alpha_update)
+                        
+		# Verificamos el tipo de estimacion de la probabilidad empirica
+                if it == 0:
+                        Pa_unc = Pa_hat
+                                
+                        if Pa_hat == alpha:
+                                print("*** Deteniendo calibracion ***")
+                                print('El alpha ya estaba calibrado: ', alpha_update)
+                                return Pa_unc, Pa_hat, alpha_update
+                                
+                        elif Pa_hat < alpha:
+                                band = 'under'
+                                a_min = alpha_update
+                                a_max = 0.99
+                                alpha_update = 0.5*(a_min+a_max)
+                        else:
+                                band = 'over'
+                                a_min = 0.01
+                                a_max = alpha_update
+                                alpha_update = 0.5*(a_min+a_max)
+                else:
+                        print('error: ', np.abs(Pa_hat-alpha), a_min, a_max)
+                        if np.abs(Pa_hat-alpha) < 0.001 or a_max-a_min< 0.001:
+                                print("*** Deteniendo calibracion ***")
+                                print('Calibrando a alpha_update: ', alpha_update)
+                                return Pa_unc, Pa_hat, alpha_update
+                        elif Pa_hat < alpha:
+                                a_min = alpha_update
+                        else:
+                                a_max = alpha_update
+
+                # Actualizamos la variable
+                alpha_update = 0.5*(a_min+a_max)
+
+        print("!!!Saliendo del ciclo....")
+
+
 
 def load_data_synthetic():
 	# Cargamos los datos sinteticos
@@ -339,7 +423,7 @@ def get_curve_calibration(predictions_calibration, groundtruth_calibration, alph
 		print("Calibrando alpha: ", alpha)
 		
 		# Calibramos con el alpha inicial
-		Pa_unc, Pa_cal, alpha_new = get_alpha_calibration(predictions_calibration, groundtruth_calibration, alpha, alpha_step=alpha_step, join_positions=join_positions)
+		Pa_unc, Pa_cal, alpha_new = get_alpha_calibration_bs(predictions_calibration, groundtruth_calibration, alpha, alpha_step=alpha_step, join_positions=join_positions)
 		
 		cal_pcts.append(Pa_cal)
 		unc_pcts.append(Pa_unc)
@@ -452,7 +536,7 @@ def compute_calibration_database(join_positions=False, alpha_step=0.01):
 	#	calib_dbscan(predictions_test[:,0,-1,:])
 	
 	# Obtenemos los vectores para generar la curva de calibracion
-	conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_only=0.75, alpha_step=0.01, join_positions=join_positions)
+	conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_only=0.05, alpha_step=0.01, join_positions=join_positions)
 	#conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_step=0.01, join_positions=join_positions)
 	 
 	print(conf_levels)
