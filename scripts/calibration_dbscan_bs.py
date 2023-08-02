@@ -127,7 +127,7 @@ def calib_dbscan(X, gt=None, iter_max=1000, alpha=0.85, min_samples=10, TOL=5):
 
 
 
-def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.001):
+def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.0001):
 #def calib_dbscan(X, gt=None, alpha=0.85, min_samples=10, TOL=0.001):
 	step = 10
 	delta_epsilon = TOL
@@ -136,11 +136,12 @@ def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.001):
 		
 	#print("In calib_dbscan: ", X.shape)
 	n_samples = X.shape[0]
-	min_samples = int(n_samples*alpha)
-	print('-- BIN SEARCH --')
-	print('n_samples: ', n_samples)
-	print('alpha: ', alpha)
-	print('min_samples: ', min_samples)
+	#min_samples = int(n_samples*alpha)
+	min_samples = n_samples//20
+#	print('-- BIN SEARCH --')
+#	print('n_samples: ', n_samples)
+#	print('alpha: ', alpha)
+#	print('min_samples: ', min_samples)
 	
 	scaler = StandardScaler()
 	X = scaler.fit_transform(X)
@@ -174,12 +175,12 @@ def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.001):
 	hdr_samples_mask = np.zeros_like(labels, dtype=bool)
 	hdr_samples_mask[db.labels_ !=-1 ] = True
 
-	print("---> ", epsilon)
-	print("Estimated number of clusters: %d" % n_clusters_)
-	print("Estimated number of noise points: %d" % n_outs_)
-	print("Estimated number of points in cluster: ", n_samples-n_outs_)
-	print(alpha, 1.0-n_outs_/n_samples)
-	print("paro: {}".format((1-alpha)*n_samples))
+#	print("---> ", epsilon)
+#	print("Estimated number of clusters: %d" % n_clusters_)
+#	print("Estimated number of noise points: %d" % n_outs_)
+#	print("Estimated number of points in cluster: ", n_samples-n_outs_)
+#	print(alpha, 1.0-n_outs_/n_samples)
+#	print("paro: {}".format((1-alpha)*n_samples))
 	
 	# Evaluamos si el gt pertenece al HDR
 	if not gt is None:
@@ -208,6 +209,7 @@ def get_alpha_calibration(predictions_calibration, groundtruth_calibration, alph
 	alpha_update = alpha
 	error_cal = []
 	list_alpha_update = []
+	list_Pa_hat = []
 		
 	# Iteramos el ciclo de calibracion
 	for it in range(int(1/alpha_step)):
@@ -226,13 +228,13 @@ def get_alpha_calibration(predictions_calibration, groundtruth_calibration, alph
 				#print("New dim for dbscan: ", X.shape)
 					
 				# Clusterizamos con dbscan
-				comp, core_samples_mask, hdr_samples_mask = calib_dbscan(X[:,i,:], gt=y[i,:], alpha=alpha_update)
+				#comp, core_samples_mask, hdr_samples_mask = calib_dbscan(X[:,i,:], gt=y[i,:], alpha=alpha_update)
+				comp, core_samples_mask, hdr_samples_mask = calib_dbscan_binsearch(X[:,i,:], gt=y[i,:], alpha=alpha_update)
 			else:
 				# Consideramos una posición de 2 dimensiones para una posicion de la trayectoria
 				# Clusterizamos con dbscan
-				comp, core_samples_mask, hdr_samples_mask = calib_dbscan(predictions_calibration[:,i,-1,:], gt=groundtruth_calibration[i,-1,:], alpha=alpha_update)
+				#comp, core_samples_mask, hdr_samples_mask = calib_dbscan(predictions_calibration[:,i,-1,:], gt=groundtruth_calibration[i,-1,:], alpha=alpha_update)
 				comp, core_samples_mask, hdr_samples_mask = calib_dbscan_binsearch(predictions_calibration[:,i,-1,:], gt=groundtruth_calibration[i,-1,:], alpha=alpha_update)
-				aaaaaaa
 					
 			# Guardamos el resultado de comparar el gt con el HDR
 			pa.append(comp)
@@ -240,6 +242,7 @@ def get_alpha_calibration(predictions_calibration, groundtruth_calibration, alph
 		# Estimamos la probabilidad empirica
 		Pa_hat = np.mean(pa)
 		error_cal.append(np.abs(Pa_hat-alpha))
+		list_Pa_hat.append(Pa_hat)
 		list_alpha_update.append(alpha_update)
 
 		print("-------->")
@@ -285,7 +288,13 @@ def get_alpha_calibration(predictions_calibration, groundtruth_calibration, alph
 				
 				if alpha_update < 0.0:
 					print("*** Truncando alpha a 0.0 ***")
-					return Pa_unc, error_cal[np.argmax(error_cal)], list_alpha_update[np.argmax(error_cal)]
+					print('___')
+					print(error_cal)
+					print(list_alpha_update)
+					print(list_Pa_hat)
+					print(np.argmin(error_cal))
+					print(Pa_unc, list_Pa_hat[np.argmin(error_cal)], list_alpha_update[np.argmin(error_cal)])
+					return Pa_unc, list_Pa_hat[np.argmin(error_cal)], list_alpha_update[np.argmin(error_cal)]
 					return Pa_unc, Pa_hat, 0.0
 			else:
 				# Si ya se cumplio detenemos la calibracion
@@ -353,7 +362,7 @@ def get_curve_calibration_test(predictions_test, groundtruth_test, conf_levels, 
 		# Recorremos todas las trayectorias del dataset
 		for i in range(predictions_test.shape[1]):
 				
-			print("**- ", k, i, conf_levels[k], alpha_cal[k])
+			#print("**- ", k, i, conf_levels[k], alpha_cal[k])
 			# Procesamos de acuerdo a la dimension de los datos a considerar
 			if join_positions:
 				# Consideramos una dimensión de num_positions*axis_coord
@@ -363,13 +372,17 @@ def get_curve_calibration_test(predictions_test, groundtruth_test, conf_levels, 
 				#print("New dim for dbscan: ", X.shape)
 					
 				# Clusterizamos con dbscan
-				comp_unc, _, _ = calib_dbscan(X[:,i,:], gt=y[i,:], alpha=conf_levels[k])
-				comp_cal, _, _ = calib_dbscan(X[:,i,:], gt=y[i,:], alpha=alpha_cal[k])
+				#comp_unc, _, _ = calib_dbscan(X[:,i,:], gt=y[i,:], alpha=conf_levels[k])
+				#comp_cal, _, _ = calib_dbscan(X[:,i,:], gt=y[i,:], alpha=alpha_cal[k])
+				comp_unc, _, _ = calib_dbscan_binsearch(X[:,i,:], gt=y[i,:], alpha=conf_levels[k])
+				comp_cal, _, _ = calib_dbscan_binsearch(X[:,i,:], gt=y[i,:], alpha=alpha_cal[k])
 			else:
 				# Consideramos una posición de 2 dimensiones para una posicion de la trayectoria
 				# Clusterizamos con dbscan
-				comp_unc, _, _ = calib_dbscan(predictions_test[:,i,-1,:], gt=groundtruth_test[i,-1,:], alpha=conf_levels[k])
-				comp_cal, _, _ = calib_dbscan(predictions_test[:,i,-1,:], gt=groundtruth_test[i,-1,:], alpha=alpha_cal[k])
+				#comp_unc, _, _ = calib_dbscan(predictions_test[:,i,-1,:], gt=groundtruth_test[i,-1,:], alpha=conf_levels[k])
+				#comp_cal, _, _ = calib_dbscan(predictions_test[:,i,-1,:], gt=groundtruth_test[i,-1,:], alpha=alpha_cal[k])
+				comp_unc, _, _ = calib_dbscan_binsearch(predictions_test[:,i,-1,:], gt=groundtruth_test[i,-1,:], alpha=conf_levels[k])
+				comp_cal, _, _ = calib_dbscan_binsearch(predictions_test[:,i,-1,:], gt=groundtruth_test[i,-1,:], alpha=alpha_cal[k])
 					
 			# Guardamos el resultado de comparar el gt con el HDR
 			pa_unc.append(comp_unc)
@@ -439,8 +452,8 @@ def compute_calibration_database(join_positions=False, alpha_step=0.01):
 	#	calib_dbscan(predictions_test[:,0,-1,:])
 	
 	# Obtenemos los vectores para generar la curva de calibracion
-	conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_only=0.05, alpha_step=0.01, join_positions=join_positions)
-	#conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_step=0.05, join_positions=join_positions)
+	conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_only=0.75, alpha_step=0.01, join_positions=join_positions)
+	#conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_step=0.01, join_positions=join_positions)
 	 
 	print(conf_levels)
 	print(cal_pcts)
@@ -450,13 +463,17 @@ def compute_calibration_database(join_positions=False, alpha_step=0.01):
 	# Calibramos el conjunto de test
 	unc_pcts_test, cal_pcts_test = get_curve_calibration_test(predictions_test, groundtruth_test, conf_levels, alpha_cal, join_positions=join_positions)
 	
-	print(conf_levels)
-	print(cal_pcts)
-	print(unc_pcts)
-	print(alpha_cal)
+	print(cal_pcts_test)
+	print(unc_pcts_test)
 	
 	metrics_cal  = [["","MACE","RMSCE","MA"]]
 	metrics_test = [["","MACE","RMSCE","MA"]]
+
+	conf_levels = np.array(conf_levels)
+	unc_pcts = np.array(unc_pcts)
+	cal_pcts = np.array(cal_pcts)
+	unc_pcts_test = np.array(unc_pcts_test)
+	cal_pcts_test = np.array(cal_pcts_test)
 	
 	# Evaluate metrics before/after calibration
 	compute_calibration_metrics(conf_levels, unc_pcts, metrics_cal, 11, "Before Recalibration")
