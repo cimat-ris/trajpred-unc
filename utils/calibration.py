@@ -236,7 +236,7 @@ def regression_isotonic_fit(predictions_calibration,gt_calibration,position, kde
 			__,f_gt0,f_samples,__ = evaluate_kde(predictions_calibration[:,k,:],sigmas_prediction[:,k,position,:],gt_calibration[k, position, :],kde_size,resample_size)
 		else:
 			# Evaluate the GT over the KDE
-			__,f_gt0,f_samples,__ = evaluate_kde(predictions_calibration[:,k,:],[None,None],gt_calibration[k,position,:],kde_size,resample_size)
+			__,f_gt0,f_samples,__ = evaluate_kde(predictions_calibration[:,k,:],None,gt_calibration[k,position,:],kde_size,resample_size)
 		# Deduce predicted alpha
 		predicted_hdr.append(get_alpha(f_samples,f_gt0))
 
@@ -529,12 +529,12 @@ def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_te
 			cal_pcts0.append(0.0)
 			unc_pcts_test0.append(0.0)
 			cal_pcts_test0.append(0.0)
-			
+
 			unc_pcts1.append(0.0)
 			cal_pcts1.append(0.0)
 			unc_pcts_test1.append(0.0)
 			cal_pcts_test1.append(0.0)
-			
+
 			unc_pcts2.append(0.0)
 			cal_pcts2.append(0.0)
 			unc_pcts_test2.append(0.0)
@@ -545,18 +545,18 @@ def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_te
 			cal_pcts0.append(1.0)
 			unc_pcts_test0.append(1.0)
 			cal_pcts_test0.append(1.0)
-			
+
 			unc_pcts1.append(1.0)
 			cal_pcts1.append(1.0)
 			unc_pcts_test1.append(1.0)
 			cal_pcts_test1.append(1.0)
-			
+
 			unc_pcts2.append(1.0)
 			cal_pcts2.append(1.0)
 			unc_pcts_test2.append(1.0)
 			cal_pcts_test2.append(1.0)
 			continue
-			
+
 		# ------------------------------------------------------------
 		f_density_max = []
 		f_density_max_test = []
