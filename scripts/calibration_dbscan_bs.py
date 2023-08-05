@@ -3,6 +3,7 @@ import logging, sys, random
 import numpy as np
 import torch
 import os
+import time
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import DBSCAN
@@ -127,7 +128,8 @@ def calib_dbscan(X, gt=None, iter_max=1000, alpha=0.85, min_samples=10, TOL=5):
 
 
 
-def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.0001):
+#def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.0001):
+def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.01):
 #def calib_dbscan(X, gt=None, alpha=0.85, min_samples=10, TOL=0.001):
 	step = 10
 	delta_epsilon = TOL
@@ -137,18 +139,25 @@ def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.0001):
 	#print("In calib_dbscan: ", X.shape)
 	n_samples = X.shape[0]
 	#min_samples = int(n_samples*alpha)
-	min_samples = n_samples//20
+	#min_samples = n_samples//20
+	min_samples = n_samples//25
+
 #	print('-- BIN SEARCH --')
 #	print('n_samples: ', n_samples)
 #	print('alpha: ', alpha)
 #	print('min_samples: ', min_samples)
 	
+
+	if alpha == 0:
+		return False, [], []
+
 	scaler = StandardScaler()
 	X = scaler.fit_transform(X)
 
 	# Binary search version
 	n_outs_ = n_samples
-	while (abs(n_outs_-(1.0-alpha)*n_samples)>delta_epsilon and epsilon_max-epsilon_min>delta_epsilon):
+#	while (abs(n_outs_-(1.0-alpha)*n_samples)>delta_epsilon and epsilon_max-epsilon_min>delta_epsilon):
+	while (abs(alpha-(1.0-n_outs_/n_samples))>delta_epsilon and epsilon_max-epsilon_min>delta_epsilon):
 		epsilon= 0.5*(epsilon_min+epsilon_max)
 		db     = DBSCAN(eps=epsilon, min_samples=min_samples).fit(X)
 		labels = db.labels_
@@ -168,6 +177,8 @@ def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.0001):
 			if (n_outs_>(1.0-alpha)*n_samples):
 				epsilon_min = epsilon
 
+#		print(abs(alpha-(1.0-n_outs_/n_samples))>delta_epsilon and epsilon_max-epsilon_min>delta_epsilon, abs(alpha-(1.0-n_outs_/n_samples))>delta_epsilon, abs(alpha-(1.0-n_outs_/n_samples)),delta_epsilon, alpha, 1.0-n_outs_/n_samples)
+
 	unique_labels = set(labels)
 	core_samples_mask = np.zeros_like(labels, dtype=bool)
 	core_samples_mask[db.core_sample_indices_] = True
@@ -181,7 +192,8 @@ def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.0001):
 #	print("Estimated number of points in cluster: ", n_samples-n_outs_)
 #	print(alpha, 1.0-n_outs_/n_samples)
 #	print("paro: {}".format((1-alpha)*n_samples))
-	
+#	aaaaaa
+
 	# Evaluamos si el gt pertenece al HDR
 	if not gt is None:
 		# Aplicamos la misma normalizacion que en el dbscan
@@ -193,7 +205,7 @@ def calib_dbscan_binsearch(X, gt=None, alpha=0.85, min_samples=10, TOL=0.0001):
 		error = np.sqrt(np.sum(error**2, axis=1))
 		
 		# Verificamos si el punto esta dentro del HDR
-		comp = np.sum(error < epsilon) > 0
+		comp = np.sum(error < epsilon) > 9 #0
 		#print(comp)
 		#if comp:
 		#	aaaaaa
@@ -322,6 +334,7 @@ def get_alpha_calibration_bs(predictions_calibration, groundtruth_calibration, a
                 
                 # --------------------------------------------------------------------------
                 pa = []
+                
                 # Recorremos todas las trayectorias del dataset
                 for i in range(predictions_calibration.shape[1]):
                                 
@@ -352,12 +365,14 @@ def get_alpha_calibration_bs(predictions_calibration, groundtruth_calibration, a
                 list_alpha_update.append(alpha_update)
 
                 print("-------->")
-                print(pa)
+#                print(pa)
                 print(it, alpha, Pa_hat, np.sum(pa), len(pa), alpha_step, alpha_update)
                         
 		# Verificamos el tipo de estimacion de la probabilidad empirica
                 if it == 0:
                         Pa_unc = Pa_hat
+                        print("Pa_unc: ", Pa_hat)
+#                        aaaaa
                                 
                         if Pa_hat == alpha:
                                 print("*** Deteniendo calibracion ***")
@@ -519,6 +534,13 @@ def compute_calibration_database(join_positions=False, alpha_step=0.01):
 	#predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,__,__,sigmas_samples,sigmas_samples_full,id_test = get_data_for_calibration(test_name)
 	predictions_calibration, predictions_test, observations_calibration, observations_test, groundtruth_calibration, groundtruth_test, sigmas_samples, sigmas_samples_full, id_test = get_data_for_calibration(test_name)
 
+	predictions_calibration = np.concatenate( [predictions_calibration, predictions_test[:,:1024,:,:] ], axis=1)
+	observations_calibration = np.concatenate( [observations_calibration, observations_test[:1024,:,:] ], axis=0)
+	groundtruth_calibration = np.concatenate( [groundtruth_calibration, groundtruth_test[:1024,:,:] ], axis=0)
+	predictions_test = predictions_test[:,1024:,:,:]
+	observations_test = observations_test[1024:,:,:]
+	groundtruth_test = groundtruth_test[1024:,:,:]
+
 	print(predictions_calibration.shape)
 	print(predictions_test.shape)
 	print(observations_calibration.shape)
@@ -535,10 +557,14 @@ def compute_calibration_database(join_positions=False, alpha_step=0.01):
 	#	#print(i, "------------------")
 	#	calib_dbscan(predictions_test[:,0,-1,:])
 	
+
+	begin_time = time.time()
 	# Obtenemos los vectores para generar la curva de calibracion
-	conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_only=0.05, alpha_step=0.01, join_positions=join_positions)
-	#conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_step=0.01, join_positions=join_positions)
-	 
+#	conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_only=0.5, alpha_step=0.01, join_positions=join_positions)
+	conf_levels, unc_pcts, cal_pcts, alpha_cal = get_curve_calibration(predictions_calibration, groundtruth_calibration, alpha_step=0.01, join_positions=join_positions)
+	end_time = time.time()
+	print('tiempo de calibracion: ', end_time-begin_time)
+
 	print(conf_levels)
 	print(cal_pcts)
 	print(unc_pcts)

@@ -3,8 +3,8 @@ import os
 import sys
 
 sys.path.append(os.path.realpath('.'))
-sys.path.append('../bidireaction-trajectory-prediction/')
-sys.path.append('../bidireaction-trajectory-prediction/datasets')
+sys.path.append('./bidireaction-trajectory-prediction/')
+sys.path.append('./bidireaction-trajectory-prediction/datasets')
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
@@ -81,7 +81,7 @@ if __name__ == '__main__':
 	   logging.info(colored('Loaded checkpoint:{}'.format(cfg.CKPT_DIR), 'blue', 'on_green'))
 	else:
 	   logging.info(colored('The cfg.CKPT_DIR id not a file: {}'.format(cfg.CKPT_DIR), 'green', 'on_red'))
-	model.K = 100
+	model.K = 1000 #100
 
 
 	##################################################################
