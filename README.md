@@ -7,29 +7,29 @@
 To train a simple deterministic model:
 
 ```
-python tests/train_deterministic.py
+python scripts/train_deterministic.py
 ```
 
 To train a simple deterministic model with variances as output (DG):
 
 ```
- python tests/train_deterministic_gaussian.py
+ python scripts/train_deterministic_gaussian.py
 ```
 
 To train a model made of an ensemble of DGs (DGE):
 
 ```
-python tests/train_ensembles.py
+python scripts/train_ensembles.py
 ```
 
 To train a deterministic model with dropout at inference (DD):
 ```
-python tests/train_dropout.py
+python scripts/train_dropout.py
 ```
 
 To train a deterministic-variational model (DV):
 ```
-python tests/train_variational.py
+python scripts/train_variational.py
 ```
 
 
@@ -38,7 +38,7 @@ python tests/train_variational.py
 With any of the training scripts above, you can use the '--no-retrain' option to produce testing results
 
 ```
-python tests/train_ensembles.py --no-retrain --pickle  --examples 10
+python scripts/train_ensembles.py --no-retrain --pickle  --examples 10
 ```
 
 ## Calibration: a postprocess step
@@ -47,10 +47,10 @@ After a model is trained, it saves it's results in a `pickle` file, then the cal
 
 ```
 # training the desired model
-$ python tests/train_torch_deterministic_gaussian.py --pickle --no-retrain
+$ python scripts/train_torch_deterministic_gaussian.py --pickle --no-retrain
 
 # calibration postprocess
-$ python tests/test_calibration.py --test-name="deterministicGaussian" --gaussian-isotonic
+$ python scripts/test_calibration.py --test-name="deterministicGaussian" --gaussian-isotonic
 ... alphas computation prints ...
 Before Recalibration:  MACE: 0.21261, RMSCE: 0.25398, MA: 0.22324
 After Recalibration:   MACE: 0.00417, RMSCE: 0.00511, MA: 0.00381
@@ -75,7 +75,7 @@ The `test_calibration.py` script uses Isotonic regression to compute the calibra
 * Modify *bitrap_np_ETH.yml* lines 30 and set the path to where the .json file is located. You may also change BATCH_SIZE or NUM_WORKERS   
 * To train bitrap, run
 ```
-python tests/train_bitrap.py --config_file bitrap_np_ETH.yml --seed n
+python scripts/train_bitrap.py --config_file bitrap_np_ETH.yml --seed n
 ```
 By changing the seed, you will be building different models for an ensemble.
 
