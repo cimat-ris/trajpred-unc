@@ -131,17 +131,18 @@ class lstm_encdec_gaussian(nn.Module):
         sigma_traj= self.dt*self.dt*torch.cumsum(torch.cat(sigma_vels, dim=1), dim=1).detach().cpu().numpy()
         return pred_traj,sigma_traj
 
-# A simple encoder-decoder network for HTP
+# A simple LSTM-based encoder-decoder network for HTP
 class lstm_encdec(nn.Module):
-    def __init__(self, in_size, embedding_dim, hidden_dim, output_size):
+    def __init__(self,config):
         super(lstm_encdec, self).__init__()
         # Layers
-        self.embedding = nn.Linear(in_size, embedding_dim)
-        self.drop1     = nn.Dropout(p=0.4)
-        self.lstm1     = nn.LSTM(embedding_dim, hidden_dim)
-        self.lstm2     = nn.LSTM(embedding_dim, hidden_dim)
-        self.drop2     = nn.Dropout(p=0.4)
-        self.decoder   = nn.Linear(hidden_dim, output_size)
+        self.embedding  = nn.Linear(config["input_dim"], config["embedding_dim"])
+        self.drop_past  = nn.Dropout(p=config["dropout_rate"])
+        self.lstm_past  = nn.LSTM(config["input_dim"],config["hidden_dim"],num_layers=config["num_layers"])
+        self.lstm_future= nn.LSTM(config["embedding_dim"],config["hidden_dim"],num_layers=config["num_layers"])
+        self.drop_future= nn.Dropout(p=config["dropout_rate"])
+        self.decoder    = nn.Linear(config["hidden_dim"],config["output_dim"])
+        self.nl         = nn.SiLU()
         # Loss function
         self.loss_fun  = nn.MSELoss()
         self.dt        = 0.4
@@ -149,21 +150,19 @@ class lstm_encdec(nn.Module):
     # Encoding of the past trajectory data
     def encode(self, V):
         # Last spatial data
-        v_last = V[:,-1,:].view(len(V), 1, -1)
-        # Embedding spatial data
-        emb = self.drop1(self.embedding(V))
+        v_last = V[:,-1:,:]
         # LSTM for batch [seq_len, batch, input_size]
-        lstm_out, hidden_state = self.lstm1(emb.permute(1,0,2))
+        __, hidden_state = self.lstm_past(V.permute(1,0,2))
         return v_last,hidden_state
 
     # Decoding the next future displacements
     def decode(self, v_last, hidden_state):
         # Embedding last spatial data
-        emb_last = self.embedding(v_last)
+        emb_last = self.nl(self.embedding(v_last))
         # lstm for last spatial data with hidden states from batch
-        lstm_out, hidden_state = self.lstm2(emb_last.permute(1,0,2), hidden_state)
+        __, hidden_state = self.lstm_future(emb_last.permute(1,0,2), hidden_state)
         # Decoder and Prediction
-        dec = self.decoder(self.drop2(hidden_state[0].permute(1,0,2)))
+        dec = self.decoder(self.drop_future(self.nl(hidden_state[0][-1:].permute(1,0,2))))
         # Model evaluates deviation to the linear model
         t_pred = dec + v_last
         return t_pred,hidden_state
@@ -171,7 +170,7 @@ class lstm_encdec(nn.Module):
     def forward(self,obs_vels,target_vels,obs_abs,target_abs,teacher_forcing=False):
         # Encode the past trajectory (sequence of velocities)
         last_vel,hidden_state = self.encode(obs_vels)
-        loss        = 0
+        loss      = 0
         pred_vels = []
         # Decode the future trajectories
         for i, target_vel in enumerate(target_vels.permute(1,0,2)):
@@ -198,7 +197,6 @@ class lstm_encdec(nn.Module):
         # Encode the past trajectory (sequence of velocities)
         last_vel,hidden_state = self.encode(obs_vels)
         pred_vels  = []
-
         for i in range(dim_pred):
             # Decode last velocity and hidden state into new position
             pred_vel,hidden_state = self.decode(last_vel,hidden_state)
@@ -206,6 +204,5 @@ class lstm_encdec(nn.Module):
             pred_vels.append(pred_vel)
             # Update the last velocity
             last_vel = pred_vel
-
         # Sum the displacements to get the relative trajectory
         return self.dt*torch.cumsum(torch.cat(pred_vels, dim=1), dim=1).detach().cpu().numpy()
