@@ -18,73 +18,60 @@ import torch
 from torchvision import transforms
 import torch.optim as optim
 
-# Local models
-from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset
-from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.directory_utils import mkdir_p
-import torch.optim as optim
-
 # Local constants
 from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Function to train the models
 # ind is the ensemble id in the case we use an ensemble (otherwise, it is equal to zero)
-def train(model,device,ensemble_id,train_data,val_data,args,model_name):
+def train(model,device,ensemble_id,train_data,val_data,config):
+	# Model name
+	model_name = config["train"]["model_name"].format(SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]],ensemble_id)
 	# Optimizer
-	optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.003)
+	optimizer = optim.Adam(model.parameters(),lr=config["train"]["initial_lr"],weight_decay=0.003)
 	list_loss_train = []
 	list_loss_val   = []
 	min_val_error   = 1000.0
-	for epoch in range(args.epochs):
+	for epoch in range(config["train"]["epochs"]):
 		# Training
-		logging.info("----- ")
-		logging.info("Epoch: {}".format(epoch))
-		error = 0
-		total = 0
+		error = total = 0
 		model.train()
-		# Recorremos cada batch
-		for batch_idx, (observations_vel, target_vel, observations_abs , target_abs) in enumerate(train_data):
+		# Cycle over batches
+		for __, (observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(train_data):
 			# Remember that Pytorch accumulates gradients.
 			# We need to clear them out before each instance
 			model.zero_grad()
 			if torch.cuda.is_available():
-			  observations_vel = observations_vel.to(device)
-			  target_vel       = target_vel.to(device)
-			  observations_abs = observations_abs.to(device)
-			  target_abs       = target_abs.to(device)
+				observations_vel = observations_vel.to(device)
+				target_vel       = target_vel.to(device)
+				observations_abs = observations_abs.to(device)
+				target_abs       = target_abs.to(device)
 
 			# Run our forward pass and compute the loss
-			loss   = model(observations_vel, target_vel, observations_abs , target_abs, teacher_forcing=args.teacher_forcing)
+			loss   = model(observations_vel, target_vel, observations_abs , target_abs, teacher_forcing=config["train"]["teacher_forcing"])
 			error += loss.detach().cpu().numpy()
 			total += len(target_vel)
 
 			# Step 3. Compute the gradients, and update the parameters by
 			loss.backward()
 			optimizer.step()
-		logging.info("Trn loss: {:9.4f}".format(error/total))
 		list_loss_train.append(error/total)
 
 		# Validation
-		error = 0
-		total = 0
-		ade   = 0
-		fde   = 0
+		error = total = ade = fde = 0
 		model.eval()
 		with torch.no_grad():
-			for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
-
+			for __, (observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(val_data):
 				if torch.cuda.is_available():
-				  data_val  = data_val.to(device)
-				  target_val= target_val.to(device)
-				  data_abs  = data_abs.to(device)
-				  target_abs= target_abs.to(device)
-
-				loss_val = model(data_val, target_val, data_abs , target_abs)
+					observations_vel = observations_vel.to(device)
+					target_vel       = target_vel.to(device)
+					observations_abs = observations_abs.to(device)
+					target_abs       = target_abs.to(device)
+				loss_val = model(observations_vel,target_vel,observations_abs,target_abs)
 				error   += loss_val.cpu().numpy()
-				total   += len(target_val)
+				total   += len(target_vel)
 				# Prediction is relative to the last observation
-				init_pos = np.expand_dims(data_abs.cpu().numpy()[:,-1,:],axis=1)
-				pred_val = model.predict(data_val, dim_pred=12)
+				init_pos = np.expand_dims(observations_abs.cpu().numpy()[:,-1,:],axis=1)
+				pred_val = model.predict(observations_vel, dim_pred=12)
 				if len(pred_val)==2:
 					pred_val = pred_val[0]
 				pred_val += init_pos
@@ -94,28 +81,31 @@ def train(model,device,ensemble_id,train_data,val_data,args,model_name):
 		error = error/total
 		ade   = ade/total
 		fde   = fde/total
-		logging.info("Val loss: {:9.4f} ".format(error))
-		logging.info("Val ade : {:9.4f} ".format(ade))
-		logging.info("Val fde : {:9.4f} ".format(fde))
+		logging.info("Epoch: {:03d} |Trn loss: {:8.6f} |Val loss: {:8.6f} |Val ade : {:6.4f} |Val fde : {:6.4f} ".format(epoch,list_loss_train[-1],error,ade,fde))
 		list_loss_val.append(error)
-		if error<min_val_error:
+		if error< min_val_error:
 			min_val_error = error
-			# Keep the model
-			logging.info("Saving model")
-			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ensemble_id)+".pth")
+        	# Save best checkpoints
+			if not os.path.exists(config["train"]["save_dir"]):
+			    # Create a new directory if it does not exist
+				os.makedirs(config["save_dir"])
+			save_path = config["train"]["save_dir"]+model_name
+			torch.save(model.state_dict(), save_path)
 
 	# Error visualization
-	if args.plot_losses:
+	if config["misc"]["plot_losses"]:
 		# Create new directory
 		output_dir = os.path.join(IMAGES_DIR, "loss_" + model_name)
-		mkdir_p(output_dir)
+		if not os.path.exists(config["misc"]["plot_dir"]):
+			# Create a new directory if it does not exist
+			os.makedirs(config["misc"]["plot_dir"])
 		plt.figure(figsize=(12,12))
 		plt.plot(list_loss_train, label="loss train")
 		plt.plot(list_loss_val, label="loss val")
 		plt.xlabel("Epochs")
 		plt.ylabel("Loss")
 		plt.legend()
-		plt.savefig(os.path.join(output_dir+str(args.id_test)+".pdf"))
+		plt.savefig(os.path.join(output_dir+str(config["dataset"]["id_test"])+".pdf"))
 		plt.show()
 
 # Function to train the models

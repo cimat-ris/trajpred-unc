@@ -1,4 +1,14 @@
 import argparse
+import yaml, os
+
+CONFIG_PATH = "cfg/"
+
+# Function to load yaml configuration file
+def load_config(config_name):
+    with open(os.path.join(CONFIG_PATH, config_name)) as file:
+        config = yaml.safe_load(file)
+    return config
+
 
 arg_lists = []
 
@@ -9,9 +19,9 @@ def get_config(argv=None,ensemble=False,dropout=False,variational=False,agentfor
 	parser = argparse.ArgumentParser(description='')
 
 	def add_argument_group(name):
-	  arg = parser.add_argument_group(name)
-	  arg_lists.append(arg)
-	  return arg
+		arg = parser.add_argument_group(name)
+		arg_lists.append(arg)
+		return arg
 
 	# Training / test parameters
 	training_args = add_argument_group('Training')
@@ -92,6 +102,6 @@ def get_config(argv=None,ensemble=False,dropout=False,variational=False,agentfor
 	misc_args.add_argument('--seed',type=int, default=1,help='Random seed for all randomized functions')
 	misc_args.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 	misc_args.add_argument('--log-file',default='',help='Log file (default: standard output)')
-
+	
 	args = parser.parse_args(argv)
 	return args
