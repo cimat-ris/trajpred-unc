@@ -11,6 +11,7 @@ from scipy.stats import multivariate_normal,multinomial
 from sklearn.metrics import auc
 from sklearn.isotonic import IsotonicRegression
 from utils.plot_utils import plot_calibration_curves, plot_HDR_curves, plot_calibration_pdf, plot_calibration_pdf_traj, plot_traj_world, plot_traj_img_kde
+from utils.config import get_model_name
 # Local utils helpers
 from utils.directory_utils import Output_directories
 # Local constants
@@ -64,61 +65,107 @@ def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, 
 	metrics_data.append([key + " pos " + str(position),mace,rmsce,ma])
 	logging.info("{}:  MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(key,mace,rmsce,ma))
 
-def generate_uncertainty_evaluation_dataset(batched_test_data, model, num_samples, model_name, args, device=None, dim_pred=12, type="ensemble"):
+def generate_uncertainty_evaluation_dataset(batched_test_data,model,num_model_samples,config,device=None,type="ensemble"):
 	#----------- Dataset TEST -------------
-	datarel_test_full   = []
-	targetrel_test_full = []
-	data_test_full      = []
-	target_test_full    = []
+	observations_vels= []
+	target_vels      = []
+	observations_abss= []
+	target_abss      = []
 	total_trajectories  = 0
-	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-		total_trajectories+=datarel_test.shape[0]
+	for batch_idx, (observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
+		total_trajectories+=observations_vel.shape[0]
 		# The first batch is used for uncertainty calibration, so we skip it
 		if batch_idx==0:
 			continue
-
 		 # Batches saved into array respectively
-		datarel_test_full.append(datarel_test)
-		targetrel_test_full.append(targetrel_test)
-		data_test_full.append(data_test)
-		target_test_full.append(target_test)
+		observations_vels.append(observations_vel)
+		target_vels.append(target_vel)
+		observations_abss.append(observations_abs)
+		target_abss.append(target_abs)
 
 	# Batches concatenated to have only one
-	datarel_test_full = torch.cat(datarel_test_full, dim=0)
-	targetrel_test_full = torch.cat( targetrel_test_full, dim=0)
-	data_test_full = torch.cat( data_test_full, dim=0)
-	target_test_full = torch.cat( target_test_full, dim=0)
-	logging.info('Using test data for uncertainty calibration and evaluation: {} trajectories'.format(total_trajectories))
+	observations_vels = torch.cat(observations_vels, dim=0)
+	target_vels       = torch.cat(target_vels, dim=0)
+	observations_abss = torch.cat(observations_abss, dim=0)
+	target_abss       = torch.cat(target_abss, dim=0)
+	logging.info('Using test data for uncertainty evaluation: {} trajectories'.format(total_trajectories))
 
 	# Unique batch predictions obtained
-	tpred_samples_full = []
-	sigmas_samples_full = []
+	predictions_samples = []
+	sigmas_samples      = []
 
 	# Each model sampled
-	for ind in range(num_samples):
+	for ind in range(num_model_samples):
 		if type == "ensemble":
-			model_filename = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_"+str(ind)+".pth"
+			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))
 			model.load_state_dict(torch.load(model_filename))
 			model.eval()
-
 		if torch.cuda.is_available():
-			datarel_test_full  = datarel_test_full.to(device)
-
+			observations_vels  = observations_vels.to(device)
 		# Model prediction obtained
 		if type == "variational":
-			pred, kl, sigmas = model.predict(datarel_test_full, dim_pred=12)
+			prediction,__,sigmas= model.predict(observations_vels)
 		else:
-			pred, sigmas = model.predict(datarel_test_full, dim_pred=12)
+			prediction,sigmas   = model.predict(observations_vels)
 
 		# Sample saved
-		tpred_samples_full.append(pred)
-		sigmas_samples_full.append(sigmas)
+		predictions_samples.append(prediction)
+		sigmas_samples.append(sigmas)
 
-	tpred_samples_full = np.array(tpred_samples_full)
-	sigmas_samples_full = np.array(sigmas_samples_full)
+	predictions_samples= np.array(predictions_samples)
+	sigmas_samples     = np.array(sigmas_samples)
+	return observations_vels,target_vels,observations_abss,target_abss,predictions_samples,sigmas_samples
 
-	return datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full
+def generate_uncertainty_calibration_dataset(batched_test_data,model,num_model_samples,config,device=None,type="ensemble"):
+	#----------- Dataset TEST -------------
+	observations_vels= []
+	target_vels      = []
+	observations_abss= []
+	target_abss      = []
+	total_trajectories  = 0
+	for batch_idx,(observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
+		total_trajectories+=observations_vel.shape[0]
+		 # Batches saved into array respectively
+		observations_vels.append(observations_vel)
+		target_vels.append(target_vel)
+		observations_abss.append(observations_abs)
+		target_abss.append(target_abs)
+
+		# Batches concatenated to have only one
+		observations_vels = torch.cat(observations_vels, dim=0)
+		target_vels       = torch.cat(target_vels, dim=0)
+		observations_abss = torch.cat(observations_abss, dim=0)
+		target_abss       = torch.cat(target_abss, dim=0)
+		logging.info('Using test data for uncertainty calibration: {} trajectories'.format(total_trajectories))
+		break
+
+	# Unique batch predictions obtained
+	predictions_samples_cal = []
+	sigmas_samples_cal      = []
+
+	# Each model sampled
+	for ind in range(num_model_samples):
+		if type == "ensemble":
+			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
+			logging.info("Loading {}".format(model_filename))
+			model.load_state_dict(torch.load(model_filename))
+			model.eval()
+		if torch.cuda.is_available():
+			observations_vels  = observations_vels.to(device)
+		# Model prediction obtained
+		if type == "variational":
+			prediction,__,sigmas= model.predict(observations_vels)
+		else:
+			prediction,sigmas   = model.predict(observations_vels)
+
+		# Sample saved
+		predictions_samples_cal.append(prediction)
+		sigmas_samples_cal.append(sigmas)
+
+	predictions_samples_cal= np.array(predictions_samples_cal)
+	sigmas_samples_cal     = np.array(sigmas_samples_cal)
+	return observations_vels,target_vels,observations_abss,target_abss,predictions_samples_cal,sigmas_samples_cal
 
 #-----------------------------------------------------------------------------------
 def generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics, position, method, output_dirs, prediction_method_name, suffix="cal"):

@@ -7,18 +7,18 @@ def draw_covariance_ellipse(mean_pos, cov_pos, ax=None, color=None, n_sigmas=2):
 	"""
 	Visualize 2D covariance matrix
 	"""
-	ax = ax or plt.gca()
+	ax             = ax or plt.gca()
 	covariance     = np.zeros((2,2))
 	covariance[0,0]= cov_pos[0]
 	covariance[1,1]= cov_pos[1]
 	covariance[0,1]= cov_pos[2]
 	covariance[1,0]= cov_pos[2]
 	# Convert covariance to principal axes
-	U, S, Vt = np.linalg.svd(covariance)
-	angle = np.degrees(np.arctan2(U[1, 0], U[0, 0]))
+	U, S, Vt       = np.linalg.svd(covariance)
+	angle          = np.degrees(np.arctan2(U[1, 0], U[0, 0]))
 	semi_w, semi_h = 2 * np.sqrt(S)
 	# Draw the ellipse at different sigmas
-	e = Ellipse(mean_pos,n_sigmas*semi_w,n_sigmas*semi_h,angle,color=color)
+	e = Ellipse(mean_pos,n_sigmas*semi_w,n_sigmas*semi_h,angle=angle,color=color)
 	e.set_alpha(0.2)
 	ax.add_patch(e)
 

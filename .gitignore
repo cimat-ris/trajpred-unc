@@ -132,3 +132,5 @@ dmypy.json
 *sdd_raw*
 *.pickle
 *.pth
+*.pdf
+*.csv

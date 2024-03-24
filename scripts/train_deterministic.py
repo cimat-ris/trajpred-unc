@@ -2,27 +2,22 @@
 # coding: utf-8
 
 # Imports
-import time, random
-import sys,os,logging, argparse
+import sys,random,logging
 sys.path.append('.')
 
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime
-
 import torch
-from torchvision import transforms
 
 # Local models
 from models.lstm_encdec import lstm_encdec
 from utils.datasets_utils import get_dataset
 from utils.plot_utils import plot_traj_img
 from utils.train_utils import train
-from utils.config import load_config
-from utils.constants import SUBDATASETS_NAMES
+from utils.config import load_config,get_model_name
 
 # Load configuation file (conditional model)
-config = load_config("trajpred_ethucy_conditional_past.yaml")
+config = load_config("deterministic_ethucy.yaml")
 
 def main():
 	# Printing parameters
@@ -52,7 +47,7 @@ def main():
 		train(model,device,0,batched_train_data,batched_val_data,config)
 
 	# Load the previously trained model
-	model_filename = config["train"]["save_dir"]+(config["train"]["model_name"].format(SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]],0))
+	model_filename = config["train"]["save_dir"]+get_model_name(config)
 	logging.info("Loading {}".format(model_filename))
 	model.load_state_dict(torch.load(model_filename))
 	model.to(device)
@@ -61,7 +56,7 @@ def main():
 	ind_sample = 1
 
 	# Testing
-	for batch_idx, (datarel_test,targetrel_test,data_test,target_test,__,__,__) in enumerate(batched_test_data):
+	for batch_idx, (datarel_test,__,data_test,target_test,__,__,__) in enumerate(batched_test_data):
 		if torch.cuda.is_available():
 			datarel_test  = datarel_test.to(device)
 
@@ -81,9 +76,7 @@ def main():
 			break
 
 	# Testing: Quantitative
-	ade  = 0
-	fde  = 0
-	total= 0
+	ade  = fde = total = 0
 	for batch_idx, (datavel_test,__, data_test, target_test,__,__,__) in enumerate(batched_test_data):
 		if torch.cuda.is_available():
 			datavel_test  = datavel_test.to(device)

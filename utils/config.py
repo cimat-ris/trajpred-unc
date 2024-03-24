@@ -1,7 +1,11 @@
 import argparse
 import yaml, os
+from utils.constants import SUBDATASETS_NAMES
 
 CONFIG_PATH = "cfg/"
+
+def get_model_name(config,ensemble_id=0):
+	return config["train"]["model_name"]+"_{}_{}.pth".format(SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]],ensemble_id)
 
 # Function to load yaml configuration file
 def load_config(config_name):

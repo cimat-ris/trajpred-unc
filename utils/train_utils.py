@@ -20,12 +20,13 @@ import torch.optim as optim
 
 # Local constants
 from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
+from utils.config import get_model_name
 
 # Function to train the models
 # ind is the ensemble id in the case we use an ensemble (otherwise, it is equal to zero)
 def train(model,device,ensemble_id,train_data,val_data,config):
 	# Model name
-	model_name = config["train"]["model_name"].format(SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]],ensemble_id)
+	model_name = get_model_name(config,ensemble_id)
 	# Optimizer
 	optimizer = optim.Adam(model.parameters(),lr=config["train"]["initial_lr"],weight_decay=0.003)
 	list_loss_train = []
@@ -71,7 +72,7 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 				total   += len(target_vel)
 				# Prediction is relative to the last observation
 				init_pos = np.expand_dims(observations_abs.cpu().numpy()[:,-1,:],axis=1)
-				pred_val = model.predict(observations_vel, dim_pred=12)
+				pred_val = model.predict(observations_vel)
 				if len(pred_val)==2:
 					pred_val = pred_val[0]
 				pred_val += init_pos
