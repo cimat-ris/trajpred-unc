@@ -25,11 +25,11 @@ train:
   no_retrain: False
   teacher_forcing: False
   save_dir : "training_checkpoints/"
-  model_name: "deterministic_gaussian"
+  model_name: "deterministic_{}_{}.pth"
 misc:
   plot_losses: True
   plot_dir: "images/"
-  show_test: True
+  show_test: False
   samples_test: 10
   log_level: 20
   seed: 1234
