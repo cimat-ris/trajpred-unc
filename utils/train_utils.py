@@ -95,8 +95,7 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 
 	# Error visualization
 	if config["misc"]["plot_losses"]:
-		# Create new directory
-		output_dir = os.path.join(IMAGES_DIR, "loss_" + model_name)
+		output_file = os.path.join(config["misc"]["plot_dir"],"loss_" + config["train"]["model_name"]+"."+str(config["dataset"]["id_test"])+".pdf")
 		if not os.path.exists(config["misc"]["plot_dir"]):
 			# Create a new directory if it does not exist
 			os.makedirs(config["misc"]["plot_dir"])
@@ -106,7 +105,7 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 		plt.xlabel("Epochs")
 		plt.ylabel("Loss")
 		plt.legend()
-		plt.savefig(os.path.join(output_dir+str(config["dataset"]["id_test"])+".pdf"))
+		plt.savefig(output_file)
 		plt.show()
 
 # Function to train the models

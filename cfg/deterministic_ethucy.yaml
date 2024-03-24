@@ -25,7 +25,7 @@ train:
   no_retrain: False
   teacher_forcing: False
   save_dir : "training_checkpoints/"
-  model_name: "deterministic_{}_{}.pth"
+  model_name: "deterministic"
 misc:
   plot_losses: True
   plot_dir: "images/"

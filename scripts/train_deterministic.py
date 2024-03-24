@@ -61,7 +61,7 @@ def main():
 			datarel_test  = datarel_test.to(device)
 
 		# Prediction
-		pred = model.predict(datarel_test, dim_pred=12)
+		pred = model.predict(datarel_test)
 
 		# Plotting
 		plt.figure(figsize=(12,12))
@@ -83,7 +83,7 @@ def main():
 		total += len(datavel_test)
 		# prediction
 		init_pos  = np.expand_dims(data_test[:,-1,:],axis=1)
-		pred_test = model.predict(datavel_test, dim_pred=12) + init_pos
+		pred_test = model.predict(datavel_test) + init_pos
 		ade    += np.average(np.sqrt(np.square(target_test-pred_test).sum(2)),axis=1).sum()
 		fde    += (np.sqrt(np.square(target_test[:,-1,:]-pred_test[:,-1,:]).sum(1))).sum()
 	logging.info("Test ade : {:.4f} ".format(ade/total))
