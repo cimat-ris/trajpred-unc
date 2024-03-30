@@ -24,7 +24,8 @@ from utils.plot_utils import plot_traj_world,plot_cov_world
 from utils.calibration import generate_uncertainty_evaluation_dataset,generate_uncertainty_calibration_dataset
 from utils.calibration_utils import save_data_for_calibration
 from utils.constants import SUBDATASETS_NAMES
-# Load configuation file (conditional model)
+
+# Load configuration file (conditional model)
 config = load_config("deterministic_gaussian_ethucy.yaml")
 
 def main():

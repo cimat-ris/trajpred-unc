@@ -15,8 +15,9 @@ from utils.datasets_utils import get_dataset
 from utils.plot_utils import plot_traj_img
 from utils.train_utils import train
 from utils.config import load_config,get_model_name
+from utils.constants import SUBDATASETS_NAMES
 
-# Load configuation file (conditional model)
+# Load configuration file (conditional model)
 config = load_config("deterministic_ethucy.yaml")
 
 def main():
@@ -86,6 +87,7 @@ def main():
 		pred_test = model.predict(datavel_test) + init_pos
 		ade    += np.average(np.sqrt(np.square(target_test-pred_test).sum(2)),axis=1).sum()
 		fde    += (np.sqrt(np.square(target_test[:,-1,:]-pred_test[:,-1,:]).sum(1))).sum()
+	logging.info("Results on : {} ".format(SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]))	
 	logging.info("Test ade : {:.4f} ".format(ade/total))
 	logging.info("Test fde : {:.4f} ".format(fde/total))
 if __name__ == "__main__":

@@ -4,72 +4,35 @@ import torch.nn.functional as F
 
 from bayesian_torch.layers import LinearReparameterization
 from bayesian_torch.layers import LSTMReparameterization
-
+from models.losses import Gaussian2DLikelihood
 import numpy as np
 
 
-def convertToCov(sx,sy,corr):
-    # Exponential to get a positive value for variances
-    sx   = torch.exp(sx)+1e-2
-    sy   = torch.exp(sy)+1e-2
-    sxsy = torch.sqrt(sx*sy)
-    # tanh to get a value between [-1, 1] for correlation
-    corr = torch.tanh(corr)
-    # Covariance
-    cov  = sxsy*corr
-    return sx,sy,cov
-
-def Gaussian2DLikelihood(targets, means, sigmas, dt=0.4):
-    '''
-    Computes the likelihood of predicted locations under a bivariate Gaussian distribution
-    params:
-    targets: Torch variable containing tensor of shape [nbatch, 12, 2]
-    means: Torch variable containing tensor of shape [nbatch, 12, 2]
-    sigmas:  Torch variable containing tensor of shape [nbatch, 12, 3]
-    '''
-    # Extract mean, std devs and correlation
-    mux, muy, sx, sy, corr = means[:, 0], means[:, 1], sigmas[:, :, 0], sigmas[:,:,1], sigmas[:,:,2]
-    sx,sy,cov = convertToCov(sx, sy, corr)
-    # Variances and covariances are summed along time.
-    # They are also scaled to fit displacements instead of velocities.
-    sx   = dt*dt*sx.sum(1)
-    sy   = dt*dt*sy.sum(1)
-    cov  = dt*dt*cov.sum(1)
-    # Compute factors
-    normx= targets[:, 0] - mux
-    normy= targets[:, 1] - muy
-    det  = sx*sy-cov*cov
-    z    = torch.pow(normx,2)*sy/det + torch.pow(normy,2)*sx/det - 2*cov*normx*normy/det
-    result = 0.5*(z+torch.log(det))
-    # Compute the loss across all frames and all nodes
-    loss = result.sum()
-    return(loss)
-
 
 class lstm_encdec_MCDropout(nn.Module):
-    def __init__(self, in_size, embedding_dim, hidden_dim, output_size, dropout_rate=0.0):
+    def __init__(self, config):
         super(lstm_encdec_MCDropout, self).__init__()
 
-        self.dropout_rate = dropout_rate
+        self.dropout_rate = config["dropout_rate"]
 
         # Layers
-        self.embedding = nn.Linear(in_size, embedding_dim)
-        self.lstm1     = nn.LSTM(embedding_dim, hidden_dim)
-        self.lstm2     = nn.LSTM(embedding_dim, hidden_dim)
+        self.embedding  = nn.Linear(config["input_dim"], config["embedding_dim"])
+        self.lstm_past  = nn.LSTM(config["embedding_dim"],config["hidden_dim"],num_layers=config["num_layers"])
+        self.lstm_future= nn.LSTM(config["embedding_dim"],config["hidden_dim"],num_layers=config["num_layers"])
         # Added outputs for  sigmaxx, sigmayy, sigma xy
-        self.decoder   = nn.Linear(hidden_dim, output_size + 3)
-        self.dt        = 0.4
+        self.decoder    = nn.Linear(config["hidden_dim"],config["output_dim"]+3)
+        self.dt         = 0.4
 
     # Encoding of the past trajectry
     def encode(self, X):
         # Last position traj
-        x_last = X[:,-1,:].view(len(X), 1, -1)
+        x_last = X[:,-1:,:]
         # Embedding positions [batch, seq_len, input_size]
         emb = self.embedding(X)
         # Add dropout
         emb = F.dropout(emb, p=self.dropout_rate, training=True)
         # LSTM for batch [seq_len, batch, input_size]
-        lstm_out, hidden_state = self.lstm1(emb.permute(1,0,2))
+        __, hidden_state = self.lstm_past(emb.permute(1,0,2))
         return x_last,hidden_state
 
     # Decoding the next future position
@@ -79,9 +42,9 @@ class lstm_encdec_MCDropout(nn.Module):
         # Add dropout
         emb_last = F.dropout(emb_last, p=self.dropout_rate, training=True)
         # lstm for last position with hidden states from batch
-        lstm_out, hidden_state = self.lstm2(emb_last.permute(1,0,2), hidden_state)
+        __, hidden_state = self.lstm_future(emb_last.permute(1,0,2), hidden_state)
         # Decoder and Prediction
-        dec      = self.decoder(hidden_state[0].permute(1,0,2))
+        dec      = self.decoder(hidden_state[0][-1:].permute(1,0,2))
         pred_pos = dec[:,:,:2] + last_pos
         sigma_pos= dec[:,:,2:]
         return pred_pos,sigma_pos,hidden_state
@@ -111,7 +74,7 @@ class lstm_encdec_MCDropout(nn.Module):
         # Return total loss
         return loss
 
-    def predict(self, X, dim_pred= 1):
+    def predict(self, X, dim_pred= 12):
         # Encode the past trajectory
         last_pos,hidden_state = self.encode(X)
 
