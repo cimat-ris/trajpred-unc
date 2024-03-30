@@ -5,7 +5,7 @@ dataset:
   pickle_dir: 'pickle/'  
   validation_proportion: 0.1
   use_neighbors: False
-  batch_size: 512        
+  batch_size: 256        
   person_max: 70 # Maximum number of persons in a frame
   obs_len: 8 # Observation length (trajlet size)
   pred_len: 12 # Prediction length
@@ -16,12 +16,12 @@ model:
   num_layers: 2
   dropout_rate: 0.2
   hidden_dim: 128
-  embedding_dim: 8
+  embedding_dim: 128
   input_dim: 2
   output_dim: 2  
 train:
   initial_lr: 0.001
-  epochs: 800
+  epochs: 220
   no_retrain: False
   teacher_forcing: False
   save_dir : "training_checkpoints/"
@@ -29,7 +29,8 @@ train:
 misc:
   plot_losses: True
   plot_dir: "images/"
-  show_test: True
+  show_test: False
   samples_test: 10
   log_level: 20
   seed: 1234
+  dropout_samples: 10
