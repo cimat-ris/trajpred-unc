@@ -97,15 +97,10 @@ def main():
 		if batch_idx==config["misc"]["samples_test"]-1:
 			break
 
-
-
-	# ## Calibramos la incertidumbre
-	draw_ellipse = True
-
 	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
 	#------------------ Generates testing sub-dataset for uncertainty calibration and evaluation ---------------------------
-	__,__,observations_abs_e,target_abs_e,predictions_e,sigmas_e = generate_uncertainty_evaluation_dataset(batched_test_data, model,1,config,device=device)
-	# evaluation_minadefde( model, tpred_samples_full, data_test_full, target_test_full, "dropout_gaussian")
+	__,__,observations_abs_e,target_abs_e,predictions_e,sigmas_e = generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=device,type="dropout")
+	evaluation_minadefde(predictions_e, observations_abs_e, target_abs_e,config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]])
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Testing

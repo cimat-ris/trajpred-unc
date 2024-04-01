@@ -65,7 +65,7 @@ def compute_calibration_metrics(exp_proportions, obs_proportions, metrics_data, 
 	metrics_data.append([key + " pos " + str(position),mace,rmsce,ma])
 	logging.info("{}:  MACE: {:.5f}, RMSCE: {:.5f}, MA: {:.5f}".format(key,mace,rmsce,ma))
 
-def generate_uncertainty_evaluation_dataset(batched_test_data,model,num_model_samples,config,device=None,type="ensemble"):
+def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=None,type="ensemble"):
 	#----------- Dataset TEST -------------
 	observations_vels= []
 	target_vels      = []
@@ -95,7 +95,7 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,num_model_sa
 	sigmas_samples      = []
 
 	# Each model sampled
-	for ind in range(num_model_samples):
+	for ind in range(config["misc"]["dropout_samples"],):
 		if type == "ensemble":
 			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))

@@ -188,40 +188,26 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 	
 # Perform quantitative evaluation
 #def evaluation_minadefde(model,test_data,config):
-def evaluation_minadefde( model, tpred_samples, data_test, target_test, model_name=''):
-    l2dis = []
+def evaluation_minadefde(predictions_samples, data_test, target_test, model_name):
+	logging.debug("----> Predictions: {}".format(predictions_samples.shape))
+	logging.debug("----> Observations: {}".format(data_test.shape))
+	logging.debug("----> Ground truth: {}".format(target_test.shape))
+	# Last position
+	last_pos = data_test[:,-1,:].detach().unsqueeze(1).unsqueeze(0).numpy()
+	# All squared differences
+	diff = target_test.detach().numpy() - (predictions_samples+last_pos)
+	diff = diff**2
+	# Euclidean distances
+	diff = np.sqrt(np.sum(diff, axis=3))
+	# minADEs for each data point 
+	ade  = np.min(np.mean(diff,axis=2), axis=0)
+	# minFDEs for each data point 
+	fde  = np.min(diff[:,:,-1], axis=0)
+	results = [["mADE", "mFDE"], [np.mean(ade), np.mean(fde)]]
     
-    print("----> tpred_samples.shape: ", tpred_samples.shape)
-    print("----> data_test.shape: ", data_test.shape)
-    print("----> target_test.shape: ", target_test.shape)
-    for i in range(tpred_samples.shape[1]): # se mueve en las trayectorias del batch
-        #normin = 1000.0
-        normin = 999999999999.0
-        diffmin= None
-        for k in range(tpred_samples.shape[0]): # se mueve en las muestrass
-            # Error for ade/fde
-            diff = target_test[i,:,:].detach().numpy() - (tpred_samples[k,i,:,:]+data_test[i,-1,:].detach().numpy())
-            #print(target_test[i,:,:].detach().numpy().shape)
-            #print(tpred_samples[k,i,:,:].shape)
-            #print(diff.shape)
-            #print("-------")
-            diff = diff**2
-            diff = np.sqrt(np.sum(diff, axis=1))
-            # To keep the min
-            if np.linalg.norm(diff)<normin:
-                normin  = np.linalg.norm(diff)
-                diffmin = diff
-        l2dis.append(diffmin)
-
-
-    ade = [t for o in l2dis for t in o] # average displacement
-    fde = [o[-1] for o in l2dis] # final displacement
-    results = [["mADE", "mFDE"], [np.mean(ade), np.mean(fde)]]
-    
-    output_csv_name = "images/calibration/" + model_name +"_min_ade_fde.csv"
-    df = pd.DataFrame(results)
-    df.to_csv(output_csv_name, mode='a', header=not os.path.exists(output_csv_name))
-    print(df)
-        
-    print(results)
-    return results	
+	# Save results into a csv file
+	output_csv_name = "images/calibration/" + model_name +"_min_ade_fde.csv"
+	df = pd.DataFrame(results)
+	df.to_csv(output_csv_name, mode='a', header=not os.path.exists(output_csv_name))
+	print(df)
+	return results	
