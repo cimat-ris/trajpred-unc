@@ -81,7 +81,7 @@ def main():
 		if ind_sample>observations_vel.shape[0]:
 			continue
 		# Generate samples from the model
-		for ind in range(config["misc"]["dropout_samples"]):
+		for ind in range(config["misc"]["model_samples"]):
 			if torch.cuda.is_available():
 				observations_vel  = observations_vel.to(device)
 			predicted_positions,sigmas_positions = model.predict(observations_vel)
@@ -100,17 +100,18 @@ def main():
 	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
 	#------------------ Generates testing sub-dataset for uncertainty calibration and evaluation ---------------------------
 	__,__,observations_abs_e,target_abs_e,predictions_e,sigmas_e = generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=device,type="dropout")
+	# TODO: the samples should be sampled from the Gaussian mixture, not only the mean
 	evaluation_minadefde(predictions_e, observations_abs_e, target_abs_e,config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]])
 	#---------------------------------------------------------------------------------------------------------------
 
+	# TODO: make this into a function (as the one above, generate_uncertainty_evaluation_dataset)
 	# Testing
-	cont = 0
 	for batch_idx, (observations_vel_c,__,observations_abs_c,target_abs_c,__,__,__) in enumerate(batched_test_data):
 
 		tpred_samples = []
 		sigmas_samples = []
 		# Sampling from inference dropout
-		for ind in range(config["misc"]["dropout_samples"]):
+		for ind in range(config["misc"]["model_samples"]):
 			if torch.cuda.is_available():
 				observations_vel_c  = observations_vel_c.to(device)
 			pred, sigmas = model.predict(observations_vel_c, dim_pred=12)
