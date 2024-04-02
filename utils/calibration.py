@@ -95,7 +95,7 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 	sigmas_samples      = []
 
 	# Each model sampled
-	for ind in range(config["misc"]["dropout_samples"],):
+	for ind in range(config["misc"]["model_samples"],):
 		if type == "ensemble":
 			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))
