@@ -35,7 +35,7 @@ def main():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config["dataset"])
+	batched_train_data,batched_val_data,batched_test_data,__,__ = get_dataset(config["dataset"])
 
 	# Select random seeds
 	seeds = np.random.choice(999999, config["misc"]["model_samples"],replace=False)
@@ -116,6 +116,6 @@ def main():
 	
 	pickle_filename = config["train"]["model_name"]+"_ensemble_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
 	save_data_for_calibration(pickle_filename,predictions_c,predictions_e, observations_abs_c,observations_abs_e,target_abs_c,target_abs_e,sigmas_c,sigmas_e,config["dataset"]["id_test"])
-	
+
 if __name__ == "__main__":
 	main()
