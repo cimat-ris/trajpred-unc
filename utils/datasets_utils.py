@@ -454,22 +454,24 @@ def get_dataset(config):
 	return batched_train_data,batched_val_data,batched_test_data,homography,reference_image
 
 # Gets a testing batch of trajectories starting at the same frame (for visualization)
-def get_testing_batch(testing_data,testing_data_path):
+def get_testing_batch(test_data,config):
 	# A trajectory id
-	randomtrajId     = np.random.randint(len(testing_data),size=1)[0]
-	# Last observed frame id for a random trajectory in the testing dataset
-	frame_id         = testing_data.Frame_Ids[randomtrajId][7]
-	idx              = np.where((testing_data.Frame_Ids[:,7]==frame_id))[0]
+    randomtrajId     = np.random.randint(len(test_data),size=1)[0]
+    # Last observed frame id for a random trajectory in the testing dataset
+    frame_id         = test_data.Frame_Ids[randomtrajId][7]
+    idx              = np.where((test_data.Frame_Ids[:,7]==frame_id))[0]
+    ds_path          = DATASETS_DIR[config["id_dataset"]]
+    ds_names         = SUBDATASETS_NAMES[config["id_dataset"]][config["id_test"]]     
 	# Get the video corresponding to the testing
-	cap   = cv2.VideoCapture(testing_data_path+'/video.avi')
-	frame = 0
-	while(cap.isOpened()):
-		ret, test_bckgd = cap.read()
-		if frame == frame_id:
-			break
-		frame = frame + 1
-	# Form the batch
-	return frame_id, traj_dataset(*(testing_data[idx])), test_bckgd
+    cap              = cv2.VideoCapture(ds_path+ds_names+'/video.avi')
+    frame = 0
+    while(cap.isOpened()):
+        __, test_bckgd = cap.read()
+        if frame == frame_id:
+            break
+        frame = frame + 1
+    # Form the batch
+    return frame_id, traj_dataset(*(test_data[idx])), test_bckgd
 
 # Gets a testing batch of trajectories starting at the same frame (for visualization)
 def get_testing_batch_bitrap(testing_data,testing_data_path):

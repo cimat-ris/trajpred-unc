@@ -194,24 +194,24 @@ def plot_HDR_curves(predicted_hdr, empirical_hdr, output_image_name, title, ax=N
 	if show:
 		plt.show()
 
-def plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, cal_conformal=False,show=False):
-	"""
-	Plot calibration curves
-	"""
-	plt.figure(figsize=(10,7))
-	plt.plot([0,1],[0,1],'--', color='grey')
-	if cal_conformal:
-		plt.plot(conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
-		plt.plot(conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
-	else:
-		plt.plot(1-conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
-		plt.plot(1-conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
-	plt.legend(fontsize=14)
-	plt.xlabel(r'$\alpha$', fontsize=17)
-	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
-	plt.savefig(output_image_name)
-	if show:
-		plt.show()
+# def plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name, cal_conformal=False,show=False):
+# 	"""
+# 	Plot calibration curves
+# 	"""
+# 	plt.figure(figsize=(10,7))
+# 	plt.plot([0,1],[0,1],'--', color='grey')
+# 	if cal_conformal:
+# 		plt.plot(conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
+# 		plt.plot(conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
+# 	else:
+# 		plt.plot(1-conf_levels, unc_pcts, '-o', color='purple', label='Uncalibrated')
+# 		plt.plot(1-conf_levels, cal_pcts, '-o', color='red', label='Calibrated')
+# 	plt.legend(fontsize=14)
+# 	plt.xlabel(r'$\alpha$', fontsize=17)
+# 	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
+# 	plt.savefig(output_image_name)
+# 	if show:
+# 		plt.show()
 
 def plot_calibration_pdf(yi, alpha_fk, gt, Sa, id_batch, output_image_name, alpha=0.85):
 	"""
@@ -246,7 +246,7 @@ def plot_calibration_pdf_traj(yi, data_test, id_batch, target, Sa, output_image_
 	plt.close()
 
 #---------------------------------------------------------------------------------------
-def plot_calibration_curves2(conf_levels, unc_pcts, cal_pcts, output_image_name):
+def plot_calibration_curves(conf_levels,unc_pcts,cal_pcts,output_fig_name,show=False):
 	# Visualizamos la curva de calibracion
 	plt.figure(figsize=(10,7))
 	plt.plot([0,1],[0,1],'--', color='grey')
@@ -256,7 +256,8 @@ def plot_calibration_curves2(conf_levels, unc_pcts, cal_pcts, output_image_name)
 	plt.legend(fontsize=14)
 	plt.xlabel(r'$\alpha$', fontsize=17)
 	plt.ylabel(r'$\hat{P}_\alpha$', fontsize=17)
-	plt.savefig(output_image_name)
-	#plt.show()
+	plt.savefig(output_fig_name)
+	if show:
+		plt.show()
 	plt.close()
 #---------------------------------------------------------------------------------------
