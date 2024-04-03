@@ -17,7 +17,6 @@ import torch
 # Local models
 from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import get_dataset
-from utils.plot_utils import plot_traj_img
 from utils.train_utils import train
 from utils.config import load_config,get_model_name
 from utils.plot_utils import plot_traj_world,plot_cov_world

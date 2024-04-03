@@ -5,7 +5,6 @@
 # mario.canche@cimat.mx
 
 # Cargamos las librerias
-import time
 import sys,os,logging
 
 ''' TF_CPP_MIN_LOG_LEVEL
@@ -18,14 +17,9 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sys.path.append('bayesian-torch')
 sys.path.append('.')
 
-import math,random,numpy as np
-import matplotlib as mpl
-#mpl.use('TkAgg')  # or whatever other backend that you want
+import random,numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
-
 import torch
-from torchvision import transforms
 
 # Local models
 from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
