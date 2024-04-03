@@ -1,11 +1,5 @@
 import numpy as np
 
-# Sort samples with respect to their density value
-def sort_sample(sample_pdf):
-    # Samples from the pdf are sorted in decreasing order
-    sample_pdf_zip = zip(sample_pdf, sample_pdf/np.sum(sample_pdf))
-    return sorted(sample_pdf_zip, key=lambda x: x[1], reverse=True)
-
 # Given a set of pdf values from samples on the pdf, and a pdf value, deduce alpha
 def get_alpha(scores, fa):
 	# Sort samples pdf values
@@ -19,23 +13,6 @@ def get_alpha(scores, fa):
 		# All samples have a pdf value >= fa
 		alpha_fa = 1.0
 	return alpha_fa
-
-def samples_to_alphas(kde,samples):
-	# Evaluate our samples on it
-	fs_samples      = kde.evaluate(samples)
-	sorted_samples  = sort_sample(fs_samples)
-	# Alphas corresponding to each sample
-	observed_alphas = []
-	for fk in fs_samples:
-		observed_alpha = 0.0
-		for p in sorted_samples:
-			if fk>p[0]:
-				break
-			# Accumulate density here
-			observed_alpha += p[1]
-		observed_alphas.append(observed_alpha)
-	observed_alphas = np.array(observed_alphas)
-	return observed_alphas,fs_samples,sorted_samples
 
 def bs(orden,imin,imax,f_pdf):
     if imax==imin:
