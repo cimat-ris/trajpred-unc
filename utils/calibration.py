@@ -8,7 +8,7 @@ from utils.config import get_model_name
 # Local utils helpers
 from utils.directory_utils import Output_directories
 # HDR utils
-from utils.hdr import get_alpha
+from utils.hdr_kde import get_alpha
 # Calibration metrics
 from utils.conformal_recalibration import get_within_proportions,calibrate_conformal
 from utils.kde import evaluate_kde

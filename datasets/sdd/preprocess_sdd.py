@@ -2,6 +2,8 @@ import os, yaml, sys
 import pickle
 import pandas as pd
 
+sys.path.append('../../../OpenTraj')
+sys.path.append('../../../OpenTraj/opentraj')
 from opentraj.toolkit.loaders.loader_sdd import load_sdd
 sys.path.append('.')
 
@@ -16,8 +18,7 @@ scenes = {
     'quad' : 4
 }
 # Fixme: set proper OpenTraj directory
-sdd_root = os.path.join('/<dirTo>/OpenTraj', 'datasets', 'SDD')
-
+sdd_root = os.path.join('../../../OpenTraj', 'datasets', 'SDD')
 sdd_data = {key: pd.DataFrame() for key in scenes.keys() }
 
 for scene_name, total_videos_per_scene in scenes.items():
@@ -36,6 +37,7 @@ for scene_name, total_videos_per_scene in scenes.items():
                         drop_lost_frames=False, use_kalman=False, label='Pedestrian')
         traj_datasets_per_scene.append(pd.concat([itraj_dataset.data.iloc[:, : 4], itraj_dataset.data.iloc[:, 8:9]], axis=1))
 
-    pickle_out = open(scene_name+'.pickle',"wb")
-    pickle.dump(pd.concat(traj_datasets_per_scene), pickle_out, protocol=2)
-    pickle_out.close()
+   
+    df = pd.concat(traj_datasets_per_scene)
+    df.to_pickle(scene_name+'.pickle')
+   

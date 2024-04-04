@@ -166,9 +166,9 @@ def prepare_data(datasets_path, datasets_names, config):
 		# Group the spatial pedestrian data frame by frame
 		# List indexed by frame ids.
 		# Data: id_frame, id_person, x, y
-		for frame in frame_ids:
-			raw_traj_data_per_frame.append(raw_traj_data[raw_traj_data[:, 0]==frame, :])
-		for ped in ped_ids:
+		for frame in tqdm(frame_ids,desc="Gathering data per frame"):
+			raw_traj_data_per_frame.append(raw_traj_data[raw_traj_data[:, 0]==frame])
+		for ped in tqdm(ped_ids,desc="Gathering data per pedestrian"):
 			t  = raw_traj_data[raw_traj_data[:, 1]==ped,0:1]
 			id = raw_traj_data[raw_traj_data[:, 1]==ped,1:2]
 			px = raw_traj_data[raw_traj_data[:, 1]==ped,2]
@@ -264,10 +264,6 @@ def prepare_data(datasets_path, datasets_names, config):
 				pos_seq_data[ped_count, :, :] = ped_seq_data_mod[:,1:3]
 				vel_seq_data[ped_count, :, :] = ped_seq_data_mod[:,3:5]
 				acc_seq_data[ped_count, :, :] = ped_seq_data_mod[:,5:7]
-				# Orientations
-				# TODO
-				# theta_seq_data[ped_count,1:, 0] = np.arctan2(ped_seq_pos[1:, 1] - ped_seq_pos[:-1, 1],ped_seq_pos[1:, 0] - ped_seq_pos[:-1, 0])
-				# theta_seq_data[ped_count,0,  0] = theta_seq_data[ped_count,1,  0]
 
 				# For each tracked person
 				# we keep the list of all the frames in which it is present

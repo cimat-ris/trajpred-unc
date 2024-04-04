@@ -4,7 +4,7 @@ from scipy.stats import multivariate_normal,multinomial
 import numpy as np
 import matplotlib.pyplot as plt 
 from utils.plot_utils import world_to_image_xy
-from utils.hdr import get_falpha
+from utils.hdr_kde import get_falpha
 
 def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, kde_size=1000, resample_size=100):
 	"""

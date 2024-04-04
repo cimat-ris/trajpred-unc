@@ -1,6 +1,6 @@
 import numpy as np
 import logging
-from utils.hdr import get_alpha
+from utils.hdr_kde import get_alpha
 from utils.constants import CALIBRATION_CONFORMAL_FVAL, CALIBRATION_CONFORMAL_FREL, CALIBRATION_CONFORMAL_ALPHA
 
 def evaluate_quantile(gt_density_value, samples_density_values, alpha):

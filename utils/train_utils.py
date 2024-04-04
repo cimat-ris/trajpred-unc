@@ -5,21 +5,17 @@
 # mario.canche@cimat.mx
 
 # Cargamos las librerias
-import time
-import sys,os,logging,argparse
+import sys,os,logging
 sys.path.append('.')
-import math,numpy as np
-import matplotlib as mpl
-#mpl.use('TkAgg')  # or whatever other backend that you want
+import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
 import torch
-from torchvision import transforms
 import torch.optim as optim
-
+from tqdm import tqdm
 # Local constants
-from utils.constants import IMAGES_DIR, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
+from utils.constants import TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 from utils.config import get_model_name
 
 # Function to train the models
@@ -37,7 +33,7 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 		error = total = 0
 		model.train()
 		# Cycle over batches
-		for __, (observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(train_data):
+		for observations_vel,target_vel,observations_abs,target_abs,__,__,__ in tqdm(train_data):
 			# Remember that Pytorch accumulates gradients.
 			# We need to clear them out before each instance
 			model.zero_grad()
