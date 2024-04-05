@@ -73,7 +73,7 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 	sigmas_samples      = []
 
 	# Each model sampled
-	for ind in range(config["misc"]["model_samples"],):
+	for ind in range(config["misc"]["model_samples"]):
 		if type == "ensemble":
 			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))
@@ -95,7 +95,7 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 	sigmas_samples     = np.array(sigmas_samples)
 	return observations_vels,target_vels,observations_abss,target_abss,predictions_samples,sigmas_samples
 
-def generate_uncertainty_calibration_dataset(batched_test_data,model,num_model_samples,config,device=None,type="ensemble"):
+def generate_uncertainty_calibration_dataset(batched_test_data,model,config,device=None,type="ensemble"):
 	#----------- Dataset TEST -------------
 	observations_vels= []
 	target_vels      = []
@@ -123,7 +123,7 @@ def generate_uncertainty_calibration_dataset(batched_test_data,model,num_model_s
 	sigmas_samples_cal      = []
 
 	# Each model sampled
-	for ind in range(num_model_samples):
+	for ind in range(config["misc"]["model_samples"]):
 		if type == "ensemble":
 			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))

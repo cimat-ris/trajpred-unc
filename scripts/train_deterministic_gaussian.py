@@ -15,14 +15,14 @@ import random
 import torch
 
 # Local models
-from models.lstm_encdec import lstm_encdec_gaussian
-from utils.datasets_utils import get_dataset
-from utils.train_utils import train
-from utils.config import load_config,get_model_name
-from utils.plot_utils import plot_traj_world,plot_cov_world
-from utils.calibration import generate_uncertainty_evaluation_dataset,generate_uncertainty_calibration_dataset
-from utils.calibration_utils import save_data_for_calibration
-from utils.constants import SUBDATASETS_NAMES
+from trajpred_unc.models.lstm_encdec import lstm_encdec_gaussian
+from trajpred_unc.utils.datasets_utils import get_dataset
+from trajpred_unc.utils.train_utils import train
+from trajpred_unc.utils.config import load_config,get_model_name
+from trajpred_unc.utils.plot_utils import plot_traj_world,plot_cov_world
+from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset,generate_uncertainty_calibration_dataset
+from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
+from trajpred_unc.utils.constants import SUBDATASETS_NAMES
 
 # Load configuration file (conditional model)
 config = load_config("deterministic_gaussian_ethucy.yaml")
@@ -84,8 +84,8 @@ def main():
 			break
 
 	#------------------ Generates testing sub-dataset for uncertainty calibration and evaluation ---------------------------
-	__,__,observations_abs_e,target_abs_e,predictions_e,sigmas_e = generate_uncertainty_evaluation_dataset(batched_test_data, model,1,config,device=device)
-	__,__,observations_abs_c,target_abs_c,predictions_c,sigmas_c = generate_uncertainty_calibration_dataset(batched_test_data,model,1,config,device=device)
+	__,__,observations_abs_e,target_abs_e,predictions_e,sigmas_e = generate_uncertainty_evaluation_dataset(batched_test_data, model,config,device=device)
+	__,__,observations_abs_c,target_abs_c,predictions_c,sigmas_c = generate_uncertainty_calibration_dataset(batched_test_data,model,config,device=device)
 	# Save these testing data for uncertainty calibration
 	pickle_filename = config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
 	save_data_for_calibration(pickle_filename,predictions_c,predictions_e, observations_abs_c,observations_abs_e,target_abs_c,target_abs_e,sigmas_c,sigmas_e,config["dataset"]["id_test"])

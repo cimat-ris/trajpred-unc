@@ -3,28 +3,22 @@
 # Autor: Mario Xavier Canche Uc
 # Centro de Investigación en Matemáticas, A.C.
 # mario.canche@cimat.mx
-from sklearn.isotonic import IsotonicRegression
 
 # Imports
-import time
-import sys,os,logging, argparse
-sys.path.append('bayesian-torch')
-sys.path.append('.')
-
+import logging
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
 # Local models
-from models.lstm_encdec import lstm_encdec_gaussian
-from utils.datasets_utils import setup_loo_experiment,get_testing_batch,get_dataset,traj_dataset,collate_fn_padd
-from utils.train_utils import train
-from utils.kde import plot_kde_img
-from utils.calibration import generate_uncertainty_evaluation_dataset,regression_isotonic_fit,calibrate_and_test
-from utils.config import load_config, get_model_name
-import torch.optim as optim
+from trajpred_unc.models.lstm_encdec import lstm_encdec_gaussian
+from trajpred_unc.utils.datasets_utils import setup_loo_experiment,get_testing_batch,get_dataset,traj_dataset,collate_fn_padd
+from trajpred_unc.utils.train_utils import train
+from trajpred_unc.uncertainties.kde import plot_kde_img
+from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset,regression_isotonic_fit,calibrate_and_test
+from trajpred_unc.utils.config import load_config, get_model_name
 # Local constants
-from utils.constants import (
+from trajpred_unc.utils.constants import (
 	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,FRAMES_IDS,
 	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, IMAGES_DIR, MUN_POS_CSV, DATASETS_DIR, SUBDATASETS_NAMES, TRAINING_CKPT_DIR
 )
