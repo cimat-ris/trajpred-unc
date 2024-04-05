@@ -1,10 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import sys
 from sklearn.datasets import make_blobs
-sys.path.append('.')
 
-from utils.hdr_knn import hdr_knn
+from trajpred_unc.uncertainties.hdr_knn import hdr_knn
 
 # Generated data
 centers = [[1, 1], [-1, -1], [1, -1]]

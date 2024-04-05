@@ -13,11 +13,11 @@ from torchvision import transforms
 import torch.optim as optim
 
 # Local models
-from models.lstm_encdec import lstm_encdec_gaussian
-from utils.datasets_utils import get_dataset
-from utils.train_utils import train
-from utils.plot_utils import plot_traj_world, plot_cov_world
-from utils.config import load_config,get_model_name
+from trajpred_unc.models.lstm_encdec import lstm_encdec_gaussian
+from trajpred_unc.utils.datasets_utils import get_dataset
+from trajpred_unc.utils.train_utils import train
+from trajpred_unc.utils.plot_utils import plot_traj_world, plot_cov_world
+from trajpred_unc.utils.config import load_config,get_model_name
 import torch.optim as optim
 
 # Load configuration file (conditional model)
