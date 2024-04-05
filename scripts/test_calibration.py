@@ -8,11 +8,10 @@ import argparse
 import logging, sys, random
 import numpy as np
 import torch
-sys.path.append('.')
 
-from utils.calibration_utils import get_data_for_calibration
-from utils.calibration import generate_metrics_calibration, generate_metrics_calibration_all
-from utils.constants import SUBDATASETS_NAMES, AGENTFORMER, BITRAP, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
+from trajpred_unc.uncertainties.calibration_utils import get_data_for_calibration
+from trajpred_unc.uncertainties.calibration import generate_metrics_calibration, generate_metrics_calibration_all
+from trajpred_unc.utils.constants import SUBDATASETS_NAMES, AGENTFORMER, BITRAP, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
 
 
 # Parser arguments

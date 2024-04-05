@@ -10,8 +10,9 @@ from trajpred_unc.utils.directory_utils import Output_directories
 # HDR utils
 from trajpred_unc.uncertainties.hdr_kde import get_alpha
 # Calibration metrics
-from trajpred_unc.uncertainties.conformal_recalibration import get_within_proportions,calibrate_conformal
+from trajpred_unc.uncertainties.conformal_recalibration import get_within_proportions,calibrate_conformal,calibrate_density,calibrate_relative_density,calibrate_alpha_density
 from trajpred_unc.uncertainties.kde import evaluate_kde
+from trajpred_unc.uncertainties.calibration_metrics import generate_metrics_curves
 
 def gt_evaluation(target_test, target_test2, trajectory_id, time_position, fk, s_xk_yk, gaussian=False, fk_max=1.0):
 	"""

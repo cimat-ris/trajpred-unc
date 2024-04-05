@@ -15,23 +15,22 @@ import sys,os,logging
 '''
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sys.path.append('bayesian-torch')
-sys.path.append('.')
 
 import random,numpy as np
 import matplotlib.pyplot as plt
 import torch
 
 # Local models
-from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
-from utils.datasets_utils import get_dataset
-from utils.plot_utils import plot_traj_world,plot_cov_world
-from utils.calibration import generate_uncertainty_evaluation_dataset
-from utils.calibration_utils import save_data_for_calibration
-from utils.train_utils import train, evaluation_minadefde
-from utils.config import load_config,get_model_name
+from trajpred_unc.models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
+from trajpred_unc.utils.datasets_utils import get_dataset
+from trajpred_unc.utils.plot_utils import plot_traj_world,plot_cov_world
+from trajpred_unc.utils.train_utils import train, evaluation_minadefde
+from trajpred_unc.utils.config import load_config,get_model_filename
+from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset
+from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
 
 # Local constants
-from utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
+from trajpred_unc.utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
 
 # Load configuration file (conditional model)
 config = load_config("deterministic_dropout_ethucy.yaml")
@@ -63,7 +62,7 @@ def main():
 		train(model,device,0,batched_train_data,batched_val_data,config)
 
 	# Load the previously trained model
-	model_filename = config["train"]["save_dir"]+get_model_name(config)
+	model_filename = config["train"]["save_dir"]+get_model_filename(config)
 	logging.info("Loading {}".format(model_filename))
 	model.load_state_dict(torch.load(model_filename))
 	model.eval()

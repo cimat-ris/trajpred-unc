@@ -5,22 +5,20 @@
 # mario.canche@cimat.mx
 
 # Imports
-import sys,random,logging
-sys.path.append('.')
-
+import random,logging
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
 
 # Local models
-from models.lstm_encdec import lstm_encdec_gaussian
-from utils.datasets_utils import get_dataset
-from utils.calibration import generate_uncertainty_evaluation_dataset
-from utils.calibration_utils import save_data_for_calibration
-from utils.plot_utils import plot_traj_world,plot_cov_world
-from utils.train_utils import train
-from utils.config import load_config,get_model_name
-from utils.constants import SUBDATASETS_NAMES
+from trajpred_unc.models.lstm_encdec import lstm_encdec_gaussian
+from trajpred_unc.utils.datasets_utils import get_dataset
+from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset
+from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
+from trajpred_unc.utils.plot_utils import plot_traj_world,plot_cov_world
+from trajpred_unc.utils.train_utils import train
+from trajpred_unc.utils.config import load_config,get_model_filename
+from trajpred_unc.utils.constants import SUBDATASETS_NAMES
 
 # Load configuration file (conditional model)
 config = load_config("deterministic_gaussian_ethucy.yaml")
@@ -69,7 +67,7 @@ def main():
 		# For each element of the ensemble
 		for ind in range(config["misc"]["model_samples"]):
 			# Load the previously trained model
-			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
+			model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))
 			model.load_state_dict(torch.load(model_filename))
 			model.eval()
@@ -98,7 +96,7 @@ def main():
 		# Muestreamos con cada modelo
 		for ind in range(config["misc"]["model_samples"]):
 			# Load the model from the ensemble
-			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
+			model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))
 			model.load_state_dict(torch.load(model_filename))
 			model.eval()
