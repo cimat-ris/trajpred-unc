@@ -2,8 +2,8 @@ import logging
 import os
 import pickle
 # Local constants
-from utils.constants import PICKLE_DIR
-from utils.directory_utils import mkdir_p
+from trajpred_unc.utils.constants import PICKLE_DIR
+from trajpred_unc.utils.directory_utils import mkdir_p
 
 def save_data_for_calibration(file_name, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, sigmas_samples, sigmas_samples_test, id_test):
 	"""

@@ -5,8 +5,7 @@
 # mario.canche@cimat.mx
 
 # Cargamos las librerias
-import sys,os,logging
-sys.path.append('.')
+import os,logging
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -15,8 +14,8 @@ import torch
 import torch.optim as optim
 from tqdm import tqdm
 # Local constants
-from utils.constants import TRAINING_CKPT_DIR, SUBDATASETS_NAMES
-from utils.config import get_model_name
+from trajpred_unc.utils.constants import TRAINING_CKPT_DIR, SUBDATASETS_NAMES
+from trajpred_unc.utils.config import get_model_name
 
 # Function to train the models
 # ind is the ensemble id in the case we use an ensemble (otherwise, it is equal to zero)

@@ -1,6 +1,6 @@
 import argparse
 import yaml, os
-from utils.constants import SUBDATASETS_NAMES
+from trajpred_unc.utils.constants import SUBDATASETS_NAMES
 
 CONFIG_PATH = "cfg/"
 

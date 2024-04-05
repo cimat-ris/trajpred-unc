@@ -3,7 +3,7 @@ import logging, os
 from shapely.geometry import Polygon, LineString
 from shapely.ops import polygonize, unary_union
 import time
-from utils.plot_utils import plot_calibration_curves
+from trajpred_unc.utils.plot_utils import plot_calibration_curves
 
 def miscalibration_area(
 	exp_proportions: np.ndarray,

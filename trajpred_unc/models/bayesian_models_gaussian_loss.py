@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from bayesian_torch.layers import LinearReparameterization
 from bayesian_torch.layers import LSTMReparameterization
-from models.losses import Gaussian2DLikelihood
+from trajpred_unc.models.losses import Gaussian2DLikelihood
 import numpy as np
 
 

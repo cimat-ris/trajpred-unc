@@ -4,14 +4,14 @@ import os, logging
 from tqdm import tqdm
 import torch
 from sklearn.isotonic import IsotonicRegression
-from utils.config import get_model_name
+from trajpred_unc.utils.config import get_model_name
 # Local utils helpers
-from utils.directory_utils import Output_directories
+from trajpred_unc.utils.directory_utils import Output_directories
 # HDR utils
-from utils.hdr_kde import get_alpha
+from trajpred_unc.uncertainties.hdr_kde import get_alpha
 # Calibration metrics
-from utils.conformal_recalibration import get_within_proportions,calibrate_conformal
-from utils.kde import evaluate_kde
+from trajpred_unc.uncertainties.conformal_recalibration import get_within_proportions,calibrate_conformal
+from trajpred_unc.uncertainties.kde import evaluate_kde
 
 def gt_evaluation(target_test, target_test2, trajectory_id, time_position, fk, s_xk_yk, gaussian=False, fk_max=1.0):
 	"""

@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import numpy as np
-from models.losses import Gaussian2DLikelihood,convertToCov
+from trajpred_unc.models.losses import Gaussian2DLikelihood,convertToCov
 
 # A simple LSTM-based encoder-decoder network for HTP
 class lstm_encdec(nn.Module):

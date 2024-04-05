@@ -2,12 +2,11 @@ import os
 import pickle
 import cv2
 import numpy as np
-import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
 from torch.utils.data import Dataset
-from utils.constants import (
+from trajpred_unc.utils.constants import (
 	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,REFERENCE_IMG,PED_IDS,
 	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, MUN_POS_CSV, DATASETS_DIR, SUBDATASETS_NAMES
 )
