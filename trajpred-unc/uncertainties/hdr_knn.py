@@ -11,6 +11,7 @@ class hdr_knn:
         self.tree      = BallTree(X, leaf_size=2)
         self.X_sparsity,self.X_ind= self.compute_sparsity(self.X)
 
+    # Compute and sort the values of the sum of distances to the k nearest neighbors 
     def compute_sparsity(self, X):
         # Compute the sum of distances to the closest neighbors
         dist, __  = self.tree.query(X, k=self.k) 
