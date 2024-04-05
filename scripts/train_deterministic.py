@@ -13,7 +13,7 @@ from trajpred_unc.models.lstm_encdec import lstm_encdec
 from trajpred_unc.utils.datasets_utils import get_dataset
 from trajpred_unc.utils.plot_utils import plot_traj_img
 from trajpred_unc.utils.train_utils import train
-from trajpred_unc.utils.config import load_config,get_model_name
+from trajpred_unc.utils.config import load_config,get_model_filename
 from trajpred_unc.utils.constants import SUBDATASETS_NAMES
 
 # Load configuration file (conditional model)
@@ -47,7 +47,7 @@ def main():
 		train(model,device,0,batched_train_data,batched_val_data,config)
 
 	# Load the previously trained model
-	model_filename = config["train"]["save_dir"]+get_model_name(config)
+	model_filename = config["train"]["save_dir"]+get_model_filename(config)
 	logging.info("Loading {}".format(model_filename))
 	model.load_state_dict(torch.load(model_filename))
 	model.to(device)

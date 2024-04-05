@@ -15,13 +15,13 @@ import torch.optim as optim
 from tqdm import tqdm
 # Local constants
 from trajpred_unc.utils.constants import TRAINING_CKPT_DIR, SUBDATASETS_NAMES
-from trajpred_unc.utils.config import get_model_name
+from trajpred_unc.utils.config import get_model_filename
 
 # Function to train the models
 # ind is the ensemble id in the case we use an ensemble (otherwise, it is equal to zero)
 def train(model,device,ensemble_id,train_data,val_data,config):
 	# Model name
-	model_name = get_model_name(config,ensemble_id)
+	model_name = get_model_filename(config,ensemble_id)
 	# Optimizer
 	optimizer = optim.Adam(model.parameters(),lr=config["train"]["initial_lr"],weight_decay=0.003)
 	list_loss_train = []

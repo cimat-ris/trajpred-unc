@@ -16,7 +16,7 @@ from trajpred_unc.utils.datasets_utils import setup_loo_experiment,get_testing_b
 from trajpred_unc.utils.train_utils import train
 from trajpred_unc.uncertainties.kde import plot_kde_img
 from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset,regression_isotonic_fit,calibrate_and_test
-from trajpred_unc.utils.config import load_config, get_model_name
+from trajpred_unc.utils.config import load_config, get_model_filename
 # Local constants
 from trajpred_unc.utils.constants import (
 	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,FRAMES_IDS,
@@ -80,7 +80,7 @@ def main():
 		model = lstm_encdec_gaussian(config["model"])
 		model.to(device)
 		# Load the previously trained model
-		model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
+		model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
 		model.load_state_dict(torch.load(model_filename))
 		models.append(model)
 
@@ -98,7 +98,7 @@ def main():
 		# For each model of the ensemble
 		for ind in range(config["misc"]["model_samples"]):
 			# Load the model
-			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
+			model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
 			model.load_state_dict(torch.load(model_filename))
 			model.eval()
 			if torch.cuda.is_available():

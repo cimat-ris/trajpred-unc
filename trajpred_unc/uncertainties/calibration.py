@@ -4,7 +4,7 @@ import os, logging
 from tqdm import tqdm
 import torch
 from sklearn.isotonic import IsotonicRegression
-from trajpred_unc.utils.config import get_model_name
+from trajpred_unc.utils.config import get_model_filename
 # Local utils helpers
 from trajpred_unc.utils.directory_utils import Output_directories
 # HDR utils
@@ -75,7 +75,7 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 	# Each model sampled
 	for ind in range(config["misc"]["model_samples"]):
 		if type == "ensemble":
-			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
+			model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))
 			model.load_state_dict(torch.load(model_filename))
 			model.eval()
@@ -125,7 +125,7 @@ def generate_uncertainty_calibration_dataset(batched_test_data,model,config,devi
 	# Each model sampled
 	for ind in range(config["misc"]["model_samples"]):
 		if type == "ensemble":
-			model_filename = config["train"]["save_dir"]+get_model_name(config,ensemble_id=ind)
+			model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))
 			model.load_state_dict(torch.load(model_filename))
 			model.eval()
