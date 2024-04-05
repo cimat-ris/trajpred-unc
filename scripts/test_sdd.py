@@ -16,9 +16,7 @@ import torch.optim as optim
 from models.lstm_encdec import lstm_encdec_gaussian
 from utils.datasets_utils import get_dataset
 from utils.train_utils import train
-from utils.plot_utils import plot_traj_img, plot_traj_world, plot_cov_world
-from utils.calibration_utils import save_data_for_calibration
-from utils.directory_utils import mkdir_p
+from utils.plot_utils import plot_traj_world, plot_cov_world
 from utils.config import load_config,get_model_name
 import torch.optim as optim
 
@@ -63,7 +61,6 @@ def main():
         __, ax = plt.subplots(1,1,figsize=(12,12))
         plot_traj_world(predicted_positions[ind,:,:],observations_abs[ind,:,:],target_abs[ind,:,:],ax)
         plot_cov_world(predicted_positions[ind,:,:],sigmas_positions[ind,:,:],observations_abs[ind,:,:],ax)        
-        print(observations_vel[ind])
         # Plotting
         plt.legend('')
         plt.title('Trajectory samples {}'.format(batch_idx))
