@@ -21,7 +21,7 @@ from trajpred_unc.utils.config import get_model_filename
 # ind is the ensemble id in the case we use an ensemble (otherwise, it is equal to zero)
 def train(model,device,ensemble_id,train_data,val_data,config):
 	# Model name
-	model_name = get_model_filename(config,ensemble_id)
+	model_filename = get_model_filename(config,ensemble_id)
 	# Optimizer
 	optimizer = optim.Adam(model.parameters(),lr=config["train"]["initial_lr"],weight_decay=0.003)
 	list_loss_train = []
@@ -85,7 +85,7 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 			if not os.path.exists(config["train"]["save_dir"]):
 			    # Create a new directory if it does not exist
 				os.makedirs(config["save_dir"])
-			save_path = config["train"]["save_dir"]+model_name
+			save_path = config["train"]["save_dir"]+model_filename
 			torch.save(model.state_dict(), save_path)
 
 	# Error visualization
@@ -104,14 +104,16 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 		plt.show()
 
 # Function to train the models
-def train_variational(model,device,idTest,train_data,val_data,args,model_name):
+def train_variational(model,device,train_data,val_data,config):
+	# Model name
+	model_filename = get_model_filename(config,0)
 	# Optimizer
-	optimizer = optim.Adam(model.parameters(),lr=args.learning_rate, betas=(.5, .999),weight_decay=0.8)
+	optimizer       = optim.Adam(model.parameters(),lr=config["train"]["initial_lr"],weight_decay=0.003)
 	list_loss_train = []
 	list_loss_val   = []
 	min_val_error   = 1000.0
 
-	for epoch in range(args.epochs):
+	for epoch in range(config["train"]["epochs"]):
 		# Training
 		logging.info("----- ")
 		logging.info("Epoch: {}".format(epoch))
@@ -119,24 +121,25 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 		total = 0
 		M     = len(train_data)
 		model.train()
-		for batch_idx, (data, target, data_abs, target_abs) in enumerate(train_data):
+		for observations_vel,target_vel,observations_abs,target_abs,__,__,__ in tqdm(train_data):
+
 			# Step 1. Remember that Pytorch accumulates gradients.
 			# We need to clear them out before each instance
 			model.zero_grad()
 
 			if torch.cuda.is_available():
-				data  = data.to(device)
-				target=target.to(device)
-				data_abs  = data_abs.to(device)
+				observations_vel  = observations_vel.to(device)
+				target_vel=target_vel.to(device)
+				observations_abs  = observations_abs.to(device)
 				target_abs=target_abs.to(device)
 
 			# Step 2. Run our forward pass and compute the losses
-			pred, nl_loss, kl_loss = model(data, target, data_abs , target_abs, num_mc=args.num_mctrain)
+			__, nl_loss, kl_loss = model(observations_vel,target_vel,observations_abs,target_abs, num_mc=config["train"]["num_mctrain"])
 
 			# Divide by the batch size
 			loss   = nl_loss+ kl_loss/M
 			error += loss.detach().item()
-			total += len(target)
+			total += len(target_vel)
 
 			# Step 3. Compute the gradients, and update the parameters by
 			loss.backward()
@@ -150,26 +153,30 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 		M     = len(val_data)
 		model.eval()
 		with torch.no_grad():
-			for batch_idx, (data_val, target_val, data_abs , target_abs) in enumerate(val_data):
+			for batch_idx, (observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(val_data):
 				if torch.cuda.is_available():
-					data_val  = data_val.to(device)
-					target_val=target_val.to(device)
-					data_abs  = data_abs.to(device)
+					observations_vel  = observations_vel.to(device)
+					target_vel=target_vel.to(device)
+					observations_abs  = observations_abs.to(device)
 					target_abs= target_abs.to(device)
 
-				pred_val, nl_loss, kl_loss = model(data_val, target_val, data_abs , target_abs)
+				pred_val, nl_loss, kl_loss = model(observations_vel, target_vel, observations_abs , target_abs)
 				pi     = (2.0**(M-batch_idx))/(2.0**M-1) # From Blundell
 				loss   = nl_loss+ pi*kl_loss
 				error += loss.detach().item()
-				total += len(target_val)
+				total += len(target_vel)
 
 		logging.info("Validation loss: {:6.3f}".format(error/total))
 		list_loss_val.append(error/total)
 		if (error/total)<min_val_error:
 			min_val_error = error/total
-			# Keep the model
-			logging.info("Saving model")
-			torch.save(model.state_dict(), TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])+"_0.pth")
+        	# Save best checkpoints
+			if not os.path.exists(config["train"]["save_dir"]):
+			    # Create a new directory if it does not exist
+				os.makedirs(config["save_dir"])
+			save_path = config["train"]["save_dir"]+model_filename
+			torch.save(model.state_dict(), save_path)
+
 
 
 	# Visualizamos los errores
@@ -179,6 +186,13 @@ def train_variational(model,device,idTest,train_data,val_data,args,model_name):
 	plt.xlabel("Epochs")
 	plt.ylabel("Loss")
 	plt.legend()
+	if config["misc"]["plot_losses"]:
+		output_file = os.path.join(config["misc"]["plot_dir"],"loss_" + config["train"]["model_name"]+"."+str(config["dataset"]["id_test"])+".pdf")
+		if not os.path.exists(config["misc"]["plot_dir"]):
+			# Create a new directory if it does not exist
+			os.makedirs(config["misc"]["plot_dir"])
+		plt.savefig(output_file)
+		plt.show()
 
 	
 # Perform quantitative evaluation

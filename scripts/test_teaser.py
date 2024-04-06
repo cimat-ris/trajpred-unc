@@ -19,9 +19,7 @@ from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluati
 from trajpred_unc.utils.config import load_config, get_model_filename
 # Local constants
 from trajpred_unc.utils.constants import (
-	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,FRAMES_IDS,
-	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, IMAGES_DIR, MUN_POS_CSV, DATASETS_DIR, SUBDATASETS_NAMES, TRAINING_CKPT_DIR
-)
+	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,FRAMES_IDS)
 
 # Load configuration file (conditional model)
 config = load_config("deterministic_gaussian_ethucy.yaml")

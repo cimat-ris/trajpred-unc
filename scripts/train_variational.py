@@ -29,7 +29,7 @@ from trajpred_unc.utils.datasets_utils import get_dataset
 from trajpred_unc.utils.train_utils import train_variational
 from trajpred_unc.utils.plot_utils import plot_traj_world, plot_cov_world
 # Local constants
-from trajpred_unc.utils.constants import IMAGES_DIR, VARIATIONAL, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
+from trajpred_unc.utils.constants import SUBDATASETS_NAMES
 from trajpred_unc.utils.config import load_config,get_model_filename
 from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset
 from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
@@ -75,8 +75,8 @@ def main():
 	model.eval()
 
 	# Creamos la carpeta donde se guardaran las imagenes
-	if not os.path.exists(IMAGES_DIR):
-		os.makedirs(IMAGES_DIR)
+	if not os.path.exists(config["misc"]["plot_dir"]):
+		os.makedirs(config["misc"]["plot_dir"])
 
 	# Testing
 	ind_sample = np.random.randint(config["dataset"]["batch_size"])
@@ -96,7 +96,7 @@ def main():
 			plot_cov_world(predictions[ind_sample,:,:],sigmas[ind_sample,:,:],observations_abs[ind_sample,:,:], ax)
 		plt.legend()
 		plt.title('Trajectory samples {}'.format(batch_idx))
-		plt.savefig(IMAGES_DIR+"/pred_variational.pdf")
+		plt.savefig(config["misc"]["plot_dir"]+"/pred_variational.pdf")
 		if config["misc"]["show_test"]:
 			plt.show()
 		plt.close()

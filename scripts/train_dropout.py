@@ -30,7 +30,7 @@ from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluati
 from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
 
 # Local constants
-from trajpred_unc.utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
+from trajpred_unc.utils.constants import SUBDATASETS_NAMES
 
 # Load configuration file (conditional model)
 config = load_config("deterministic_dropout_ethucy.yaml")

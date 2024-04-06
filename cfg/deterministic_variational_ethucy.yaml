@@ -1,0 +1,37 @@
+dataset:
+  id_dataset: 0 # 0: ETHUCY
+  id_test: 2
+  pickle: False
+  pickle_dir: 'pickle/'  
+  validation_proportion: 0.1
+  use_neighbors: False
+  batch_size: 256        
+  person_max: 70 # Maximum number of persons in a frame
+  obs_len: 8 # Observation length (trajlet size)
+  pred_len: 12 # Prediction length
+  delim: "," # Delimiter		
+  dt: 0.4 # Delta time (time between two discrete time samples)
+  max_overlap: 1 # Maximal overlap between trajets
+model:
+  num_layers: 2
+  dropout_rate: 0.2
+  hidden_dim: 128
+  embedding_dim: 128
+  input_dim: 2
+  output_dim: 2  
+train:
+  initial_lr: 0.001
+  epochs: 2 #220
+  num_mctrain: 10
+  no_retrain: False
+  teacher_forcing: False
+  save_dir : "training_checkpoints/"
+  model_name: "deterministic_variational"
+misc:
+  plot_losses: True
+  plot_dir: "images/"
+  show_test: True
+  samples_test: 10
+  log_level: 20
+  seed: 1234
+  model_samples: 10
