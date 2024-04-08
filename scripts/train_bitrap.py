@@ -4,20 +4,17 @@ import pdb
 import os
 import sys
 sys.path.append(os.path.realpath('.'))
-sys.path.append('../bidireaction-trajectory-prediction/')
-sys.path.append('../bidireaction-trajectory-prediction/datasets')
+sys.path.append('../bitrap/')
+sys.path.append('../bitrap/datasets')
 
 import numpy as np
 import random, logging
 import torch
-from torch import nn, optim
+from torch import optim
 from torch.nn import functional as F
-import pickle as pkl
-# sys.path.remove('/home/brianyao/Documents/intention2021icra')
 from datasets import make_dataloader
 
 from bitrap.modeling import make_model
-
 from bitrap.engine import build_engine
 from bitrap.utils.scheduler import ParamScheduler, sigmoid_anneal
 from bitrap.utils.logger import Logger
@@ -27,15 +24,15 @@ import argparse
 from configs import cfg
 from collections import OrderedDict
 import pdb
-config_files = ["cfg/bitrap_np_hotel.yml","cfg/bitrap_np_eth.yml","cfg/bitrap_np_zara1.yml","cfg/bitrap_np_zara2.yml","cfg/bitrap_np_univ.yml"]
-dataset_names  = ['hotel','eth','zara1','zara2','univ']
+config_files  = ["cfg/bitrap_np_hotel.yml","cfg/bitrap_np_eth.yml","cfg/bitrap_np_zara1.yml","cfg/bitrap_np_zara2.yml","cfg/bitrap_np_univ.yml"]
+dataset_names = ['hotel','eth','zara1','zara2','univ']
+
 def build_optimizer(cfg, model):
 	all_params = model.parameters()
 	optimizer = optim.Adam(all_params, lr=cfg.SOLVER.LR)
 	return optimizer
 
 def main():
-
 	parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
 	parser.add_argument('--gpu', default='0', type=str)
 	parser.add_argument('--seed', default=1, type=int)
@@ -79,8 +76,11 @@ def main():
 			}
 
 	# get dataloaders
+	logger.info('Training data loader')
 	train_dataloader = make_dataloader(cfg, 'train')
+	logger.info('Validation data loader')
 	val_dataloader = make_dataloader(cfg, 'val')
+	logger.info('Test data loader')
 	test_dataloader = make_dataloader(cfg, 'test')
 	logger.info('Dataloader built!')
 	# get train_val_test engines
