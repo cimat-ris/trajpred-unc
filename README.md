@@ -2,33 +2,40 @@
 [![Tests status](https://github.com/cimat-ris/trajpred-bdl/actions/workflows/python-app.yml/badge.svg)](https://github.com/cimat-ris/trajpred-bdl/actions/workflows/python-app.yml)
 # trajpred-bdl
 
+## To install the libraries
+
+```bash
+pip -e install .
+```
+
 ## Training
 
 To train a simple deterministic model:
 
-```
+```bash
 python scripts/train_deterministic.py
 ```
 
 To train a simple deterministic model with variances as output (DG):
 
-```
+```bash
  python scripts/train_deterministic_gaussian.py
 ```
 
 To train a model made of an ensemble of DGs (DGE):
 
-```
+```bash
 python scripts/train_ensembles.py
 ```
 
 To train a deterministic model with dropout at inference (DD):
-```
+
+```bash
 python scripts/train_dropout.py
 ```
 
 To train a deterministic-variational model (DV):
-```
+```bash
 python scripts/train_variational.py
 ```
 
@@ -37,7 +44,7 @@ python scripts/train_variational.py
 
 With any of the training scripts above, you can use the '--no-retrain' option to produce testing results
 
-```
+```bash
 python scripts/train_ensembles.py --no-retrain --pickle  --examples 10
 ```
 
@@ -45,7 +52,7 @@ python scripts/train_ensembles.py --no-retrain --pickle  --examples 10
 
 After a model is trained, it saves it's results in a `pickle` file, then the calibration for it uses the output from a trained model and can be executed as follows:
 
-```
+```bash
 # training the desired model
 $ python scripts/train_torch_deterministic_gaussian.py --pickle --no-retrain
 
@@ -72,14 +79,15 @@ The `test_calibration.py` script uses Isotonic regression to compute the calibra
 
 * Clone the [bitrap repository](https://github.com/umautobots/bidireaction-trajectory-prediction).
 * The train/test partition from the [Trajectron++](https://github.com/StanfordASL/Trajectron-plus-plus) repository are now present in the datasets/trj++ directory as .pkl files.
-* Modify *bitrap_np_ETH.yml* lines 30 and set the path to where the .json file is located. You may also change BATCH_SIZE or NUM_WORKERS   
+* Modify *bitrap_np_ETH.yml* lines 30 and set the path to where the .json file is located. You may also change BATCH_SIZE or NUM_WORKERS  
+
 * To train bitrap, run
-```
+```bash
 python scripts/train_bitrap.py --config_file bitrap_np_ETH.yml --seed n
 ```
 By changing the seed, you will be building different models for an ensemble.
 
 * To generate data calibration from bitrap, run
-```
+```bash
 python tests/test_bitrap.py
 ```
