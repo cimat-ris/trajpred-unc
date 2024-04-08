@@ -27,9 +27,10 @@ train:
   save_dir : "training_checkpoints/"
   model_name: "deterministic_gaussian"
 misc:
-  plot_losses: True
+  plot_losses: False
   plot_dir: "images/"
   show_test: True
   samples_test: 10
   log_level: 20
   seed: 1234
+  model_samples: 3
