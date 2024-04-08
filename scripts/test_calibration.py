@@ -11,7 +11,7 @@ import torch
 
 from trajpred_unc.uncertainties.calibration_utils import get_data_for_calibration
 from trajpred_unc.uncertainties.calibration import generate_metrics_calibration, generate_metrics_calibration_all
-from trajpred_unc.utils.constants import SUBDATASETS_NAMES, AGENTFORMER, BITRAP, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
+from trajpred_unc.utils.constants import SUBDATASETS_NAMES, AGENTFORMER, BITRAP, BITRAP_BT_SDD, DETERMINISTIC_GAUSSIAN, DETERMINISTIC_GAUSSIAN_SDD, DROPOUT, DROPOUT_SDD, ENSEMBLES, ENSEMBLES_GAUSSIAN, ENSEMBLES_SDD, VARIATIONAL, VARIATIONAL_SDD
 
 
 # Parser arguments
@@ -34,6 +34,7 @@ args = parser.parse_args()
 valid_test_names = {
 	"deterministicGaussian": DETERMINISTIC_GAUSSIAN,
 	"agentformer":           AGENTFORMER,
+    "ensemblesGaussian":     ENSEMBLES_GAUSSIAN,
 	"ensembles":             ENSEMBLES,
 	"dropout":               DROPOUT,
 	"bitrap":                BITRAP,
@@ -74,7 +75,6 @@ def compute_calibration_metrics():
 	# 1: Conformal con densidad relativa
 	# 2: Regresion Isotonica
 	method_name = valid_test_names[args.test_name]+"_"+str(SUBDATASETS_NAMES[args.id_dataset][args.id_test])
-	#generate_metrics_calibration(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test, methods=[0,1,2],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
 	if args.gaussian_output:
 		generate_metrics_calibration_all(method_name,predictions_calibration,observations_calibration,groundtruth_calibration, predictions_test,observations_test,groundtruth_test,kde_size=kde_size,relative_coords_flag=not args.absolute_coords,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
 	else:
