@@ -44,7 +44,7 @@ def get_samples_pdfWeight(pdf,num_sample):
 	# Muestreamos de la nueva función de densidad pesada
 	return pdf.resample(num_sample)
 
-def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=None,type="ensemble"):
+def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=None,type="gaussian"):
 	#----------- Dataset TEST -------------
 	observations_vels= []
 	target_vels      = []
