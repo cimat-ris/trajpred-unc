@@ -173,13 +173,14 @@ def prepare_data(datasets_path, datasets_names, config):
 			px = raw_traj_data[raw_traj_data[:, 1]==ped,2]
 			py = raw_traj_data[raw_traj_data[:, 1]==ped,3]
 			if len(px)>1:
+				# FIXME: same bug here as in Trajectron++, because of np.gradient. Needs to be corrected!
 				# TODO: see where to read the dt info (0.4)
-				vx = np.gradient(px,0.4)
-				ax = np.gradient(vx,0.4)
+				vx = np.ediff1d(px, to_begin=(px[1] - px[0])) / config["dt"]
+				ax = np.ediff1d(vx, to_begin=(vx[1] - vx[0])) / config["dt"]
 				vx = np.expand_dims(vx,axis=1)
 				ax = np.expand_dims(ax,axis=1)
-				vy = np.gradient(py,0.4)
-				ay = np.gradient(vy,0.4)
+				vy = np.ediff1d(px, to_begin=(py[1] - py[0])) / config["dt"]
+				ay = np.ediff1d(vy, to_begin=(vy[1] - vy[0])) / config["dt"]
 				vy = np.expand_dims(vy,axis=1)
 				ay = np.expand_dims(ay,axis=1)
 				pv = np.concatenate([t,np.expand_dims(px,axis=1),np.expand_dims(py,axis=1),vx,vy,ax,ay,id],axis=1)
