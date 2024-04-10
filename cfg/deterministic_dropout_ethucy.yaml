@@ -1,7 +1,4 @@
 dataset:
-  id_dataset: 0 # 0: ETHUCY
-  id_test: 2
-  pickle: False
   pickle_dir: 'pickle/'  
   validation_proportion: 0.1
   use_neighbors: False
@@ -21,7 +18,7 @@ model:
   output_dim: 2  
 train:
   initial_lr: 0.001
-  epochs: 220
+  epochs: 220 #220
   no_retrain: False
   teacher_forcing: False
   save_dir : "training_checkpoints/"
@@ -31,6 +28,4 @@ misc:
   plot_dir: "images/"
   show_test: False
   samples_test: 10
-  log_level: 20
-  seed: 1234
-  dropout_samples: 10
+  model_samples: 10

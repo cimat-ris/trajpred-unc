@@ -1,10 +1,7 @@
 dataset:
-  id_dataset: 0 # 0: ETHUCY
-  id_test: 2
-  pickle: False
   pickle_dir: 'pickle/'  
   validation_proportion: 0.1
-  use_neighbors: False
+  use_neighbors: True
   batch_size: 256        
   person_max: 70 # Maximum number of persons in a frame
   obs_len: 8 # Observation length (trajlet size)
@@ -29,8 +26,6 @@ train:
 misc:
   plot_losses: False
   plot_dir: "images/"
-  show_test: True
+  show_test: False
   samples_test: 10
-  log_level: 20
-  seed: 1234
   model_samples: 3
