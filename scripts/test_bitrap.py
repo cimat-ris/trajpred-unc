@@ -3,12 +3,12 @@ import os
 import sys
 
 sys.path.append(os.path.realpath('.'))
-sys.path.append('../bidireaction-trajectory-prediction/')
-sys.path.append('../bidireaction-trajectory-prediction/datasets')
+sys.path.append('../bitrap')
+sys.path.append('../bitrap/datasets')
 import torch
 from torch import nn, optim
 from torch.nn import functional as F
-from utils.calibration_utils import save_data_for_calibration
+from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
 
 import pickle as pkl
 from datasets import make_dataloader
@@ -17,11 +17,14 @@ from bitrap.modeling import make_model
 from bitrap.utils.dataset_utils import restore
 from bitrap.engine.utils import print_info, post_process
 
-from utils.datasets_utils import Experiment_Parameters, setup_loo_experiment, traj_dataset_bitrap
+from trajpred_unc.utils.datasets_utils import setup_loo_experiment, get_testing_batch, traj_dataset_bitrap, traj_dataset
 import logging
 # Local constants
-from utils.constants import DATASETS_DIR,SUBDATASETS_NAMES,OBS_TRAJ,OBS_TRAJ_VEL,OBS_TRAJ_ACC,OBS_NEIGHBORS,PRED_TRAJ,BITRAP
+from trajpred_unc.utils.constants import (
+	SUBDATASETS_NAMES, FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,FRAMES_IDS)
 
+from trajpred_unc.utils.datasets_utils import get_testing_batch
+from trajpred_unc.utils.config import load_config
 import argparse
 from configs import cfg
 from termcolor import colored
@@ -55,12 +58,6 @@ if __name__ == '__main__':
 	# Loggin format
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
 
-	# Load the default parameters
-	experiment_parameters = Experiment_Parameters()
-
-	#### Data: our way
-	model_name = BITRAP
-
 	#### Data: BitTrap way
 	cfg.merge_from_file(config_files[args.id_test])
 	cfg.merge_from_list(args.opts)
@@ -77,17 +74,18 @@ if __name__ == '__main__':
 	model = make_model(cfg)
 	model = model.to(cfg.DEVICE)
 	if os.path.isfile(cfg.CKPT_DIR):
-	   model.load_state_dict(torch.load(cfg.CKPT_DIR))
-	   logging.info(colored('Loaded checkpoint:{}'.format(cfg.CKPT_DIR), 'blue', 'on_green'))
+		model.load_state_dict(torch.load(cfg.CKPT_DIR))
+		logging.info(colored('Loaded checkpoint:{}'.format(cfg.CKPT_DIR), 'blue', 'on_green'))
 	else:
-	   logging.info(colored('The cfg.CKPT_DIR id not a file: {}'.format(cfg.CKPT_DIR), 'green', 'on_red'))
+		logging.info(colored('The cfg.CKPT_DIR id not a file: {}'.format(cfg.CKPT_DIR), 'green', 'on_red'))
 	model.K = 100
 
 
 	##################################################################
 	# With our data (to show how to use BitTrap normalization)
 	# Load the dataset and perform the split
-	training_data, validation_data, testing_data, homography = setup_loo_experiment(DATASETS_DIR[0],SUBDATASETS_NAMES[0],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=False, compute_neighbors=True)
+	config = load_config("bitrap_ethucy.yaml")
+	__,__,testing_data, test_homography = setup_loo_experiment(config["dataset"])
 	# Torch dataset
 	X_test            = np.concatenate([testing_data[OBS_TRAJ],testing_data[OBS_TRAJ_VEL],testing_data[OBS_TRAJ_ACC]],axis=2)
 	test_data         = traj_dataset_bitrap(X_test,testing_data[OBS_NEIGHBORS],testing_data[PRED_TRAJ])
@@ -147,5 +145,5 @@ if __name__ == '__main__':
 		target_test_full   =  torch.tensor(gt_traj[args.batch_size:,:,:])
 		targetrel_test     =  torch.tensor(gt_traj_rel[:args.batch_size,:,:])
 		targetrel_test_full=  torch.tensor(gt_traj_rel[args.batch_size:,:,:])
-		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[0][args.id_test])
+		pickle_filename    = config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
 		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, None, None, args.id_test)
