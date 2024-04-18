@@ -1,9 +1,7 @@
 '''
 '''
-import pdb
 import os
 import sys
-sys.path.append(os.path.realpath('.'))
 sys.path.append('../bitrap/')
 sys.path.append('../bitrap/datasets')
 
@@ -17,7 +15,6 @@ from datasets import make_dataloader
 from bitrap.modeling import make_model
 from bitrap.engine import build_engine
 from bitrap.utils.scheduler import ParamScheduler, sigmoid_anneal
-from bitrap.utils.logger import Logger
 import logging
 
 import argparse

@@ -5,10 +5,7 @@
 # mario.canche@cimat.mx
 
 # Imports
-import sys,os,logging
-
-sys.path.append('.')
-
+import os,logging
 import numpy as np
 import matplotlib.pyplot as plt
 import random

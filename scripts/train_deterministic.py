@@ -2,7 +2,7 @@
 # coding: utf-8
 
 # Imports
-import sys,random,logging
+import random,logging
 
 import numpy as np
 import matplotlib.pyplot as plt
