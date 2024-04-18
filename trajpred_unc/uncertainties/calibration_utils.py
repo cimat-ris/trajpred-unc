@@ -59,7 +59,7 @@ def get_data_for_calibration(test_name):
 		- id_test
 	"""
 	logging.info("Unpickling data for uncertainty calibration...")
-	pickle_in_name = os.path.join(PICKLE_DIR, test_name+".pickle")
-	pickle_in = open(pickle_in_name, "rb")
+	pickle_in_name       = os.path.join(PICKLE_DIR, test_name+".pickle")
+	pickle_in            = open(pickle_in_name, "rb")
 	data_for_calibration = pickle.load(pickle_in)
 	return data_for_calibration.values()

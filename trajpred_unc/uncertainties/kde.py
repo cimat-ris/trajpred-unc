@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 from trajpred_unc.utils.plot_utils import world_to_image_xy
 from trajpred_unc.uncertainties.hdr_kde import get_falpha
 
+# Build a KDE representation from a Gaussian mixture
 def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, kde_size=1000, resample_size=100):
 	"""
-	Builds a KDE representation from a Gaussian mixture (output of one of the prediction algorithms)
+	Builds a KDE representation from a Gaussian mixture (output of some of the prediction algorithms)
 	Args:
 	  - prediction: set of position predictions
 	  - sigmas_prediction: covariances of the predictions
@@ -25,9 +26,8 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, kde_size=10
 		sigmas_samples_ensemble = sigmas_prediction[idx_ensemble,:]
 		sx,sy,cov               = sigmas_samples_ensemble[0],sigmas_samples_ensemble[1],sigmas_samples_ensemble[2]
         # Predictions arrive here in **absolute coordinates**
-		mean                = prediction[idx_ensemble, :]
-		# TODO: use the correlations too?
-		covariance          = np.array([[sx, cov],[cov, sy]])
+		mean                    = prediction[idx_ensemble, :]
+		covariance              = np.array([[sx, cov],[cov, sy]])
 		gaussian_mixture.append(multivariate_normal(mean,covariance))
 	# Performs sampling on the Gaussian mixture
 	pi                 = np.ones((len(gaussian_mixture),))/len(gaussian_mixture)
@@ -35,11 +35,11 @@ def gaussian_kde_from_gaussianmixture(prediction, sigmas_prediction, kde_size=10
 	sample_pdf         = np.zeros((kde_size,2))
 	sum                = 0
 	for gaussian_id,gaussian in enumerate(gaussian_mixture):
-		#sample_pdf.append(gaussian.rvs(size=partition[0][gaussian_id]))
 		sample_pdf[sum:sum+partition[0][gaussian_id]]=gaussian.rvs(size=partition[0][gaussian_id])
 		sum = sum +partition[0][gaussian_id]
 	# Use the samples to generate a KDE
 	f_density = gaussian_kde(sample_pdf.T)
+	# Resampling from this KDE
 	rows_id   = random.sample(range(0,sample_pdf.shape[0]),resample_size)
 	return f_density,sample_pdf[rows_id, :]
 
@@ -66,6 +66,7 @@ def samples_to_alphas(kde,samples):
 		observed_alphas.append(observed_alpha)
 	observed_alphas = np.array(observed_alphas)
 	return observed_alphas,fs_samples,sorted_samples
+
 
 def evaluate_kde(prediction, sigmas_prediction, ground_truth, kde_size=1000, resample_size=100):
 	"""
