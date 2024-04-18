@@ -26,7 +26,7 @@ def evaluate_quantile(gt_density_value, samples_density_values, alpha):
 		falpha = sorted_density_values[ind]
 	return (gt_density_value>=falpha)
 
-def get_within_proportions(gt_density_values, samples_density_values, method, threshold, alpha):
+def evaluate_within_proportions(gt_density_values, samples_density_values, method, threshold, alpha):
 	"""
 	Args:
 		- gt_density_values: evaluations of ground truth on the KDE
@@ -57,7 +57,7 @@ def get_within_proportions(gt_density_values, samples_density_values, method, th
 			within_cal.append(evaluate_quantile(gt_density_values[trajectory_id],samples_density_values[trajectory_id],threshold))
 	return np.mean(np.array(within_unc)), np.mean(np.array(within_cal))
 
-def calibrate_density(gt_density_values, alpha):
+def recalibrate_density(gt_density_values, alpha):
 	"""
 	Performs uncertainty calibration by using the density values as conformal scores
 	Args:
@@ -76,7 +76,7 @@ def calibrate_density(gt_density_values, alpha):
 	# The alpha-th largest element gives the threshold
 	return sorted_density_values[ind]
 
-def calibrate_relative_density(gt_density_values, samples_density_values, alpha):
+def recalibrate_relative_density(gt_density_values, samples_density_values, alpha):
 	"""
 	Performs uncertainty calibration by using the relative density values as conformal scores
 	Args:
@@ -97,7 +97,7 @@ def calibrate_relative_density(gt_density_values, samples_density_values, alpha)
 	# The alpha-th largest element gives the threshold
 	return sorted_relative_density_values[ind]
 
-def calibrate_alpha_density(gt_density_values, samples_density_values, alpha):
+def recalibrate_alpha_density(gt_density_values, samples_density_values, alpha):
 	"""
 	Performs uncertainty calibration by using the alpha-density values as conformal scores
 	Args:
@@ -123,16 +123,16 @@ def calibrate_alpha_density(gt_density_values, samples_density_values, alpha):
 	# The alpha-th smallest element gives the threshold
 	return sorted_alphas_density_values[ind]
 
-def calibrate_conformal(all_f_gt, all_f_samples, alpha, method):
+def recalibrate_conformal(all_f_gt, all_f_samples,method,alpha):
 	if method == CALIBRATION_CONFORMAL_FVAL:
 		# Calibration based on the density values
-		fa = calibrate_density(all_f_gt, alpha)
+		fa = recalibrate_density(all_f_gt, alpha)
 	elif method == CALIBRATION_CONFORMAL_FREL:
 		# Calibration based on the relative density values
-		fa = calibrate_relative_density(all_f_gt, all_f_samples, alpha)
+		fa = recalibrate_relative_density(all_f_gt, all_f_samples, alpha)
 	elif method == CALIBRATION_CONFORMAL_ALPHA:
 		# Calibration using alpha values on the density values
-		fa = calibrate_alpha_density(all_f_gt, all_f_samples, alpha)
+		fa = recalibrate_alpha_density(all_f_gt, all_f_samples, alpha)
 	else:
 		logging.error("Calibration method not implemented")
 		#raise()

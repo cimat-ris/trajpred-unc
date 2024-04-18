@@ -89,5 +89,5 @@ def generate_metrics_curves(conf_levels, unc_pcts, cal_pcts, metrics, position, 
 	compute_calibration_metrics(conf_levels, cal_pcts, metrics, position, "After  Recalibration")
 	# Save plot_calibration_curves
 	output_image_name = os.path.join(output_dirs.confidence, "confidence_level_"+suffix+"_"+prediction_method_name+"_method_"+str(method)+"_pos_"+str(position)+"_"+ str(time.time())+".pdf")
-	print(output_image_name)
+	logging.info("Saving figure in "+output_image_name)
 	plot_calibration_curves(conf_levels, unc_pcts, cal_pcts, output_image_name)

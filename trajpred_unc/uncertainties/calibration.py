@@ -10,7 +10,7 @@ from trajpred_unc.utils.directory_utils import Output_directories
 # HDR utils
 from trajpred_unc.uncertainties.hdr_kde import get_alpha
 # Calibration metrics
-from trajpred_unc.uncertainties.conformal_recalibration import get_within_proportions,calibrate_conformal,calibrate_density,calibrate_relative_density,calibrate_alpha_density
+from trajpred_unc.uncertainties.conformal_recalibration import evaluate_within_proportions,recalibrate_conformal
 from trajpred_unc.uncertainties.kde import evaluate_kde
 from trajpred_unc.uncertainties.calibration_metrics import generate_metrics_curves
 
@@ -133,14 +133,14 @@ def generate_uncertainty_calibration_dataset(batched_test_data,model,config,devi
 
 def save_metrics(prediction_method_name, metrics_cal, metrics_test, method_id, output_dirs):
 	# Guardamos con un data frame
-	df = pd.DataFrame(metrics_cal)
+	df              = pd.DataFrame(metrics_cal)
 	output_csv_name = os.path.join(output_dirs.metrics, "calibration_metrics_cal_"+prediction_method_name+"_" + str(method_id) + ".csv")
 	df.to_csv(output_csv_name, mode='a', header=not os.path.exists(output_csv_name))
 	logging.info("Metrics on the calibration set:")
 	print(df)
 
 	# Guardamos con un data frame
-	df = pd.DataFrame(metrics_test)
+	df              = pd.DataFrame(metrics_test)
 	output_csv_name = os.path.join(output_dirs.metrics, "calibration_metrics_test_"+prediction_method_name+"_" + str(method_id) + ".csv")
 	df.to_csv(output_csv_name, mode='a', header=not os.path.exists(output_csv_name))
 	logging.info("Metrics on the test set:")
@@ -193,7 +193,7 @@ def regression_isotonic_fit(predictions_calibration,gt_calibration, kde_size=100
 	return isotonic, isotonic_inverse
 
  #---------------------------------------------------------------------------------------
-def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_test,methods=[0,1,2],kde_size=1500,resample_size=200,gaussian=[None,None]):
+def recalibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_test,methods=[0,1,2],kde_size=1500,resample_size=200,gaussian=[None,None]):
 	# Perform calibration for alpha values in the range [0,1]
 	step        = 0.05
 	conf_levels = np.arange(start=0.0, stop=1.0+step, step=step)
@@ -259,11 +259,11 @@ def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_te
 		all_f_samples_calib= np.array(all_f_samples_calib)
 		all_f_samples_test = np.array(all_f_samples_test)
 		for method in methods:
-			recalibration_threshold                                    = calibrate_conformal(all_f_gt_calib, all_f_samples_calib, alpha, method)
+			recalibration_threshold                                    = recalibrate_conformal(all_f_gt_calib, all_f_samples_calib, method, alpha)
 			# Evaluation before/after calibration: Calibration dataset
-			proportion_uncalibrated0, proportion_calibrated0           = get_within_proportions(all_f_gt_calib, all_f_samples_calib, method, recalibration_threshold, alpha)
+			proportion_uncalibrated0, proportion_calibrated0           = evaluate_within_proportions(all_f_gt_calib, all_f_samples_calib, method, recalibration_threshold, alpha)
 			# Evaluation before/after calibration: Test dataset
-			proportion_uncalibrated_test0, proportion_calibrated_test0 = get_within_proportions(all_f_gt_test, all_f_samples_test, method, recalibration_threshold, alpha)
+			proportion_uncalibrated_test0, proportion_calibrated_test0 = evaluate_within_proportions(all_f_gt_test, all_f_samples_test, method, recalibration_threshold, alpha)
 			results[method]["recalibrated"]["onCalibrationData"].append(proportion_calibrated0)
 			results[method]["raw"]["onCalibrationData"].append(proportion_uncalibrated0)
 			results[method]["recalibrated"]["onTestData"].append(proportion_calibrated_test0)
@@ -274,16 +274,16 @@ def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_te
 
  #---------------------------------------------------------------------------------------
 
-def generate_metrics_calibration_all(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], kde_size=1500, resample_size=100, gaussian=[None,None], relative_coords_flag=True, time_positions = [3,7,11]):
+def generate_calibration_metrics(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], kde_size=1500, resample_size=100, gaussian=[None,None], relative_coords_flag=True, time_positions = [3,7,11]):
 	logging.info("Evaluating uncertainty calibration method: 0, 1, 2")
 	#--------------------- Calculamos las metricas de calibracion ---------------------------------
-	metrics_cal0  = [["","MACE","RMSCE","MA"]]
-	metrics_cal1  = [["","MACE","RMSCE","MA"]]
-	metrics_cal2  = [["","MACE","RMSCE","MA"]]
-	metrics_test0 = [["","MACE","RMSCE","MA"]]
-	metrics_test1 = [["","MACE","RMSCE","MA"]]
-	metrics_test2 = [["","MACE","RMSCE","MA"]]
-	output_dirs   = Output_directories()
+	
+	metrics_onCalibration = []
+	metrics_onTest        = []
+	for method in methods:
+		metrics_onCalibration.append([["","MACE","RMSCE","MA"]])
+		metrics_onTest.append([["","MACE","RMSCE","MA"]])
+	output_dirs           = Output_directories()
 	# Recorremos cada posicion para calibrar
 	for position in time_positions:
 		logging.info("Calibration metrics at position: {}".format(position))
@@ -300,36 +300,19 @@ def generate_metrics_calibration_all(prediction_method_name, predictions_calibra
 		else:
 			gaussian_t = gaussian	
 		# Uncertainty calibration
-		results = calibrate_and_test_all(this_pred_out_abs,data_gt[:,position,:],this_pred_out_abs_test,data_gt_test[:,position,:], methods, kde_size, resample_size, gaussian=gaussian_t)
+		results = recalibrate_and_test_all(this_pred_out_abs,data_gt[:,position,:],this_pred_out_abs_test,data_gt_test[:,position,:],methods,kde_size,resample_size,gaussian=gaussian_t)
 		conf_levels=results[0]["confidence_levels"]
-		cal_pcts0=results[0]["recalibrated"]["onCalibrationData"]
-		unc_pcts0=results[0]["raw"]["onCalibrationData"]
-		cal_pcts_test0 = results[0]["recalibrated"]["onTestData"]
-		unc_pcts_test0 = results[0]["raw"]["onTestData"]
-		cal_pcts1=results[1]["recalibrated"]["onCalibrationData"]
-		unc_pcts1=results[1]["raw"]["onCalibrationData"]
-		cal_pcts_test1 = results[1]["recalibrated"]["onTestData"]
-		unc_pcts_test1 = results[1]["raw"]["onTestData"]
-		cal_pcts2=results[2]["recalibrated"]["onCalibrationData"]
-		unc_pcts2=results[2]["raw"]["onCalibrationData"]
-		cal_pcts_test2 = results[2]["recalibrated"]["onTestData"]
-		unc_pcts_test2 = results[2]["raw"]["onTestData"]
-
-
 		# Metrics Calibration for data calibration
 		logging.info("Calibration metrics (Calibration dataset)")
-		generate_metrics_curves(conf_levels, unc_pcts0, cal_pcts0, metrics_cal0, position, 0, output_dirs, prediction_method_name)
-		generate_metrics_curves(conf_levels, unc_pcts1, cal_pcts1, metrics_cal1, position, 1, output_dirs, prediction_method_name)
-		generate_metrics_curves(conf_levels, unc_pcts2, cal_pcts2, metrics_cal2, position, 2, output_dirs, prediction_method_name)
+		for method in methods:
+			generate_metrics_curves(conf_levels,results[method]["raw"]["onCalibrationData"],results[method]["recalibrated"]["onCalibrationData"],metrics_onCalibration[method],position,method,output_dirs,prediction_method_name)
 		# Metrics Calibration for data test
 		logging.info("Calibration evaluation (Test dataset)")
-		generate_metrics_curves(conf_levels, unc_pcts_test0, cal_pcts_test0, metrics_test0, position, 0, output_dirs, prediction_method_name, suffix='test')
-		generate_metrics_curves(conf_levels, unc_pcts_test1, cal_pcts_test1, metrics_test1, position, 1, output_dirs, prediction_method_name, suffix='test')
-		generate_metrics_curves(conf_levels, unc_pcts_test2, cal_pcts_test2, metrics_test2, position, 2, output_dirs, prediction_method_name, suffix='test')
+		for method in methods:
+			generate_metrics_curves(conf_levels,results[method]["raw"]["onTestData"],results[method]["recalibrated"]["onTestData"],metrics_onTest[method],position,method,output_dirs, prediction_method_name, suffix='test')
 
-	#--------------------- Guardamos las metricas de calibracion ---------------------------------
-	save_metrics(prediction_method_name, metrics_cal0, metrics_test0, 0, output_dirs)
-	save_metrics(prediction_method_name, metrics_cal1, metrics_test1, 1, output_dirs)
-	save_metrics(prediction_method_name, metrics_cal2, metrics_test2, 2, output_dirs)
+	#--------------------- Save calibration metrics ---------------------------------	
+	for method in methods:
+		save_metrics(prediction_method_name,metrics_onCalibration[method],metrics_onTest[method],method,output_dirs)
 
  #---------------------------------------------------------------------------------------
