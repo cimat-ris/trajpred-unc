@@ -335,7 +335,7 @@ def generate_metrics_calibration(prediction_method_name, predictions_calibration
 
  #---------------------------------------------------------------------------------------
 
-def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_test,time_position,kde_size=1500,resample_size=200, gaussian=[None,None]):
+def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_test,kde_size=1500,resample_size=200, gaussian=[None,None]):
 	# Perform calibration for alpha values in the range [0,1]
 	step        = 0.05
 	conf_levels = np.arange(start=0.0, stop=1.0+step, step=step)
@@ -402,20 +402,20 @@ def calibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_te
 		for k in range(prediction.shape[1]):
 			if gaussian[0] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,time_position,:],groundtruth[k,time_position,:],kde_size,resample_size)
+				f_kde, f_gt, f_samples,samples = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,:],groundtruth[k,:],kde_size,resample_size)
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],None,groundtruth[k,time_position,:],kde_size,resample_size)
+				f_kde, f_gt, f_samples, samples = evaluate_kde(prediction[:,k,:],None,groundtruth[k,:],kde_size,resample_size)
 			all_f_samples.append(f_samples)
 			all_f_gt.append(f_gt)
 
 		for k in range(prediction_test.shape[1]):
 			if gaussian[1] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:,k,time_position,:],groundtruth_test[k,time_position, :],kde_size,resample_size)
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:,k,:],groundtruth_test[k, :],kde_size,resample_size)
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],None,groundtruth_test[k,time_position,:],kde_size,resample_size)
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],None,groundtruth_test[k,:],kde_size,resample_size)
 			all_f_samples_test.append(f_samples_test)
 			all_f_gt_test.append(f_gt_test)
 
@@ -469,6 +469,8 @@ def generate_metrics_calibration_all(prediction_method_name, predictions_calibra
 	output_dirs   = Output_directories()
 	# Recorremos cada posicion para calibrar
 	for position in time_positions:
+		logging.info("Calibration metrics at position: {}".format(position))
+		#FIXME: is it still useful to have this flag?
 		if relative_coords_flag:
 			# Convert it to absolute (starting from the last observed position)
 			this_pred_out_abs      = predictions_calibration[:,:,position,:]+observations_calibration[:,-1,:]
@@ -476,10 +478,12 @@ def generate_metrics_calibration_all(prediction_method_name, predictions_calibra
 		else:
 			this_pred_out_abs      = predictions_calibration[:, :, position, :]
 			this_pred_out_abs_test = data_pred_test[:, :, position, :]
-
+		if gaussian[0] is not None:
+			gaussian_t = [gaussian[0][:, :, position, :], gaussian[1][:, :, position, :]]
+		else:
+			gaussian_t = gaussian	
 		# Uncertainty calibration
-		logging.info("Calibration metrics at position: {}".format(position))
-		conf_cal = calibrate_and_test_all(this_pred_out_abs, data_gt, this_pred_out_abs_test, data_gt_test, position, kde_size, resample_size, gaussian=gaussian)
+		conf_cal = calibrate_and_test_all(this_pred_out_abs,data_gt[:,position,:],this_pred_out_abs_test,data_gt_test[:,position,:], kde_size, resample_size, gaussian=gaussian_t)
 		conf_levels0, cal_pcts0, unc_pcts0, cal_pcts_test0, unc_pcts_test0 = conf_cal[0]
 		conf_levels1, cal_pcts1, unc_pcts1, cal_pcts_test1, unc_pcts_test1 = conf_cal[1]
 		conf_levels2, cal_pcts2, unc_pcts2, cal_pcts_test2, unc_pcts_test2 = conf_cal[2]
