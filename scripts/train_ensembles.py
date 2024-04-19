@@ -36,7 +36,7 @@ def main():
 	batched_train_data,batched_val_data,batched_test_data,__,__ = get_dataset(config["dataset"])
 
 	# Select random seeds
-	seeds = np.random.choice(999999, config["misc"]["model_samples"],replace=False)
+	seeds = np.random.choice(9999, config["misc"]["model_samples"],replace=False)
 	logging.info("Seeds: {}".format(seeds))
 
 	if config["train"]["no_retrain"]==False:
@@ -112,6 +112,7 @@ def main():
 		sigmas_c      = np.array(sigmas_samples)
 		break
 	
+	# Save these testing data for uncertainty calibration
 	pickle_filename = config["train"]["model_name"]+"_ensemble_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
 	save_data_for_calibration(pickle_filename,predictions_c,predictions_e, observations_abs_c,observations_abs_e,target_abs_c,target_abs_e,sigmas_c,sigmas_e,config["dataset"]["id_test"])
 

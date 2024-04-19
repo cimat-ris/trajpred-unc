@@ -30,7 +30,7 @@ def build_optimizer(cfg, model):
 	return optimizer
 
 def main():
-	parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
+	parser = argparse.ArgumentParser(description="")
 	parser.add_argument('--gpu', default='0', type=str)
 	parser.add_argument('--seed', default=1, type=int)
 	parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')

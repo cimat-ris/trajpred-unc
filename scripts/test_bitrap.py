@@ -1,4 +1,3 @@
-import pdb
 import os
 import sys
 
@@ -6,16 +5,13 @@ sys.path.append(os.path.realpath('.'))
 sys.path.append('../bitrap')
 sys.path.append('../bitrap/datasets')
 import torch
-from torch import nn, optim
-from torch.nn import functional as F
 from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
 
 import pickle as pkl
 from datasets import make_dataloader
 #import make_dataloader
 from bitrap.modeling import make_model
-from bitrap.utils.dataset_utils import restore
-from bitrap.engine.utils import print_info, post_process
+from bitrap.engine.utils import post_process
 
 from trajpred_unc.utils.datasets_utils import setup_loo_experiment, get_testing_batch, traj_dataset_bitrap, traj_dataset
 import logging
@@ -29,10 +25,6 @@ import argparse
 from configs import cfg
 from termcolor import colored
 import numpy as np
-import tqdm
-import pdb
-import matplotlib.pyplot as plt
-import random
 
 config_files = ["cfg/bitrap_np_hotel.yml","cfg/bitrap_np_eth.yml","cfg/bitrap_np_zara1.yml","cfg/bitrap_np_zara2.yml","cfg/bitrap_np_univ.yml"]
 
@@ -136,7 +128,7 @@ if __name__ == '__main__':
 			gt_traj[ind,:,:]     = target_test[0,:,:].numpy()
 			gt_traj_rel[ind,:,:] = target_test[0,:,:].numpy() - data_test[0,-1,:2].numpy()
 
-		#aaaaa
+		# Calibration data
 		tpred_samples      =  torch.tensor(pred_traj[:,:args.batch_size,:,:])
 		tpred_samples_full =  torch.tensor(pred_traj[:,args.batch_size:,:,:])
 		data_test          =  torch.tensor(obs_traj[:args.batch_size,:,:])

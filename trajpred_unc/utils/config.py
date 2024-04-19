@@ -16,6 +16,8 @@ def load_config(config_name):
     config["dataset"]["id_dataset"] = args.id_dataset
     config["dataset"]["id_test"]    = args.id_test
     config["dataset"]["pickle"]     = args.pickle 
+    config["misc"]["absolute_coords"] = args.absolute_coords
+    config["misc"]["ensemble"]        = args.ensemble
     config["misc"]["log_level"]     = args.log_level
     config["misc"]["log_file"]      = args.log_file
     config["misc"]["seed"]          = args.seed
@@ -44,6 +46,9 @@ def get_args(argv=None):
 						help='use previously made pickle files')
 
     misc_args = add_argument_group('Misc')
+    misc_args.add_argument('--absolute_coords', action='store_true', help='')
+    misc_args.add_argument('--ensemble', action='store_true', help='')
+    misc_args.add_argument('--gaussian-output', default=True, action='store_true', help='gaussian var to be used to compute calibration metrics')
     misc_args.add_argument('--seed',type=int, default=1,help='Random seed for all randomized functions')
     misc_args.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
     misc_args.add_argument('--log-file',default='',help='Log file (default: standard output)')
