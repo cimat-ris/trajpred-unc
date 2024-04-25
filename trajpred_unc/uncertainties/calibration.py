@@ -274,7 +274,7 @@ def recalibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_
 
  #---------------------------------------------------------------------------------------
 
-def generate_calibration_metrics(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], kde_size=1500, resample_size=100, gaussian=[None,None], relative_coords_flag=True, time_positions = [3,7,11]):
+def generate_calibration_metrics(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], kde_size=1500, resample_size=100, gaussian=[None,None], time_positions = [3,7,11]):
 	logging.info("Evaluating uncertainty calibration method: 0, 1, 2")
 	#--------------------- Calculamos las metricas de calibracion ---------------------------------
 	
@@ -287,14 +287,8 @@ def generate_calibration_metrics(prediction_method_name, predictions_calibration
 	# Recorremos cada posicion para calibrar
 	for position in time_positions:
 		logging.info("Calibration metrics at position: {}".format(position))
-		#FIXME: is it still useful to have this flag?
-		if relative_coords_flag:
-			# Convert it to absolute (starting from the last observed position)
-			this_pred_out_abs      = predictions_calibration[:,:,position,:]+observations_calibration[:,-1,:]
-			this_pred_out_abs_test = data_pred_test[:, :, position, :] + data_obs_test[:, -1, :]
-		else:
-			this_pred_out_abs      = predictions_calibration[:, :, position, :]
-			this_pred_out_abs_test = data_pred_test[:, :, position, :]
+		this_pred_out_abs      = predictions_calibration[:, :, position, :]
+		this_pred_out_abs_test = data_pred_test[:, :, position, :]
 		if gaussian[0] is not None:
 			gaussian_t = [gaussian[0][:, :, position, :], gaussian[1][:, :, position, :]]
 		else:

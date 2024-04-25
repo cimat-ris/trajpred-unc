@@ -4,8 +4,7 @@
 # train_torch_dropout_calibration: IsotonicReg with gaussian=False, Conformal with gaussian=True
 # train_torch_bitrap_BT: IsotonicReg with gaussian=False, Conformal with gaussian=False
 
-import argparse
-import logging, sys, random
+import logging, random
 import numpy as np
 import torch
 
@@ -15,8 +14,8 @@ from trajpred_unc.utils.constants import SUBDATASETS_NAMES, AGENTFORMER, BITRAP,
 from trajpred_unc.utils.config import load_config
 
 # Load configuration file (conditional model)
-config = load_config("deterministic_gaussian_ethucy.yaml")
-#config = load_config("bitrap_ethucy.yaml")
+#config = load_config("deterministic_gaussian_ethucy.yaml")
+config = load_config("bitrap_ethucy.yaml")
 
 def get_names(config):
 	"""
@@ -42,16 +41,17 @@ def compute_calibration_metrics():
 	kde_size      = 1500
 	resample_size = 1000
 	kde_size      = 15
-	resample_size = 10
+	resample_size = 100
 
 	# Calibrate and evaluate metrics for the three methods, and for all positions
 	# 0: Conformal
 	# 1: Conformal with relative density
 	# 2: Regresion Isotonica
+	print(predictions_calibration.shape)
 	if False:
-		generate_calibration_metrics(method_name,predictions_calibration,observations_calibration,groundtruth_calibration,predictions_test,observations_test,groundtruth_test,methods=[0,1,2],kde_size=kde_size,relative_coords_flag=not config["misc"]["absolute_coords"],resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
+		generate_calibration_metrics(method_name,predictions_calibration,observations_calibration,groundtruth_calibration,predictions_test,observations_test,groundtruth_test,methods=[0,1,2],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
 	else:
-		generate_calibration_metrics(method_name,predictions_calibration,observations_calibration,groundtruth_calibration,predictions_test,observations_test,groundtruth_test,methods=[0,1,2],kde_size=kde_size,relative_coords_flag=not config["misc"]["absolute_coords"],resample_size=resample_size,gaussian=[None, None])
+		generate_calibration_metrics(method_name,predictions_calibration,observations_calibration,groundtruth_calibration,predictions_test,observations_test,groundtruth_test,methods=[0,1,2],kde_size=kde_size,resample_size=resample_size,gaussian=[None, None])
 
 if __name__ == "__main__":
 	# Choose seed

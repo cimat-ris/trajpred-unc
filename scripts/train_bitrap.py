@@ -35,7 +35,7 @@ def main():
 	parser.add_argument('--seed', default=1, type=int)
 	parser.add_argument('--log-level',type=int, default=20,help='Log level (default: 20)')
 	parser.add_argument('--id-test',
-						type=int, default=0, metavar='N',
+						type=int, default=2, metavar='N',
 						help='id of the dataset to use as test in LOO (default: 0)')
 	parser.add_argument(
 		"opts",
