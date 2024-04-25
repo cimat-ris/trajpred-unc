@@ -1,18 +1,18 @@
 import numpy as np
 
 # Given a set of pdf values from samples on the pdf, and a pdf value, deduce alpha
-def get_alpha(scores, fa):
+def get_alpha(pdf_values, fa):
 	# Sort samples pdf values
-	sorted_scores = sorted(scores, reverse=True)
+    sorted_pdf_values = sorted(pdf_values, reverse=True)
 	# Select all samples for which the pdf value is above the one of GT
-	ind = np.where(sorted_scores < fa)[0]
-	if ind.shape[0] > 0:
+    ind = np.where(sorted_pdf_values < fa)[0]
+    if ind.shape[0] > 0:
 		# Probability mass above fa
-		alpha_fa =  sum(sorted_scores[:ind[0]])/sum(sorted_scores)
-	else:
+        alpha_fa =  sum(sorted_pdf_values[:ind[0]])/sum(sorted_pdf_values)
+    else:
 		# All samples have a pdf value >= fa
-		alpha_fa = 1.0
-	return alpha_fa
+        alpha_fa = 1.0
+    return alpha_fa
 
 def bs(orden,imin,imax,f_pdf):
     if imax==imin:

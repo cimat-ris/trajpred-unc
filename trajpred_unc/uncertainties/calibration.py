@@ -56,7 +56,7 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 	predictions_samples = []
 	sigmas_samples      = []
 
-	# Each model sampled
+	# Each sampled model
 	for ind in range(config["misc"]["model_samples"]):
 		if type == "ensemble":
 			model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
@@ -76,61 +76,12 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 		sigmas_samples.append(sigmas)
 
 	predictions_samples= np.array(predictions_samples)
+	predictions_samples= np.swapaxes(predictions_samples,0,1)
 	sigmas_samples     = np.array(sigmas_samples)
+	sigmas_samples     = np.swapaxes(sigmas_samples,0,1)
 	return observations_vels,target_vels,observations_abss,target_abss,predictions_samples,sigmas_samples
 
-def generate_uncertainty_calibration_dataset(batched_test_data,model,config,device=None,type="ensemble"):
-	#----------- Dataset TEST -------------
-	observations_vels= []
-	target_vels      = []
-	observations_abss= []
-	target_abss      = []
-	total_trajectories  = 0
-	for batch_idx,(observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
-		total_trajectories+=observations_vel.shape[0]
-		 # Batches saved into array respectively
-		observations_vels.append(observations_vel)
-		target_vels.append(target_vel)
-		observations_abss.append(observations_abs)
-		target_abss.append(target_abs)
-
-		# Batches concatenated to have only one
-		observations_vels = torch.cat(observations_vels, dim=0)
-		target_vels       = torch.cat(target_vels, dim=0)
-		observations_abss = torch.cat(observations_abss, dim=0)
-		target_abss       = torch.cat(target_abss, dim=0)
-		logging.info('Using test data for uncertainty calibration: {} trajectories'.format(total_trajectories))
-		break
-
-	# Unique batch predictions obtained
-	predictions_samples_cal = []
-	sigmas_samples_cal      = []
-
-	# Each model sampled
-	for ind in range(config["misc"]["model_samples"]):
-		if type == "ensemble":
-			model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
-			logging.info("Loading {}".format(model_filename))
-			model.load_state_dict(torch.load(model_filename))
-			model.eval()
-		if torch.cuda.is_available():
-			observations_vels  = observations_vels.to(device)
-		# Model prediction obtained
-		if type == "variational":
-			prediction,__,sigmas= model.predict(observations_vels)
-		else:
-			prediction,sigmas   = model.predict(observations_vels)
-
-		# Sample saved
-		predictions_samples_cal.append(prediction)
-		sigmas_samples_cal.append(sigmas)
-
-	predictions_samples_cal= np.array(predictions_samples_cal)
-	sigmas_samples_cal     = np.array(sigmas_samples_cal)
-	return observations_vels,target_vels,observations_abss,target_abss,predictions_samples_cal,sigmas_samples_cal
-
 #-----------------------------------------------------------------------------------
-
 def save_metrics(prediction_method_name, metrics_cal, metrics_test, method_id, output_dirs):
 	# Guardamos con un data frame
 	df              = pd.DataFrame(metrics_cal)
@@ -236,6 +187,8 @@ def recalibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_
 		for k in range(prediction.shape[1]):
 			if gaussian[0] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
+				print(kde_size,resample_size)
+				print(gaussian[0].shape)
 				__,f_gt,f_samples,__ = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,:],groundtruth[k,:],kde_size,resample_size)
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
