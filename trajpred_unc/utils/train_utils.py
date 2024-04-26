@@ -195,28 +195,3 @@ def train_variational(model,device,train_data,val_data,config):
 		plt.show()
 
 	
-# Perform quantitative evaluation
-#def evaluation_minadefde(model,test_data,config):
-def evaluation_minadefde(predictions_samples, data_test, target_test, model_name):
-	logging.debug("----> Predictions: {}".format(predictions_samples.shape))
-	logging.debug("----> Observations: {}".format(data_test.shape))
-	logging.debug("----> Ground truth: {}".format(target_test.shape))
-	# Last position
-	last_pos = data_test[:,-1,:].detach().unsqueeze(1).unsqueeze(0).numpy()
-	# All squared differences
-	diff = target_test.detach().numpy() - (predictions_samples+last_pos)
-	diff = diff**2
-	# Euclidean distances
-	diff = np.sqrt(np.sum(diff, axis=3))
-	# minADEs for each data point 
-	ade  = np.min(np.mean(diff,axis=2), axis=0)
-	# minFDEs for each data point 
-	fde  = np.min(diff[:,:,-1], axis=0)
-	results = [["mADE", "mFDE"], [np.mean(ade), np.mean(fde)]]
-    
-	# Save results into a csv file
-	output_csv_name = "images/calibration/" + model_name +"_min_ade_fde.csv"
-	df = pd.DataFrame(results)
-	df.to_csv(output_csv_name, mode='a', header=not os.path.exists(output_csv_name))
-	print(df)
-	return results	

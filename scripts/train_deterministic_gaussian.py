@@ -17,7 +17,8 @@ from trajpred_unc.utils.datasets_utils import get_dataset
 from trajpred_unc.utils.train_utils import train
 from trajpred_unc.utils.config import load_config,get_model_filename
 from trajpred_unc.utils.plot_utils import plot_traj_world,plot_cov_world
-from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset,generate_uncertainty_calibration_dataset
+from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset
+from trajpred_unc.utils.evaluation import evaluation_minadefde
 from trajpred_unc.uncertainties.calibration_utils import save_data_for_uncertainty_calibration
 from trajpred_unc.utils.constants import SUBDATASETS_NAMES
 
@@ -79,8 +80,10 @@ def main():
 		# Not display more than config.examples
 		if batch_idx==config["misc"]["samples_test"]-1:
 			break
+
 	#------------------ Generates testing sub-dataset for uncertainty calibration and evaluation ---------------------------
 	__,__,observations_abs,target_abs,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data, model,config,device=device)
+	evaluation_minadefde(predictions,target_abs,config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]])
 	
 	#__,__,observations_abs_c,target_abs_c,predictions_c,sigmas_c = generate_uncertainty_calibration_dataset(batched_test_data,model,config,device=device)
 	# Save these testing data for uncertainty calibration

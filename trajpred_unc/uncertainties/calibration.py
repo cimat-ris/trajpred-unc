@@ -36,9 +36,6 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 	total_trajectories  = 0
 	for batch_idx, (observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
 		total_trajectories+=observations_vel.shape[0]
-		# The first batch is used for uncertainty calibration, so we skip it
-		if batch_idx==0:
-			continue
 		 # Batches saved into array respectively
 		observations_vels.append(observations_vel)
 		target_vels.append(target_vel)
@@ -71,6 +68,8 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 		else:
 			prediction,sigmas   = model.predict(observations_vels)
 
+		if not config["misc"]["absolute_coords"]:
+			prediction = prediction + observations_abss[:,-2:-1,:].numpy()
 		# Sample saved
 		predictions_samples.append(prediction)
 		sigmas_samples.append(sigmas)

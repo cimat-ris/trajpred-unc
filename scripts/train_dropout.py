@@ -24,10 +24,11 @@ import torch
 from trajpred_unc.models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
 from trajpred_unc.utils.datasets_utils import get_dataset
 from trajpred_unc.utils.plot_utils import plot_traj_world,plot_cov_world
-from trajpred_unc.utils.train_utils import train, evaluation_minadefde
+from trajpred_unc.utils.train_utils import train
+from trajpred_unc.utils.evaluation import evaluation_minadefde
 from trajpred_unc.utils.config import load_config,get_model_filename
 from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset
-from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
+from trajpred_unc.uncertainties.calibration_utils import save_data_for_uncertainty_calibration
 
 # Local constants
 from trajpred_unc.utils.constants import SUBDATASETS_NAMES
@@ -90,33 +91,15 @@ def main():
 		if batch_idx==config["misc"]["samples_test"]-1:
 			break
 
-	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
 	#------------------ Generates testing sub-dataset for uncertainty calibration and evaluation ---------------------------
-	__,__,observations_abs_e,target_abs_e,predictions_e,sigmas_e = generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=device,type="dropout")
+	__,__,observations_abs,target_abs,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=device,type="dropout")
 	# TODO: the samples should be sampled from the Gaussian mixture, not only the mean
-	evaluation_minadefde(predictions_e, observations_abs_e, target_abs_e,config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]])
+	evaluation_minadefde(predictions,target_abs,config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]])
+	
 	#---------------------------------------------------------------------------------------------------------------
-
-	# TODO: make this into a function (as the one above, generate_uncertainty_evaluation_dataset)
-	# Testing
-	for batch_idx, (observations_vel_c,__,observations_abs_c,target_abs_c,__,__,__) in enumerate(batched_test_data):
-
-		tpred_samples = []
-		sigmas_samples = []
-		# Sampling from inference dropout
-		for ind in range(config["misc"]["model_samples"]):
-			if torch.cuda.is_available():
-				observations_vel_c  = observations_vel_c.to(device)
-			pred, sigmas = model.predict(observations_vel_c, dim_pred=12)
-			tpred_samples.append(pred)
-			sigmas_samples.append(sigmas)
-
-		predictions_c = np.array(tpred_samples)
-		sigmas_c      = np.array(sigmas_samples)
-		break	
 	# Save these testing data for uncertainty calibration
 	pickle_filename = config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
-	save_data_for_calibration(pickle_filename,predictions_c,predictions_e, observations_abs_c,observations_abs_e,target_abs_c,target_abs_e,sigmas_c,sigmas_e,config["dataset"]["id_test"])
+	save_data_for_uncertainty_calibration(pickle_filename,predictions,observations_abs,target_abs,sigmas,config["dataset"]["id_test"])
 
 if __name__ == "__main__":
 	main()
