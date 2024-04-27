@@ -6,7 +6,7 @@ from trajpred_unc.uncertainties.hdr_knn import hdr_knn
 
 # Generated data
 centers = [[1, 1], [-1, -1], [1, -1]]
-n_samples = 500
+n_samples = 1000
 k         = int(np.sqrt(n_samples//2))
 
 X, labels_true = make_blobs(
@@ -17,7 +17,7 @@ X, labels_true = make_blobs(
 hdr     = hdr_knn(X)
 alpha   = 0.85
 X_inside= hdr.classify(X, alpha)
-
+print(sum(X_inside)/len(X_inside))
 n_test= 1000
 Y     = np.random.uniform(low=-2, high=2, size=(n_test,2))
 Y_inside= hdr.classify(Y, alpha)
