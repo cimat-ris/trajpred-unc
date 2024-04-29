@@ -5,7 +5,6 @@
 # mario.canche@cimat.mx
 
 # Cargamos las librerias
-import time
 import sys,os,logging
 
 ''' TF_CPP_MIN_LOG_LEVEL
@@ -16,118 +15,91 @@ import sys,os,logging
 '''
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 sys.path.append('bayesian-torch')
-sys.path.append('.')
 
-import math,random,numpy as np
-import matplotlib as mpl
-#mpl.use('TkAgg')  # or whatever other backend that you want
+import random,numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
-
 import torch
-from torchvision import transforms
 
 # Local models
-from models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
-from utils.datasets_utils import get_dataset
-from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world
-from utils.calibration import generate_uncertainty_evaluation_dataset
-from utils.calibration_utils import save_data_for_calibration
-from utils.train_utils import train, evaluation_minadefde
-from utils.config import get_config
+from trajpred_unc.models.bayesian_models_gaussian_loss import lstm_encdec_MCDropout
+from trajpred_unc.utils.datasets_utils import get_dataset
+from trajpred_unc.utils.plot_utils import plot_traj_world,plot_cov_world
+from trajpred_unc.utils.train_utils import train
+from trajpred_unc.utils.evaluation import evaluation_minadefde
+from trajpred_unc.utils.config import load_config,get_model_filename
+from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset
+from trajpred_unc.uncertainties.calibration_utils import save_data_for_uncertainty_calibration
 
 # Local constants
-from utils.constants import IMAGES_DIR, DROPOUT, TRAINING_CKPT_DIR, SUBDATASETS_NAMES
+from trajpred_unc.utils.constants import SUBDATASETS_NAMES
 
-# Parser arguments
-config = get_config(argv=sys.argv[1:],dropout=True)
-model_name = 'deterministic_dropout'
+# Load configuration file (conditional model)
+config = load_config("deterministic_dropout_ethucy.yaml")
 
 def main():
 	# Printing parameters
 	torch.set_printoptions(precision=2)
-	logging.basicConfig(format='%(levelname)s: %(message)s',level=config.log_level)
-	# Set the seed
-	logging.info("Seed: {}".format(config.seed))
-	torch.manual_seed(config.seed)
-	np.random.seed(config.seed)
-	random.seed(config.seed)
+	# Loggin format
+	logging.basicConfig(format='%(levelname)s: %(message)s',level=config["misc"]["log_level"])
 	# Device
 	if torch.cuda.is_available():
 		logging.info(torch.cuda.get_device_name(torch.cuda.current_device()))
 	device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-	# Get the ETH-UCY data
-	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config)
+	batched_train_data,batched_val_data,batched_test_data,homography,reference_image = get_dataset(config["dataset"])
+
+	# Choose seed
+	torch.manual_seed(config["misc"]["seed"])
+	torch.cuda.manual_seed(config["misc"]["seed"])
+	np.random.seed(config["misc"]["seed"])
+	random.seed(config["misc"]["seed"])
 
 	# Instantiate the model
-	model = lstm_encdec_MCDropout(2,128,256,2,dropout_rate=config.dropout_rate)
+	model = lstm_encdec_MCDropout(config["model"])
 	model.to(device)
 
-	if config.no_retrain==False:
+	if config["train"]["no_retrain"]==False:
 		# Train the model
-		train(model,device,0,batched_train_data,batched_val_data,config,model_name)
-
-		if config.plot_losses:
-			plt.savefig(IMAGES_DIR+"/loss_"+str(config.id_test)+".pdf")
-			plt.show()
+		train(model,device,0,batched_train_data,batched_val_data,config)
 
 	# Load the previously trained model
-	file_name = TRAINING_CKPT_DIR+"/"+model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])+"_0.pth"
-	model.load_state_dict(torch.load(file_name))
+	model_filename = config["train"]["save_dir"]+get_model_filename(config)
+	logging.info("Loading {}".format(model_filename))
+	model.load_state_dict(torch.load(model_filename))
 	model.eval()
 
 	# Testing
-	ind_sample = np.random.randint(config.batch_size)
-	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-		fig, ax = plt.subplots(1,1,figsize=(12,12))
-		if ind_sample>data_test.shape[0]:
+	ind_sample = np.random.randint(config["dataset"]["batch_size"])
+	for batch_idx, (observations_vel,__,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
+		__, ax = plt.subplots(1,1,figsize=(12,12))
+		if ind_sample>observations_vel.shape[0]:
 			continue
 		# Generate samples from the model
-		for ind in range(config.dropout_samples):
+		for ind in range(config["misc"]["model_samples"]):
 			if torch.cuda.is_available():
-				datarel_test  = datarel_test.to(device)
-			pred, sigmas = model.predict(datarel_test, dim_pred=12)
+				observations_vel  = observations_vel.to(device)
+			predicted_positions,sigmas_positions = model.predict(observations_vel)
 			# Plotting
-			plot_traj_world(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],ax,nolabel=False if ind==config.dropout_samples-1 else True)
+			ind = np.minimum(ind_sample,predicted_positions.shape[0]-1)
+			plot_traj_world(predicted_positions[ind,:,:],observations_abs[ind,:,:],target_abs[ind,:,:],ax)
+			plot_cov_world(predicted_positions[ind,:,:],sigmas_positions[ind,:,:],observations_abs[ind,:,:],ax)
 		plt.legend()
 		plt.title('Trajectory samples')
-		if config.show_plot:
+		if config["misc"]["show_test"]:
 			plt.show()
+		# Not display more than config.examples
+		if batch_idx==config["misc"]["samples_test"]-1:
+			break
 
-	# ## Calibramos la incertidumbre
-	draw_ellipse = True
-
-	#------------------ Obtenemos el batch unico de test para las curvas de calibracion ---------------------------
-	datarel_test_full, targetrel_test_full, data_test_full, target_test_full, tpred_samples_full, sigmas_samples_full = generate_uncertainty_evaluation_dataset(batched_test_data, model, config.dropout_samples, model_name, config, device=device, type="dropout_gaussian")
-	print("tpred_samples_full.shape: ", tpred_samples_full.shape)
-	evaluation_minadefde( model, tpred_samples_full, data_test_full, target_test_full, "dropout_gaussian")
+	#------------------ Generates testing sub-dataset for uncertainty calibration and evaluation ---------------------------
+	__,__,observations_abs,target_abs,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=device,type="dropout")
+	# TODO: the samples should be sampled from the Gaussian mixture, not only the mean
+	evaluation_minadefde(predictions,target_abs,config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]])
+	
 	#---------------------------------------------------------------------------------------------------------------
-
-	# Testing
-	cont = 0
-	for batch_idx, (datarel_test, targetrel_test, data_test, target_test) in enumerate(batched_test_data):
-
-		tpred_samples = []
-		sigmas_samples = []
-		# Sampling from inference dropout
-		for ind in range(config.dropout_samples):
-
-			if torch.cuda.is_available():
-				datarel_test  = datarel_test.to(device)
-
-			pred, sigmas = model.predict(datarel_test, dim_pred=12)
-
-			tpred_samples.append(pred)
-			sigmas_samples.append(sigmas)
-
-		tpred_samples = np.array(tpred_samples)
-		sigmas_samples = np.array(sigmas_samples)
-		pickle_filename = model_name+"_"+str(SUBDATASETS_NAMES[config.id_dataset][config.id_test])
-		save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
-
-		# Solo se ejecuta para un batch
-		break
+	# Save these testing data for uncertainty calibration
+	pickle_filename = config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
+	save_data_for_uncertainty_calibration(pickle_filename,predictions,observations_abs,target_abs,sigmas,config["dataset"]["id_test"])
 
 if __name__ == "__main__":
 	main()

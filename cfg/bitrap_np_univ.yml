@@ -27,7 +27,7 @@ MODEL:
   DEC_HIDDEN_SIZE: 256
 DATASET:
   NAME: 'univ'    
-  ETH_CONFIG: '/home/jbhayet/opt/repositories/devel/bidireaction-trajectory-prediction/configs/ETH_UCY.json'
+  ETH_CONFIG: '../bitrap/configs/ETH_UCY.json'
   ROOT: 'datasets/trj++'
   TRAJECTORY_PATH: 'datasets/trj++'
 DATALOADER:

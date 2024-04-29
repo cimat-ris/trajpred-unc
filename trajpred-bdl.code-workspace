@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../OpenTraj"
+		},
+		{
+			"path": "../bitrap"
+		},
+		{
+			"path": "../MID"
+		}
+	],
+	"settings": {}
+}

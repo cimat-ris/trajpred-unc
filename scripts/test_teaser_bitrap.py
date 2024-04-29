@@ -1,44 +1,34 @@
-import pdb
 import os
 import sys
 
-sys.path.append(os.path.realpath('.'))
-sys.path.append('../bidireaction-trajectory-prediction/')
-sys.path.append('../bidireaction-trajectory-prediction/datasets')
+sys.path.append('../bitrap/')
+sys.path.append('../bitrap/datasets')
 import torch
-from torch import nn, optim
-from torch.nn import functional as F
-from utils.calibration_utils import save_data_for_calibration
-
-import pickle as pkl
 from datasets import make_dataloader
 #import make_dataloader
 from bitrap.modeling import make_model
-from bitrap.utils.dataset_utils import restore
-from bitrap.engine.utils import print_info, post_process
+from bitrap.engine.utils import post_process
 
-from utils.datasets_utils import setup_loo_experiment,Experiment_Parameters,traj_dataset,get_testing_batch,get_testing_batch_bitrap,traj_dataset_bitrap
+from trajpred_unc.utils.datasets_utils import setup_loo_experiment,traj_dataset,get_testing_batch,get_testing_batch_bitrap,traj_dataset_bitrap
 import logging
 # Local constants
-from utils.constants import DATASETS_DIR,SUBDATASETS_NAMES,FRAMES_IDS,OBS_TRAJ,PRED_TRAJ_VEL,OBS_TRAJ_VEL,OBS_TRAJ_ACC,OBS_NEIGHBORS,PRED_TRAJ,BITRAP
-from utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world,world_to_image_xy
-from utils.hdr import get_alpha,get_falpha,sort_sample,samples_to_alphas
-from utils.calibration import generate_uncertainty_evaluation_dataset,regression_isotonic_fit,calibrate_and_test
+from trajpred_unc.utils.constants import DATASETS_DIR,SUBDATASETS_NAMES,FRAMES_IDS,OBS_TRAJ,PRED_TRAJ_VEL,OBS_TRAJ_VEL,OBS_TRAJ_ACC,OBS_NEIGHBORS,PRED_TRAJ,BITRAP
+from trajpred_unc.utils.plot_utils import plot_traj_img,plot_traj_world,plot_cov_world,world_to_image_xy
+from trajpred_unc.uncertainties.hdr_kde import get_alpha,get_falpha
+from trajpred_unc.uncertainties.calibration import calibrate_and_test,regression_isotonic_fit
+from trajpred_unc.utils.config import load_config
 
 import argparse
 from configs import cfg
 from termcolor import colored
 import numpy as np
-import tqdm
-import pdb
 import matplotlib.pyplot as plt
 import scipy.stats as st
-import random
 
 config_files = ["cfg/bitrap_np_hotel.yml","cfg/bitrap_np_eth.yml","cfg/bitrap_np_zara1.yml","cfg/bitrap_np_zara2.yml","cfg/bitrap_np_univ.yml"]
 
 if __name__ == '__main__':
-	parser = argparse.ArgumentParser(description="PyTorch Object Detection Training")
+	parser = argparse.ArgumentParser(description="Test BitTrap model with our data")
 	parser.add_argument('--gpu', default='0', type=str)
 	parser.add_argument('--seed', default=2, type=int)
 	parser.add_argument('--id-test',
@@ -62,12 +52,6 @@ if __name__ == '__main__':
 	# Loggin format
 	logging.basicConfig(format='%(levelname)s: %(message)s',level=args.log_level)
 
-	# Load the default parameters
-	experiment_parameters = Experiment_Parameters()
-
-	#### Data: our way
-	model_name = BITRAP
-	flipImage  = False
 	#### Data: BitTrap way
 	cfg.merge_from_file(config_files[args.id_test])
 	cfg.merge_from_list(args.opts)
@@ -84,29 +68,29 @@ if __name__ == '__main__':
 	model = make_model(cfg)
 	model = model.to(cfg.DEVICE)
 	if os.path.isfile(cfg.CKPT_DIR):
-	   model.load_state_dict(torch.load(cfg.CKPT_DIR))
-	   logging.info(colored('Loaded checkpoint:{}'.format(cfg.CKPT_DIR), 'blue', 'on_green'))
+		model.load_state_dict(torch.load(cfg.CKPT_DIR))
+		logging.info(colored('Loaded checkpoint:{}'.format(cfg.CKPT_DIR), 'blue', 'on_green'))
 	else:
-	   logging.info(colored('The cfg.CKPT_DIR id not a file: {}'.format(cfg.CKPT_DIR), 'green', 'on_red'))
+		logging.info(colored('The cfg.CKPT_DIR id not a file: {}'.format(cfg.CKPT_DIR), 'green', 'on_red'))
 	model.K = 100
-
 
 	##################################################################
 	# With our data (to show how to use BitTrap normalization)
 	# Load the dataset and perform the split
-	__, __, test_data, test_homography = setup_loo_experiment(DATASETS_DIR[0],SUBDATASETS_NAMES[0],args.id_test,experiment_parameters,pickle_dir='pickle',use_pickled_data=args.pickle, compute_neighbors=True)
-	testing_data= traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ],test_data[FRAMES_IDS])
-
-	# Calibration
-	X_test            = np.concatenate([test_data[OBS_TRAJ],test_data[OBS_TRAJ_VEL],test_data[OBS_TRAJ_ACC]],axis=2)
-	test_data_bitrap  = traj_dataset_bitrap(X_test,test_data[OBS_NEIGHBORS],test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS])
+	config = load_config("bitrap_ethucy.yaml")
+	__,__,testing_data, test_homography = setup_loo_experiment(config["dataset"])
+	# Torch dataset
+	X_test            = np.concatenate([testing_data[OBS_TRAJ],testing_data[OBS_TRAJ_VEL],testing_data[OBS_TRAJ_ACC]],axis=2)
+	test_data         = traj_dataset_bitrap(X_test,testing_data[OBS_NEIGHBORS],testing_data[PRED_TRAJ])
 	# Form batches
-	batched_test_data  = torch.utils.data.DataLoader(test_data_bitrap,batch_size=1,shuffle=False)
+	batched_test_data = torch.utils.data.DataLoader(test_data,batch_size=1,shuffle=False)
+
 	pred_traj  = np.zeros((model.K, len(batched_test_data), 12, 2))
 	obs_traj   = np.zeros((len(batched_test_data), 8,2))
 	gt_traj    = np.zeros((len(batched_test_data),12,2))
 	gt_traj_rel= np.zeros((len(batched_test_data),12,2))
 
+	# Cycle over the test data
 	for batch_idx, (observations_test, neighbors_test, target_test) in enumerate(batched_test_data):
 		# Cycle over the trajectories of this batch
 		for traj_idx in range(len(observations_test)):
@@ -155,6 +139,7 @@ if __name__ == '__main__':
 
 	# Isotonic regression: Gives a mapping from predicted alpha to corrected alpha
 	iso_reg, iso_inv = regression_isotonic_fit(pred_traj,gt_traj,11,kde_size=1000,resample_size=100,sigmas_prediction=None)
+	# def regression_isotonic_fit(predictions_calibration,gt_calibration, kde_size=1000, resample_size=100, sigmas_prediction=None):
 
 
 	# Testing

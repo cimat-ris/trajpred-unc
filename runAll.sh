@@ -1,5 +1,5 @@
 #!/bin/bash
-algorithm="agentformer"
+algorithm="deterministicGaussian"
 for idtest in 0 1 2 3 4
 do
 	for seed in {1..10}
@@ -28,20 +28,3 @@ do
 		fi
 	done
 done
-		#python tests/train_ensembles --pickle --id-test=2
-		#python tests/train_bitrap_BT --pickle --id-test=2
-		#python tests/test_calibration --gaussian-output --calibration-conformal --test-name:"deterministicGaussian"
-		#python tests/test_calibration --calibration-conformal --test-name:"ensembles"
-		#python tests/train_ensembles --pickle --id-test=2
-
-		#python tests/test_calibration --gaussian-output --calibration-conformal --test-name:"ensembles"
-		#python tests/test_calibration --calibration-conformal --test-name:"dropout"
-
-		#python tests/test_calibration --gaussian-output --calibration-conformal --test-name:"dropout"
-		#python tests/test_calibration --calibration-conformal --test-name:"bitrap"
-
-		#python tests/train_bitrap_BT --pickle --id-test=2
-		#python tests/test_calibration --gaussian-output --calibration-conformal --test-name:"bitrap"
-
-		#python tests/train_deterministic --pickle --id-test=2
-		#python tests/train_dropout --pickle --id-test=2

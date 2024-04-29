@@ -131,3 +131,6 @@ dmypy.json
 # Dataset related
 *sdd_raw*
 *.pickle
+*.pth
+*.pdf
+*.csv

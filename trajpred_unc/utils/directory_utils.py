@@ -1,6 +1,6 @@
 from errno import EEXIST
 from os import makedirs, path
-from utils.constants import IMAGES_DIR
+from trajpred_unc.utils.constants import IMAGES_DIR
 
 def mkdir_p(mypath):
     """
