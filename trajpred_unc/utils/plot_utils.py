@@ -49,13 +49,11 @@ def plot_traj_world(pred_traj, obs_traj_gt, pred_traj_gt, ax=None, nolabel=False
 	ax = ax or plt.gca()
 	ax.axis('equal')
 	# Convert it to absolute (starting from the last observed position)
-	this_pred_out_abs = pred_traj + np.array([obs_traj_gt[-1].numpy()])
-
 	obs   = obs_traj_gt
 	gt    = pred_traj_gt
 
 	gt = np.concatenate([obs[-1,:].reshape((1,2)), gt],axis=0)
-	tpred   = this_pred_out_abs
+	tpred   = pred_traj
 	tpred   = np.concatenate([obs[-1,:].reshape((1,2)), tpred],axis=0)
 	if nolabel:
 		label3, = ax.plot(tpred[:,0],tpred[:,1],"-g", linewidth=2, label="_nolegend")
@@ -69,11 +67,10 @@ def plot_cov_world(pred_traj,cov_traj,obs_traj_gt,ax=None):
 	ax = ax or plt.gca()
 	ax.axis('equal')
 	# Convert it to absolute (starting from the last observed position)
-	this_pred_out_abs = pred_traj + np.array([obs_traj_gt[-1].numpy()])
-	length            = this_pred_out_abs.shape[0]
+	length            = pred_traj.shape[0]
 	for pos in range(1,length,2):
-		ax.plot(this_pred_out_abs[pos,0],this_pred_out_abs[pos,1],'go')
-		draw_covariance_ellipse(this_pred_out_abs[pos],cov_traj[pos], ax, "Green")
+		ax.plot(pred_traj[pos,0],pred_traj[pos,1],'go')
+		draw_covariance_ellipse(pred_traj[pos],cov_traj[pos], ax, "Green")
 
 # Plot trajectories in the image frame
 def plot_traj_img(pred_traj, obs_traj_gt, pred_traj_gt, homography_to_world, background, ax=None):
@@ -82,13 +79,10 @@ def plot_traj_img(pred_traj, obs_traj_gt, pred_traj_gt, homography_to_world, bac
 
 	homography_to_img = np.linalg.inv(homography_to_world)
 
-	# Convert it to absolute (starting from the last observed position)
-	this_pred_out_abs = pred_traj + np.array([obs_traj_gt[-1].numpy()])
-
 	obs   = world_to_image_xy(obs_traj_gt, homography_to_img, flip=False)
 	gt    = world_to_image_xy(pred_traj_gt, homography_to_img, flip=False)
 	gt    = np.concatenate([obs[-1,:].reshape((1,2)), gt],axis=0)
-	tpred = world_to_image_xy(this_pred_out_abs, homography_to_img, flip=False)
+	tpred = world_to_image_xy(pred_traj, homography_to_img, flip=False)
 	tpred = np.concatenate([obs[-1,:].reshape((1,2)), tpred],axis=0)
 
 	ax.plot(obs[:,0],obs[:,1],"-b", linewidth=2, label="Observations")

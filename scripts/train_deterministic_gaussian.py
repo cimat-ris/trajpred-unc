@@ -61,17 +61,17 @@ def main():
 
 	# Testing a random trajectory index in all batches
 	ind_sample = np.random.randint(config["dataset"]["batch_size"])
-	for batch_idx, (observations_vel,__,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
+	for batch_idx, (observations_vel,__,observations_pos,target_abs,__,__,__) in enumerate(batched_test_data):
 		__, ax = plt.subplots(1,1,figsize=(12,12))
 
 		if torch.cuda.is_available():
 			observations_vel  = observations_vel.to(device)
 
-		predicted_positions,sigmas_positions = model.predict(observations_vel)
+		predicted_positions,sigmas_positions = model.predict(observations_vel,observations_pos)
 		# Plotting
 		ind = np.minimum(ind_sample,predicted_positions.shape[0]-1)
-		plot_traj_world(predicted_positions[ind,:,:],observations_abs[ind,:,:],target_abs[ind,:,:],ax)
-		plot_cov_world(predicted_positions[ind,:,:],sigmas_positions[ind,:,:],observations_abs[ind,:,:],ax)
+		plot_traj_world(predicted_positions[ind,:,:],observations_pos[ind,:,:],target_abs[ind,:,:],ax)
+		plot_cov_world(predicted_positions[ind,:,:],sigmas_positions[ind,:,:],observations_pos[ind,:,:],ax)
 		plt.legend()
 		plt.savefig(os.path.join(config["misc"]["plot_dir"],config["train"]["model_name"]+".pdf"))
 		if config["misc"]["show_test"]:

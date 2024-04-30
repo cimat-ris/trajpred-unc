@@ -67,9 +67,6 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 			prediction,__,sigmas= model.predict(observations_vels)
 		else:
 			prediction,sigmas   = model.predict(observations_vels)
-
-		if not config["misc"]["absolute_coords"]:
-			prediction = prediction + observations_abss[:,-2:-1,:].numpy()
 		# Sample saved
 		predictions_samples.append(prediction)
 		sigmas_samples.append(sigmas)
@@ -236,9 +233,10 @@ def generate_calibration_metrics(prediction_method_name, predictions_calibration
 		metrics_onCalibration.append([["","MACE","RMSCE","MA"]])
 		metrics_onTest.append([["","MACE","RMSCE","MA"]])
 	output_dirs           = Output_directories()
-	# Recorremos cada posicion para calibrar
+	# Evaluate calibration metrics for all time positions
 	for position in time_positions:
-		logging.info("Calibration metrics at position: {}".format(position))
+
+		logging.info("Calibration metrics at time position: {}".format(position))
 		this_pred_out_abs      = predictions_calibration[:, :, position, :]
 		this_pred_out_abs_test = data_pred_test[:, :, position, :]
 		if gaussian[0] is not None:

@@ -67,7 +67,7 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 				total   += len(target_vel)
 				# Prediction is relative to the last observation
 				init_pos = np.expand_dims(observations_abs.cpu().numpy()[:,-1,:],axis=1)
-				pred_val = model.predict(observations_vel)
+				pred_val = model.predict(observations_vel,observations_abs)
 				if len(pred_val)==2:
 					pred_val = pred_val[0]
 				pred_val += init_pos
