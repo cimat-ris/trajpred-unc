@@ -147,7 +147,7 @@ class lstm_encdec_gaussian(nn.Module):
         # Return total loss
         return loss
 
-    def predict(self, obs_vels, prediction_horizon=12):
+    def predict(self, obs_vels, obs_pos, prediction_horizon=12):
         # Encode the past trajectory
         last_vel,hidden_state = self.encode(obs_vels)
 
@@ -166,7 +166,7 @@ class lstm_encdec_gaussian(nn.Module):
             last_vel = pred_vel
 
         # Sum the displacements and the variances to get the relative trajectory
-        pred_traj = self.dt*torch.cumsum(torch.cat(pred_vels, dim=1), dim=1).detach().cpu().numpy()
+        pred_traj = self.dt*torch.cumsum(torch.cat(pred_vels, dim=1), dim=1).detach().cpu().numpy()+obs_pos[:,-1:,:].cpu().numpy()
         sigma_traj= self.dt*self.dt*torch.cumsum(torch.cat(sigma_vels, dim=1), dim=1).detach().cpu().numpy()
         return pred_traj,sigma_traj
 
