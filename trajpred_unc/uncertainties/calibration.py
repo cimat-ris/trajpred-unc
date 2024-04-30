@@ -54,7 +54,10 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 	sigmas_samples      = []
 
 	# Each sampled model
-	for ind in range(config["misc"]["model_samples"]):
+	nsamples = 1
+	if config["misc"]["ensemble"]:
+		nsamples = config["misc"]["model_samples"]
+	for ind in range(nsamples):
 		if type == "ensemble":
 			model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
 			logging.info("Loading {}".format(model_filename))
@@ -64,9 +67,9 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 			observations_vels  = observations_vels.to(device)
 		# Model prediction obtained
 		if type == "variational":
-			prediction,__,sigmas= model.predict(observations_vels)
+			prediction,__,sigmas= model.predict(observations_vels,observations_abss)
 		else:
-			prediction,sigmas   = model.predict(observations_vels)
+			prediction,sigmas   = model.predict(observations_vels,observations_abss)
 		# Sample saved
 		predictions_samples.append(prediction)
 		sigmas_samples.append(sigmas)
@@ -139,7 +142,20 @@ def regression_isotonic_fit(predictions_calibration,gt_calibration, kde_size=100
 	isotonic_inverse.fit(new_hdr,predicted_hdr)
 	return isotonic, isotonic_inverse
 
- #---------------------------------------------------------------------------------------
+	"""
+	Recalibrate and test with a list of specified methods
+	Args:
+	  - prediction: set of predicted positions ntrajectories x nsamples x nsteps x 2
+	  - groundtruth: set of ground truth positions ntrajectories x nsteps x 2
+	  - prediction_test: set of predicted positions ntrajectories x nsamples x nsteps x 2
+	  - groundtruth_test: set of ground truth positions ntrajectories x nsteps x 2
+	  - methods: list of methods to evaluate
+	  - kde_size: size of the samples to build the KDE
+	  - resample_size: size of the resampling
+	  - gaussian: list of variances associated to the prediction (if available)
+	Returns:
+	  - results: dictionary with the results
+	"""
 def recalibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_test,methods=[0,1,2],kde_size=1500,resample_size=200,gaussian=[None,None]):
 	# Perform calibration for alpha values in the range [0,1]
 	step        = 0.05
@@ -178,27 +194,24 @@ def recalibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_
 		all_f_samples_test = []
 		all_f_gt_calib     = []
 		all_f_gt_test      = []
-
 		# Cycle over the trajectories (calibration batch)
-		for k in range(prediction.shape[1]):
+		for k in range(prediction.shape[0]):
 			if gaussian[0] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				print(kde_size,resample_size)
-				print(gaussian[0].shape)
-				__,f_gt,f_samples,__ = evaluate_kde(prediction[:,k,:],gaussian[0][:,k,:],groundtruth[k,:],kde_size,resample_size)
+				__,f_gt,f_samples,__ = evaluate_kde(prediction[k,:,:],gaussian[0][k,:,:],groundtruth[k,:],kde_size,resample_size)
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				__,f_gt,f_samples,__ = evaluate_kde(prediction[:,k,:],None,groundtruth[k,:],kde_size,resample_size)
+				__,f_gt,f_samples,__ = evaluate_kde(prediction[k,:,:],None,groundtruth[k,:],kde_size,resample_size)
 			all_f_samples_calib.append(f_samples)
 			all_f_gt_calib.append(f_gt)
 
-		for k in range(prediction_test.shape[1]):
+		for k in range(prediction_test.shape[0]):
 			if gaussian[1] is not None:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],gaussian[1][:,k,:],groundtruth_test[k, :],kde_size,resample_size)
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[k,:,:],gaussian[1][k,:,:],groundtruth_test[k,:],kde_size,resample_size)
 			else:
 				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[:,k,:],None,groundtruth_test[k,:],kde_size,resample_size)
+				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[k,:,:],None,groundtruth_test[k,:],kde_size,resample_size)
 			all_f_samples_test.append(f_samples_test)
 			all_f_gt_test.append(f_gt_test)
 
@@ -224,9 +237,7 @@ def recalibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_
  #---------------------------------------------------------------------------------------
 
 def generate_calibration_metrics(prediction_method_name, predictions_calibration, observations_calibration, data_gt, data_pred_test, data_obs_test, data_gt_test, methods=[0,1,2], kde_size=1500, resample_size=100, gaussian=[None,None], time_positions = [3,7,11]):
-	logging.info("Evaluating uncertainty calibration method: 0, 1, 2")
-	#--------------------- Calculamos las metricas de calibracion ---------------------------------
-	
+	logging.info("Evaluating uncertainty calibration methods: {}".format(methods))	
 	metrics_onCalibration = []
 	metrics_onTest        = []
 	for method in methods:
