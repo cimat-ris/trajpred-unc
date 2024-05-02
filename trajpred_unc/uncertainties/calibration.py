@@ -156,7 +156,7 @@ def regression_isotonic_fit(predictions_calibration,gt_calibration, kde_size=100
 	Returns:
 	  - results: dictionary with the results
 	"""
-def recalibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_test,methods=[0,1,2],kde_size=1500,resample_size=200,gaussian=[None,None]):
+def recalibrate_and_test(prediction,groundtruth,prediction_test,groundtruth_test,methods=[0,1,2],kde_size=1500,resample_size=200,gaussian=[None,None]):
 	# Perform calibration for alpha values in the range [0,1]
 	step        = 0.05
 	conf_levels = np.arange(start=0.0, stop=1.0+step, step=step)
@@ -204,16 +204,16 @@ def recalibrate_and_test_all(prediction,groundtruth,prediction_test,groundtruth_
 				__,f_gt,f_samples,__ = evaluate_kde(prediction[k,:,:],None,groundtruth[k,:],kde_size,resample_size)
 			all_f_samples_calib.append(f_samples)
 			all_f_gt_calib.append(f_gt)
-
-		for k in range(prediction_test.shape[0]):
-			if gaussian[1] is not None:
-				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[k,:,:],gaussian[1][k,:,:],groundtruth_test[k,:],kde_size,resample_size)
-			else:
-				# Estimate a KDE, produce samples and evaluate the groundtruth on it
-				__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[k,:,:],None,groundtruth_test[k,:],kde_size,resample_size)
-			all_f_samples_test.append(f_samples_test)
-			all_f_gt_test.append(f_gt_test)
+		if prediction_test is not None:
+			for k in range(prediction_test.shape[0]):
+				if gaussian[1] is not None:
+					# Estimate a KDE, produce samples and evaluate the groundtruth on it
+					__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[k,:,:],gaussian[1][k,:,:],groundtruth_test[k,:],kde_size,resample_size)
+				else:
+					# Estimate a KDE, produce samples and evaluate the groundtruth on it
+					__, f_gt_test, f_samples_test,__ = evaluate_kde(prediction_test[k,:,:],None,groundtruth_test[k,:],kde_size,resample_size)
+				all_f_samples_test.append(f_samples_test)
+				all_f_gt_test.append(f_gt_test)
 
 		# ------------------------------------------------------------
 		all_f_gt_calib     = np.array(all_f_gt_calib)
@@ -255,7 +255,7 @@ def generate_calibration_metrics(prediction_method_name, predictions_calibration
 		else:
 			gaussian_t = gaussian	
 		# Uncertainty calibration
-		results = recalibrate_and_test_all(this_pred_out_abs,data_gt[:,position,:],this_pred_out_abs_test,data_gt_test[:,position,:],methods,kde_size,resample_size,gaussian=gaussian_t)
+		results = recalibrate_and_test(this_pred_out_abs,data_gt[:,position,:],this_pred_out_abs_test,data_gt_test[:,position,:],methods,kde_size,resample_size,gaussian=gaussian_t)
 		conf_levels=results[0]["confidence_levels"]
 		# Metrics Calibration for data calibration
 		logging.info("Calibration metrics (Calibration dataset)")
