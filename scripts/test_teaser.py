@@ -15,7 +15,7 @@ from trajpred_unc.models.lstm_encdec import lstm_encdec_gaussian
 from trajpred_unc.utils.datasets_utils import setup_loo_experiment,get_testing_batch,get_dataset,traj_dataset,collate_fn_padd
 from trajpred_unc.utils.train_utils import train
 from trajpred_unc.uncertainties.kde import plot_kde_img
-from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset,regression_isotonic_fit,calibrate_and_test
+from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset,regression_isotonic_fit,recalibrate_and_test
 from trajpred_unc.utils.config import load_config, get_model_filename
 # Local constants
 from trajpred_unc.utils.constants import (
@@ -59,15 +59,14 @@ def main():
 			fde  = 0
 			total= 0
 			model.eval()
-			for batch_idx, (observations_vel,__,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
+			for batch_idx, (observations_vel,__,observations_pos,target_pos,__,__,__) in enumerate(batched_test_data):
 				if torch.cuda.is_available():
 					observations_vel  = observations_vel.to(device)
 				total += len(observations_vel)
 				# prediction
-				init_pos  = np.expand_dims(observations_abs[:,-1,:],axis=1)
-				pred_abs  = model.predict(observations_vel)[0] + init_pos
-				ade      += np.average(np.sqrt(np.square(target_abs-pred_abs).sum(2)),axis=1).sum()
-				fde      += (np.sqrt(np.square(target_abs[:,-1,:]-pred_abs[:,-1,:]).sum(1))).sum()
+				predictions  = model.predict(observations_vel,observations_pos)[0]
+				ade         += np.average(np.sqrt(np.square(target_pos-predictions).sum(2)),axis=1).sum()
+				fde         += (np.sqrt(np.square(target_pos[:,-1,:]-predictions[:,-1,:]).sum(1))).sum()
 			logging.info("Test ade : {:.4f} ".format(ade/total))
 			logging.info("Test fde : {:.4f} ".format(fde/total))
 
@@ -89,10 +88,11 @@ def main():
 	#---------------------------------------------------------------------------------------------------------------
 	# Testing
 	cont = 0
-	for batch_idx, (observations_vel_c,__,observations_abs_c,target_abs_c,__,__,__) in enumerate(batched_test_data):
+	for batch_idx, (observations_vel_c,__,observations_pos_c,target_pos_c,__,__,__) in enumerate(batched_test_data):
 
 		predictions_c = []
 		sigmas_c      = []
+
 		# For each model of the ensemble
 		for ind in range(config["misc"]["model_samples"]):
 			# Load the model
@@ -101,34 +101,29 @@ def main():
 			model.eval()
 			if torch.cuda.is_available():
 				observations_vel_c  = observations_vel_c.to(device)
-			predictions, sigmas = model.predict(observations_vel_c)
+			predictions, sigmas = model.predict(observations_vel_c,observations_pos_c)
 			# Keep moments
 			predictions_c.append(predictions)
 			sigmas_c.append(sigmas)
 		# Stack the means and covariances
 		predictions_c      = np.array(predictions_c)
+		predictions_c      = np.swapaxes(predictions_c,0,1)[:,:,11,:]
 		sigmas_c           = np.array(sigmas_c)
-		observations_abs_c = observations_abs_c.numpy()
-		# Calibrate
-		# Convert it to absolute (starting from the last observed position)
-		predictions_c= predictions_c[:,:,11,:]+observations_abs_c[:,-1,:]
-		sigmas_c     = sigmas_c[:,:,11,:]
-		target_abs_c = target_abs_c[:,11,:]
+		sigmas_c           = np.swapaxes(sigmas_c,0,1)[:,:,11,:]
+		target_pos_c	   = target_pos_c.numpy()[:,11,:]
 		# Uncertainty calibration
 		logging.info("Calibration at position: {}".format(11))
-		conf_levels,cal_pcts,unc_pcts,__,__= calibrate_and_test(predictions_c,target_abs_c,None,None,2,gaussian=(sigmas_c,None))
-
+		method  = 2
+		results = recalibrate_and_test(predictions_c,target_pos_c,None,None,[method],kde_size=150,resample_size=100,gaussian=(sigmas_c,None))		
 		# Isotonic regression: Gives a mapping from predicted alpha to corrected alpha
-		iso_reg, iso_inv = regression_isotonic_fit(predictions_c,target_abs_c,kde_size=1000,resample_size=100,sigmas_prediction=sigmas_c)
-
+		iso_reg, iso_inv = regression_isotonic_fit(predictions_c,target_pos_c,kde_size=1000,resample_size=100,sigmas_prediction=sigmas_c)
 		# Plot calibration curves (before/after calibration)
 		plt.gca().set_aspect('equal')
-		plt.plot(conf_levels,unc_pcts,'purple',label=r'$\hat{P}_{\alpha}$ (uncalibrated)')
-		plt.plot(conf_levels,cal_pcts,'red',label=r'$\hat{P}_{\alpha}$ (calibrated)')
+		plt.plot(results[method]["confidence_levels"],results[method]["raw"]["onCalibrationData"],'purple',label=r'$\hat{P}_{\alpha}$ (uncalibrated)')
+		plt.plot(results[method]["confidence_levels"],results[method]["recalibrated"]["onCalibrationData"],'red',label=r'$\hat{P}_{\alpha}$ (calibrated)')
 		plt.xlabel(r'$\alpha$', fontsize=10)
 		plt.legend(fontsize=10)
 		plt.show()
-		#plt.plot(conf_levels,iso_reg.transform(conf_levels),'green',label=r'$a_\alpha$')
 		break
 
 	training_data, validation_data, testing_data, test_homography = setup_loo_experiment(config["dataset"])
@@ -139,7 +134,7 @@ def main():
 	# Get the homography
 	homography_to_img = np.linalg.inv(test_homography)
 
-	for (observations_vel,__,observations_abs,target_abs,__,__,__) in batched_test_data:
+	for (observations_vel,__,observations_pos,target_abs,__,__,__) in batched_test_data:
 		logging.info("Trajectories {}".format(len(observations_vel)))
 		# Cycle over the trajectories of this batch
 		for traj_idx in range(len(observations_vel)):
@@ -149,7 +144,7 @@ def main():
 			for idx in range(config["misc"]["model_samples"]):
 				if torch.cuda.is_available():
 					observations_vel = observations_vel.to(device)
-				prediction, sigma = models[idx].predict(observations_vel)
+				prediction, sigma = models[idx].predict(observations_vel,observations_pos)
 				predictions.append(prediction[traj_idx]),sigmas.append(sigma[traj_idx])
 			# Sampling 1000 samples from the mixture
 			xs = []
@@ -158,14 +153,14 @@ def main():
 				k      = np.random.randint(config["misc"]["model_samples"])
 				mean   = predictions[k][11]
 				cov    = np.array([[sigmas[k][11,0],sigmas[k][11,2]],[sigmas[k][11,2],sigmas[k][11,1]]])
-				sample = np.random.multivariate_normal(mean, cov, 1)[0]+ np.array([observations_abs[traj_idx,-1].numpy()])
-				xs.append(sample[0,0])
-				ys.append(sample[0,1])
+				sample = np.random.multivariate_normal(mean, cov, 1)[0]
+				xs.append(sample[0])
+				ys.append(sample[1])
 
 			# Plot the KDEs on two subplots, with level sets			
 			__, axs = plt.subplots(1,2,figsize=(24,12),constrained_layout = True)
-			plot_kde_img(observations_abs[traj_idx],target_abs[traj_idx],xs,ys,test_bckgd,test_homography,axs[0])	
-			plot_kde_img(observations_abs[traj_idx],target_abs[traj_idx],xs,ys,test_bckgd,test_homography,axs[1],iso_inv)	
+			plot_kde_img(observations_pos[traj_idx],target_abs[traj_idx],xs,ys,test_bckgd,test_homography,axs[0])	
+			plot_kde_img(observations_pos[traj_idx],target_abs[traj_idx],xs,ys,test_bckgd,test_homography,axs[1],iso_inv)	
 			plt.show()
 
 
