@@ -88,7 +88,7 @@ def main():
 	#---------------------------------------------------------------------------------------------------------------
 	# Testing
 	cont = 0
-	for batch_idx, (observations_vel_c,__,observations_pos_c,target_pos_c,__,__,__) in enumerate(batched_test_data):
+	for __, (observations_vel_c,__,observations_pos_c,target_pos_c,__,__,__) in enumerate(batched_test_data):
 
 		predictions_c = []
 		sigmas_c      = []
