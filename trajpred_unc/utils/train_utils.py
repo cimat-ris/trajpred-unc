@@ -142,7 +142,7 @@ def train_variational(model,device,train_data,val_data,config):
 			# Step 3. Compute the gradients, and update the parameters by
 			loss.backward()
 			optimizer.step()
-		logging.info("Training loss: {:6.3f}".format(error/total))
+		logging.info("Training variational loss: {:6.3f}".format(error/total))
 		list_loss_train.append(error/total)
 
 		# Validation
@@ -164,7 +164,7 @@ def train_variational(model,device,train_data,val_data,config):
 				error += loss.detach().item()
 				total += len(target_vel)
 
-		logging.info("Validation loss: {:6.3f}".format(error/total))
+		logging.info("Validation variational loss: {:6.3f}".format(error/total))
 		list_loss_val.append(error/total)
 		if (error/total)<min_val_error:
 			min_val_error = error/total

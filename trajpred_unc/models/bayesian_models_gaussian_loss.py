@@ -175,7 +175,7 @@ class lstm_encdec_variational(nn.Module):
         sigma_pos= dec[:,:,2:]
         return pred_pos, sigma_pos, hidden_state, kl_sum
 
-    def forward(self, X, y, data_abs , target_abs, training=False, num_mc=1):
+    def forward(self,obs_vels,target_vels,obs_abs,target_abs,teacher_forcing=False, num_mc=1):
 
         nll_loss = 0
         output_ = []
@@ -185,50 +185,48 @@ class lstm_encdec_variational(nn.Module):
         for mc_run in range(num_mc):
             kl_sum = 0
             # Encode the past trajectory
-            last_pos, hidden_state, kl = self.encode(X)
+            last_vel, hidden_state, kl = self.encode(obs_vels)
             kl_sum += kl
 
             # Iterate for each time step
             loss       = 0
-            pred_traj  = []
-            sigma_traj = []
+            pred_vels  = []
+            sigma_vels = []
 
-            for i, target in enumerate(y.permute(1,0,2)):
+            for i, target_vel in enumerate(target_vels.permute(1,0,2)):
                 # Decode last position and hidden state into new position
-                pred_pos, sigma_pos, hidden_state, kl = self.decode(last_pos,hidden_state)
+                pred_vel, sigma_vel, hidden_state, kl = self.decode(last_vel,hidden_state)
                 if i==0:
                     kl_sum += kl
                 # Keep new position and variance
-                pred_traj.append(pred_pos)
-                sigma_traj.append(sigma_pos)
+                pred_vels.append(pred_vel)
+                sigma_vels.append(sigma_vel)
                 # Update the last position
-                if training:
-                    last_pos = target.view(len(target), 1, -1)
+                if teacher_forcing:
+                    last_vel = target_vel.view(len(target_vel), 1, -1)
                 else:
-                    last_pos = pred_pos
+                    last_vel = pred_vel
 
                 # Utilizamos la nueva funcion loss
-                means_traj = data_abs[:,-1,:] + torch.cat(pred_traj, dim=1).sum(1)
-                loss += Gaussian2DLikelihood(target_abs[:,i,:], means_traj, torch.cat(sigma_traj, dim=1), self.dt)
+                pred_abs = obs_abs[:,-1,:] + torch.mul(torch.cat(pred_vels, dim=1).sum(1),self.dt)
+                loss += Gaussian2DLikelihood(target_abs[:,i,:], pred_abs, torch.cat(sigma_vels, dim=1),self.dt)
 
             # Concatenate the trajectories preds
-            pred_traj = torch.cat(pred_traj, dim=1)
+            pred_vels = torch.cat(pred_vels, dim=1)
             nll_loss += loss/num_mc
 
             # save to list
-            output_.append(pred_traj)
+            output_.append(pred_vels)
             kl_.append(kl_sum)
         pred    = torch.mean(torch.stack(output_), dim=0)
         kl_loss = torch.mean(torch.stack(kl_), dim=0)
-        # Calculate of nl loss
-        #nll_loss = self.loss_fun(pred, y)
         # Concatenate the predictions and return
         return pred, nll_loss, kl_loss
 
-    def predict(self, X, dim_pred= 1):
+    def predict(self, obs_vels, obs_pos, dim_pred= 12):
         kl_sum = 0
         # Encode the past trajectory
-        last_pos, hidden_state, kl = self.encode(X)
+        last_pos, hidden_state, kl = self.encode(obs_vels)
         kl_sum += kl
 
         pred_traj  = []
@@ -248,9 +246,7 @@ class lstm_encdec_variational(nn.Module):
             last_pos = pred_pos
 
         # Concatenate the predictions and return
-        pred_traj = torch.cumsum(torch.cat(pred_traj, dim=1), dim=1).detach().cpu().numpy()
-        sigma_traj= torch.cumsum(torch.cat(sigma_traj, dim=1), dim=1).detach().cpu().numpy()
-
+        pred_traj = self.dt*torch.cumsum(torch.cat(pred_traj, dim=1), dim=1).detach().cpu().numpy()+obs_pos[:,-1:,:].cpu().numpy()
+        sigma_traj= self.dt*self.dt*torch.cumsum(torch.cat(sigma_traj, dim=1), dim=1).detach().cpu().numpy()
         # Concatenate the predictions and return
         return pred_traj, kl_sum, sigma_traj
-        #return torch.cat(pred, dim=1).detach().cpu().numpy(), kl_sum, torch.cat(sigma, dim=1).detach().cpu().numpy()
