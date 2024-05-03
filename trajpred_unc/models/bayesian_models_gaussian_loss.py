@@ -74,14 +74,14 @@ class lstm_encdec_MCDropout(nn.Module):
         # Return total loss
         return loss
 
-    def predict(self, X, dim_pred= 12):
+    def predict(self, obs_vel, obs_pos, prediction_horizon= 12):
         # Encode the past trajectory
-        last_pos,hidden_state = self.encode(X)
+        last_pos,hidden_state = self.encode(obs_vel)
 
         pred_traj  = []
         sigma_traj = []
 
-        for i in range(dim_pred):
+        for i in range(prediction_horizon):
             # Decode last position and hidden state into new position
             pred_pos,sigma_pos,hidden_state = self.decode(last_pos,hidden_state)
             # Keep new position and variance
@@ -94,7 +94,7 @@ class lstm_encdec_MCDropout(nn.Module):
             last_pos = pred_pos
 
         # Concatenate the predictions and return
-        pred_traj = torch.cumsum(torch.cat(pred_traj, dim=1), dim=1).detach().cpu().numpy()
+        pred_traj = torch.cumsum(torch.cat(pred_traj, dim=1), dim=1).detach().cpu().numpy()+obs_pos[:,-1:,:].cpu().numpy()
         sigma_traj= torch.cumsum(torch.cat(sigma_traj, dim=1), dim=1).detach().cpu().numpy()
         return pred_traj,sigma_traj
 
