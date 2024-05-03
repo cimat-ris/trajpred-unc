@@ -66,11 +66,9 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 				error   += loss_val.cpu().numpy()
 				total   += len(target_vel)
 				# Prediction is relative to the last observation
-				init_pos = np.expand_dims(observations_abs.cpu().numpy()[:,-1,:],axis=1)
-				pred_val = model.predict(observations_vel)
+				pred_val = model.predict(observations_vel,observations_abs)
 				if len(pred_val)==2:
 					pred_val = pred_val[0]
-				pred_val += init_pos
 				ade    = ade + np.sum(np.average(np.sqrt(np.square(target_abs.cpu().numpy()-pred_val).sum(2)),axis=1))
 				fde    = fde + np.sum(np.sqrt(np.square(target_abs.cpu().numpy()[:,-1,:]-pred_val[:,-1,:]).sum(1)))
 
@@ -144,7 +142,7 @@ def train_variational(model,device,train_data,val_data,config):
 			# Step 3. Compute the gradients, and update the parameters by
 			loss.backward()
 			optimizer.step()
-		logging.info("Training loss: {:6.3f}".format(error/total))
+		logging.info("Training variational loss: {:6.3f}".format(error/total))
 		list_loss_train.append(error/total)
 
 		# Validation
@@ -166,7 +164,7 @@ def train_variational(model,device,train_data,val_data,config):
 				error += loss.detach().item()
 				total += len(target_vel)
 
-		logging.info("Validation loss: {:6.3f}".format(error/total))
+		logging.info("Validation variational loss: {:6.3f}".format(error/total))
 		list_loss_val.append(error/total)
 		if (error/total)<min_val_error:
 			min_val_error = error/total

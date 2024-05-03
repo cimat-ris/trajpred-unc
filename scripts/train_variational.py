@@ -32,7 +32,7 @@ from trajpred_unc.utils.plot_utils import plot_traj_world, plot_cov_world
 from trajpred_unc.utils.constants import SUBDATASETS_NAMES
 from trajpred_unc.utils.config import load_config,get_model_filename
 from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset
-from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
+from trajpred_unc.uncertainties.calibration_utils import save_data_for_uncertainty_calibration
 
 # Parser arguments
 config = load_config("deterministic_variational_ethucy.yaml")
@@ -85,16 +85,12 @@ def main():
 
 		# For each element of the ensemble
 		for ind in range(config["train"]["num_mctrain"]):
-
 			if torch.cuda.is_available():
 				observations_vel  = observations_vel.to(device)
-
-			predictions,__,sigmas = model.predict(observations_vel)
-
+			predictions,__,sigmas = model.predict(observations_vel,observations_abs)
 			# Plotting
 			plot_traj_world(predictions[ind_sample,:,:], observations_abs[ind_sample,:,:], target_abs[ind_sample,:,:], ax)
 			plot_cov_world(predictions[ind_sample,:,:],sigmas[ind_sample,:,:],observations_abs[ind_sample,:,:], ax)
-		plt.legend()
 		plt.title('Trajectory samples {}'.format(batch_idx))
 		plt.savefig(config["misc"]["plot_dir"]+"/pred_variational.pdf")
 		if config["misc"]["show_test"]:
@@ -108,37 +104,13 @@ def main():
 	draw_ellipse = True
 
 	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
-	__,__,observations_abs_e,target_abs_e,predictions_e,sigmas_e = generate_uncertainty_evaluation_dataset(batched_test_data, model,config,device=device,type="variational")
+	__,__,observations_abs,target_abs,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data, model,config,device=device,type="variational")
 	#---------------------------------------------------------------------------------------------------------------
 
-	# Testing
-	cont = 0
-	for batch_idx, (observations_vel_c,__,observations_abs_c,target_abs_c,__,__,__) in enumerate(batched_test_data):
+	# Save these testing data for uncertainty calibration
+	pickle_filename = config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
+	save_data_for_uncertainty_calibration(pickle_filename,predictions,observations_abs,target_abs,sigmas,config["dataset"]["id_test"])
 
-		predictions_c = []
-		sigmas_c = []
-		# Muestreamos con cada modelo
-		for ind in range(config["train"]["num_mctrain"]):
-
-			if torch.cuda.is_available():
-				observations_vel_c  = observations_vel_c.to(device)
-
-			predictions, kl, sigmas = model.predict(observations_vel_c)
-
-			predictions_c.append(predictions)
-			sigmas_c.append(sigmas)
-
-		predictions_c = np.array(predictions_c)
-		sigmas_c = np.array(sigmas_c)
-
-		# Save these testing data for uncertainty calibration
-		pickle_filename = config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
-		#save_data_for_calibration(pickle_filename, tpred_samples, tpred_samples_full, data_test, data_test_full, target_test, target_test_full, sigmas_samples, sigmas_samples_full, config.id_test)
-		save_data_for_calibration(pickle_filename,predictions_c,predictions_e, observations_abs_c,observations_abs_e,target_abs_c,target_abs_e,sigmas_c,sigmas_e,config["dataset"]["id_test"])
-
-
-		# Solo se ejecuta para un batch
-		break
 
 
 if __name__ == "__main__":

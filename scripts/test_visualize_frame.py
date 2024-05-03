@@ -56,11 +56,11 @@ def main():
 	batched_test_data  = torch.utils.data.DataLoader(batch,batch_size=len(batch),collate_fn=collate_fn_padd)
 	n_trajs            = len(batch)
 	# Testing: Qualitative. Should be only one batch
-	for batch_idx, (observations_vel_c,__,observations_abs_c,target_abs_c,__,__,__) in enumerate(batched_test_data):
+	for __, (observations_vel_c,__,observations_abs_c,target_abs_c,__,__,__) in enumerate(batched_test_data):
 		if torch.cuda.is_available():
 			observations_vel_c  = observations_vel_c.to(device)
 		# Prediction
-		predictions,__ = model.predict(observations_vel_c)
+		predictions,__ = model.predict(observations_vel_c,observations_abs_c)
 		# Plotting
 		plt.figure(figsize=(12,12))
 		plt.imshow(test_bckgd)
@@ -73,14 +73,12 @@ def main():
 	ade  = 0
 	fde  = 0
 	total= 0
-	for batch_idx, (observations_vel_c,__,observations_abs_c,target_abs_c,__,__,__) in enumerate(batched_test_data):
+	for __, (observations_vel_c,__,observations_abs_c,target_abs_c,__,__,__) in enumerate(batched_test_data):
 		if torch.cuda.is_available():
 			observations_vel_c  = observations_vel_c.to(device)
 		total += len(observations_vel_c)
 		# prediction
-		init_pos         = np.expand_dims(observations_abs_c[:,-1,:],axis=1)
-		predictions,__   = model.predict(observations_vel_c) 
-		predictions     += init_pos
+		predictions,__   = model.predict(observations_vel_c,observations_abs_c) 
 		ade    += np.average(np.sqrt(np.square(target_abs_c-predictions).sum(2)),axis=1).sum()
 		fde    += (np.sqrt(np.square(target_abs_c[:,-1,:]-predictions[:,-1,:]).sum(1))).sum()
 	logging.info("Test ade : {:.4f} ".format(ade/total))

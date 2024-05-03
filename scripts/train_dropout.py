@@ -78,7 +78,7 @@ def main():
 		for ind in range(config["misc"]["model_samples"]):
 			if torch.cuda.is_available():
 				observations_vel  = observations_vel.to(device)
-			predicted_positions,sigmas_positions = model.predict(observations_vel)
+			predicted_positions,sigmas_positions = model.predict(observations_vel,observations_abs)
 			# Plotting
 			ind = np.minimum(ind_sample,predicted_positions.shape[0]-1)
 			plot_traj_world(predicted_positions[ind,:,:],observations_abs[ind,:,:],target_abs[ind,:,:],ax)

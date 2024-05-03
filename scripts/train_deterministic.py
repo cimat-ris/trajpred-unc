@@ -56,17 +56,16 @@ def main():
 	ind_sample = 1
 
 	# Testing
-	for batch_idx, (datarel_test,__,data_test,target_test,__,__,__) in enumerate(batched_test_data):
+	for batch_idx, (observations_vel,__,observations_abs,targets,__,__,__) in enumerate(batched_test_data):
 		if torch.cuda.is_available():
-			datarel_test  = datarel_test.to(device)
-
-		# Prediction
-		pred = model.predict(datarel_test)
+			observations_vel = observations_vel.to(device)
+		# Prediction (now in absolute coordinates)
+		predictionss = model.predict(observations_vel,observations_abs)
 
 		# Plotting
 		plt.figure(figsize=(12,12))
 		plt.imshow(reference_image)
-		plot_traj_img(pred[ind_sample,:,:],data_test[ind_sample,:,:],target_test[ind_sample,:,:],homography,reference_image)
+		plot_traj_img(predictionss[ind_sample,:,:],observations_abs[ind_sample,:,:],targets[ind_sample,:,:],homography,reference_image)
 		plt.legend()
 		plt.title('Trajectory samples {}'.format(batch_idx))
 		if config["misc"]["show_test"]:
@@ -77,15 +76,14 @@ def main():
 
 	# Testing: Quantitative
 	ade  = fde = total = 0
-	for batch_idx, (datavel_test,__, data_test, target_test,__,__,__) in enumerate(batched_test_data):
+	for batch_idx, (observations_vel,__,observations_abs,targets,__,__,__) in enumerate(batched_test_data):
 		if torch.cuda.is_available():
-			datavel_test  = datavel_test.to(device)
-		total += len(datavel_test)
+			observations_vel  = observations_vel.to(device)
+		total += len(observations_vel)
 		# prediction
-		init_pos  = np.expand_dims(data_test[:,-1,:],axis=1)
-		pred_test = model.predict(datavel_test) + init_pos
-		ade    += np.average(np.sqrt(np.square(target_test-pred_test).sum(2)),axis=1).sum()
-		fde    += (np.sqrt(np.square(target_test[:,-1,:]-pred_test[:,-1,:]).sum(1))).sum()
+		pred_test = model.predict(observations_vel,observations_abs)
+		ade    += np.average(np.sqrt(np.square(targets-pred_test).sum(2)),axis=1).sum()
+		fde    += (np.sqrt(np.square(targets[:,-1,:]-pred_test[:,-1,:]).sum(1))).sum()
 	logging.info("Results on : {} ".format(SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]))	
 	logging.info("Test ade : {:.4f} ".format(ade/total))
 	logging.info("Test fde : {:.4f} ".format(fde/total))

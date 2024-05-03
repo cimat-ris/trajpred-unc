@@ -33,21 +33,20 @@ def compute_calibration_metrics():
 	Evaluation of calibration metrics and calibration methods
 	"""
 	method_name,calibration_filename = get_names(config)
+	logging.info('Evaluation of '+method_name+' model')
 	logging.info('Uncertainty calibration with '+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]+' as test dataset')
 	# Load data for calibration compute
-	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,sigmas_samples,sigmas_samples_full,id_test = get_data_for_calibration(calibration_filename)
+	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,sigmas_samples,sigmas_samples_full,__ = get_data_for_calibration(calibration_filename)
 
 	# Resampling parameter
-	kde_size      = 1500
-	resample_size = 1000
+	kde_size      = 150
+	resample_size = 100
 
 	# Calibrate and evaluate metrics for the three methods, and for all positions
 	# 0: Conformal
 	# 1: Conformal with relative density
 	# 2: Regresion Isotonica
 	if sigmas_samples is not None:
-		print(sigmas_samples.shape)
-		print(sigmas_samples)
 		generate_calibration_metrics(method_name,predictions_calibration,observations_calibration,groundtruth_calibration,predictions_test,observations_test,groundtruth_test,methods=[0,1,2],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
 	else:
 		generate_calibration_metrics(method_name,predictions_calibration,observations_calibration,groundtruth_calibration,predictions_test,observations_test,groundtruth_test,methods=[0,1,2],kde_size=kde_size,resample_size=resample_size,gaussian=[None, None])
