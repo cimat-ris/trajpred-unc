@@ -21,8 +21,8 @@ def save_data_for_uncertainty_calibration(file_name,prediction_samples,observati
 	# make one data object
 	data_for_calibration = {
 		"PREDICTION_SAMPLES":   prediction_samples,
-		"OBSERVATIONS":         observations.numpy(),
-		"TARGETS":              targets.numpy(),
+		"OBSERVATIONS":         observations,
+		"TARGETS":              targets,
 		"SIGMAS":               sigmas,
 		"ID_TEST":              id_test
 	}

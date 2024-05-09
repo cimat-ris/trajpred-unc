@@ -99,10 +99,6 @@ def main():
 		# Solo aplicamos a un elemento del batch
 		break
 
-
-	# ## Calibramos la incertidumbre
-	draw_ellipse = True
-
 	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
 	__,__,observations_abs,target_abs,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data, model,config,device=device,type="variational")
 	#---------------------------------------------------------------------------------------------------------------
