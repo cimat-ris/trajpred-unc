@@ -54,7 +54,6 @@ def main():
 	logger.info("Getting configuration")
 	cfg.merge_from_file(config_files[args.id_test])
 	cfg.merge_from_list(args.opts)
-	#cfg.DATASET.NAME = dataset_names[args.id_test]
 	os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
 	# Load a BitTrap trained model
@@ -67,9 +66,9 @@ def main():
 		logging.info(colored('Loaded checkpoint:{}'.format(cfg.CKPT_DIR), 'blue', 'on_green'))
 	else:
 		logging.info(colored('The cfg.CKPT_DIR id not a file: {}'.format(cfg.CKPT_DIR), 'green', 'on_red'))
+	logging.info(colored('Model loaded', 'blue', 'on_yellow'))
 	# Number of samples for the multimodal prediction
 	model.K = 100
-
 
 	torch.manual_seed(args.seed)
 	random.seed(args.seed)
@@ -80,31 +79,29 @@ def main():
 	test_dataloader = make_dataloader(cfg, 'test')
 	# get train_val_test engines
 	model.eval()
-	all_img_paths = []
-	all_X_globals = []
+	all_img_paths  = []
+	all_X_globals  = []
 	all_pred_goals = []
-	all_gt_goals = []
+	all_gt_goals   = []
 	all_pred_trajs = []
-	all_gt_trajs = []
+	all_gt_trajs   = []
 	all_distributions = []
-	all_timesteps = []
+	all_timesteps     = []
     
 	with torch.set_grad_enabled(False):
-		for iters, batch in enumerate(tqdm(test_dataloader), start=1):
+		# Test over all the test dataset
+		for batch in tqdm(test_dataloader):
 			X_global = batch['input_x'].to(cfg.DEVICE)
 			y_global = batch['target_y']
 			img_path = batch['cur_image_file']
-            
-			input_x = batch['input_x_st'].to(cfg.DEVICE)
-			neighbors_st = restore(batch['neighbors_x_st'])
-			adjacency = restore(batch['neighbors_adjacency'])
+			input_x               = batch['input_x_st'].to(cfg.DEVICE)
+			neighbors_st          = restore(batch['neighbors_x_st'])
+			adjacency             = restore(batch['neighbors_adjacency'])
 			first_history_indices = batch['first_history_index']
-            
-			pred_goal, pred_traj, _, dist_goal, dist_traj = model(input_x, 
-                                                                neighbors_st=neighbors_st,
+			pred_goal, pred_traj, _, dist_goal, dist_traj = model(input_x, neighbors_st=neighbors_st,
                                                                 adjacency=adjacency,
                                                                 z_mode=False, 
-                                                                cur_pos=X_global[:, -1, :cfg.MODEL.DEC_OUTPUT_DIM],
+                                                                cur_pos=X_global[:,-1,:cfg.MODEL.DEC_OUTPUT_DIM],
                                                                 first_history_indices=first_history_indices)
             # transfer back to global coordinates
 			ret = post_process(cfg, X_global, y_global, pred_traj, pred_goal=pred_goal, dist_traj=dist_traj, dist_goal=dist_goal)
@@ -135,12 +132,12 @@ def main():
 	
         
         # Evaluate
-		all_X_globals = np.concatenate(all_X_globals, axis=0)
+		all_X_globals  = np.concatenate(all_X_globals, axis=0)
 		all_pred_goals = np.concatenate(all_pred_goals, axis=0)
 		all_pred_trajs = np.concatenate(all_pred_trajs, axis=0)
-		all_gt_goals = np.concatenate(all_gt_goals, axis=0)
-		all_gt_trajs = np.concatenate(all_gt_trajs, axis=0)
-		all_timesteps = np.concatenate(all_timesteps, axis=0)
+		all_gt_goals   = np.concatenate(all_gt_goals, axis=0)
+		all_gt_trajs   = np.concatenate(all_gt_trajs, axis=0)
+		all_timesteps  = np.concatenate(all_timesteps, axis=0)
 		if hasattr(all_distributions[0], 'mus'):
 			distribution = model.GMM(torch.cat([d.input_log_pis for d in all_distributions], axis=0),
                                     torch.cat([d.mus for d in all_distributions], axis=0),
