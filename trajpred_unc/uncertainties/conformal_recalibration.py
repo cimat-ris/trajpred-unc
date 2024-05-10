@@ -55,7 +55,15 @@ def evaluate_within_proportions(gt_density_values, samples_density_values, metho
 		elif method==CALIBRATION_CONFORMAL_ALPHA:
 			# Check if the GT alpha value is above the threshold			
 			within_cal.append(evaluate_quantile(gt_density_values[trajectory_id],samples_density_values[trajectory_id],threshold))
-	return np.mean(np.array(within_unc)), np.mean(np.array(within_cal))
+	if (len(within_unc)==0):
+		result_unc = 0.0
+	else:
+		result_unc = np.mean(np.array(within_unc))
+	if (len(within_cal)==0):
+		result_cal = 0.0
+	else:
+		result_cal = np.mean(np.array(within_cal))	
+	return result_unc,result_cal
 
 def recalibrate_density(gt_density_values, alpha):
 	"""
