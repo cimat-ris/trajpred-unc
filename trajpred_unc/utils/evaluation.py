@@ -8,7 +8,7 @@ def evaluation_minadefde(predictions_samples,targets, model_name):
 	logging.info("----> Predictions: {}".format(predictions_samples.shape))
 	logging.info("----> Ground truth: {}".format(targets.shape))
 	# All squared differences
-	diff = targets.detach().unsqueeze(1).numpy() - (predictions_samples)
+	diff = targets[:,:,:2].detach().unsqueeze(1).numpy() - (predictions_samples)
 	diff = diff**2
 	# Euclidean distances
 	diff = np.sqrt(np.sum(diff, axis=3))

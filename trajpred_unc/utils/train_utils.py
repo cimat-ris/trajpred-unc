@@ -32,20 +32,18 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 		error = total = 0
 		model.train()
 		# Cycle over batches
-		for observations_vel,target_vel,observations_abs,target_abs,__,__,__ in tqdm(train_data):
+		for observations,target,__,__,__ in tqdm(train_data):
 			# Remember that Pytorch accumulates gradients.
 			# We need to clear them out before each instance
 			model.zero_grad()
 			if torch.cuda.is_available():
-				observations_vel = observations_vel.to(device)
-				target_vel       = target_vel.to(device)
-				observations_abs = observations_abs.to(device)
-				target_abs       = target_abs.to(device)
+				observations = observations.to(device)
+				target       = target.to(device)
 
 			# Run our forward pass and compute the loss
-			loss   = model(observations_vel, target_vel, observations_abs , target_abs, teacher_forcing=config["train"]["teacher_forcing"])
+			loss   = model(observations[:,:,2:4],target[:,:,2:4],observations[:,:,0:2],target[:,:,0:2], teacher_forcing=config["train"]["teacher_forcing"])
 			error += loss.detach().cpu().numpy()
-			total += len(target_vel)
+			total += len(target)
 
 			# Step 3. Compute the gradients, and update the parameters by
 			loss.backward()
@@ -56,21 +54,19 @@ def train(model,device,ensemble_id,train_data,val_data,config):
 		error = total = ade = fde = 0
 		model.eval()
 		with torch.no_grad():
-			for __, (observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(val_data):
+			for __, (observations,target,__,__,__) in enumerate(val_data):
 				if torch.cuda.is_available():
-					observations_vel = observations_vel.to(device)
-					target_vel       = target_vel.to(device)
-					observations_abs = observations_abs.to(device)
-					target_abs       = target_abs.to(device)
-				loss_val = model(observations_vel,target_vel,observations_abs,target_abs)
+					observations = observations.to(device)
+					target       = target.to(device)
+				loss_val = model(observations[:,:,2:4],target[:,:,2:4],observations[:,:,0:2],target[:,:,0:2])
 				error   += loss_val.cpu().numpy()
-				total   += len(target_vel)
+				total   += len(target)
 				# Prediction is relative to the last observation
-				pred_val = model.predict(observations_vel,observations_abs)
+				pred_val = model.predict(observations[:,:,2:4],observations[:,:,0:2])
 				if len(pred_val)==2:
 					pred_val = pred_val[0]
-				ade    = ade + np.sum(np.average(np.sqrt(np.square(target_abs.cpu().numpy()-pred_val).sum(2)),axis=1))
-				fde    = fde + np.sum(np.sqrt(np.square(target_abs.cpu().numpy()[:,-1,:]-pred_val[:,-1,:]).sum(1)))
+				ade    = ade + np.sum(np.average(np.sqrt(np.square(target[:,:,0:2].cpu().numpy()-pred_val).sum(2)),axis=1))
+				fde    = fde + np.sum(np.sqrt(np.square(target[:,:,0:2].cpu().numpy()[:,-1,:]-pred_val[:,-1,:]).sum(1)))
 
 		error = error/total
 		ade   = ade/total
@@ -119,25 +115,23 @@ def train_variational(model,device,train_data,val_data,config):
 		total = 0
 		M     = len(train_data)
 		model.train()
-		for observations_vel,target_vel,observations_abs,target_abs,__,__,__ in tqdm(train_data):
+		for observations,target,__,__,__ in tqdm(train_data):
 
 			# Step 1. Remember that Pytorch accumulates gradients.
 			# We need to clear them out before each instance
 			model.zero_grad()
 
 			if torch.cuda.is_available():
-				observations_vel  = observations_vel.to(device)
-				target_vel=target_vel.to(device)
-				observations_abs  = observations_abs.to(device)
-				target_abs=target_abs.to(device)
-
+				observations  = observations.to(device)
+				target        = target.to(device)
+			
 			# Step 2. Run our forward pass and compute the losses
-			__, nl_loss, kl_loss = model(observations_vel,target_vel,observations_abs,target_abs, num_mc=config["train"]["num_mctrain"])
+			__, nl_loss, kl_loss = model(observations[:,:,2:4],target[:,:,2:4],observations[:,:,:2],target[:,:,:2],num_mc=config["train"]["num_mctrain"])
 
 			# Divide by the batch size
 			loss   = nl_loss+ kl_loss/M
 			error += loss.detach().item()
-			total += len(target_vel)
+			total += len(target)
 
 			# Step 3. Compute the gradients, and update the parameters by
 			loss.backward()
@@ -151,18 +145,16 @@ def train_variational(model,device,train_data,val_data,config):
 		M     = len(val_data)
 		model.eval()
 		with torch.no_grad():
-			for batch_idx, (observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(val_data):
+			for batch_idx, (observations,target,__,__,__) in enumerate(val_data):
 				if torch.cuda.is_available():
-					observations_vel  = observations_vel.to(device)
-					target_vel=target_vel.to(device)
-					observations_abs  = observations_abs.to(device)
-					target_abs= target_abs.to(device)
+					observations  = observations.to(device)
+					target        = target.to(device)
 
-				pred_val, nl_loss, kl_loss = model(observations_vel, target_vel, observations_abs , target_abs)
+				pred_val, nl_loss, kl_loss = model(observations[:,:,2:4],target[:,:,2:4],observations[:,:,:2],target[:,:,:2])
 				pi     = (2.0**(M-batch_idx))/(2.0**M-1) # From Blundell
 				loss   = nl_loss+ pi*kl_loss
 				error += loss.detach().item()
-				total += len(target_vel)
+				total += len(target)
 
 		logging.info("Validation variational loss: {:6.3f}".format(error/total))
 		list_loss_val.append(error/total)

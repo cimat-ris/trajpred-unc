@@ -29,24 +29,17 @@ def get_falpha(orden, alpha):
 
 def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=None,type="gaussian"):
 	#----------- Dataset TEST -------------
-	observations_vels= []
-	target_vels      = []
-	observations_abss= []
-	target_abss      = []
+	observations= []
+	target      = []
 	total_trajectories  = 0
-	for batch_idx, (observations_vel,target_vel,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
-		total_trajectories+=observations_vel.shape[0]
+	for batch_idx, (observations_,target_,__,__,__) in enumerate(batched_test_data):
+		total_trajectories+=observations_.shape[0]
 		 # Batches saved into array respectively
-		observations_vels.append(observations_vel)
-		target_vels.append(target_vel)
-		observations_abss.append(observations_abs)
-		target_abss.append(target_abs)
-
+		observations.append(observations_)
+		target.append(target_)
 	# Batches concatenated to have only one
-	observations_vels = torch.cat(observations_vels, dim=0)
-	target_vels       = torch.cat(target_vels, dim=0)
-	observations_abss = torch.cat(observations_abss, dim=0)
-	target_abss       = torch.cat(target_abss, dim=0)
+	observations = torch.cat(observations, dim=0)
+	target       = torch.cat(target, dim=0)
 	logging.info('Using test data for uncertainty evaluation: {} trajectories'.format(total_trajectories))
 
 	# Unique batch predictions obtained
@@ -64,12 +57,12 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 			model.load_state_dict(torch.load(model_filename))
 			model.eval()
 		if torch.cuda.is_available():
-			observations_vels  = observations_vels.to(device)
+			observations  = observations.to(device)
 		# Model prediction obtained
 		if type == "variational":
-			prediction,__,sigmas= model.predict(observations_vels,observations_abss)
+			prediction,__,sigmas= model.predict(observations[:,:,2:4 ],observations[:,:,0:2])
 		else:
-			prediction,sigmas   = model.predict(observations_vels,observations_abss)
+			prediction,sigmas   = model.predict(observations[:,:,2:4],observations[:,:,0:2])
 		# Sample saved
 		predictions_samples.append(prediction)
 		sigmas_samples.append(sigmas)
@@ -78,7 +71,7 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 	predictions_samples= np.swapaxes(predictions_samples,0,1)
 	sigmas_samples     = np.array(sigmas_samples)
 	sigmas_samples     = np.swapaxes(sigmas_samples,0,1)
-	return observations_vels,target_vels,observations_abss,target_abss,predictions_samples,sigmas_samples
+	return observations,target,predictions_samples,sigmas_samples
 
 #-----------------------------------------------------------------------------------
 def save_metrics(prediction_method_name, metrics_cal, metrics_test, method_id, output_dirs):
@@ -251,11 +244,11 @@ def generate_calibration_metrics(prediction_method_name, predictions_calibration
 		this_pred_out_abs      = predictions_calibration[:, :, position, :]
 		this_pred_out_abs_test = data_pred_test[:, :, position, :]
 		if gaussian[0] is not None:
-			gaussian_t = [gaussian[0][:, :, position, :], gaussian[1][:, :, position, :]]
+			gaussian_t = [gaussian[0][:,:,position,:], gaussian[1][:,:,position, :]]
 		else:
 			gaussian_t = gaussian	
 		# Uncertainty calibration
-		results = recalibrate_and_test(this_pred_out_abs,data_gt[:,position,:],this_pred_out_abs_test,data_gt_test[:,position,:],methods,kde_size,resample_size,gaussian=gaussian_t)
+		results = recalibrate_and_test(this_pred_out_abs,data_gt[:,position,:2],this_pred_out_abs_test,data_gt_test[:,position,:2],methods,kde_size,resample_size,gaussian=gaussian_t)
 		conf_levels=results[0]["confidence_levels"]
 		# Metrics Calibration for data calibration
 		logging.info("Calibration metrics (Calibration dataset)")
