@@ -6,10 +6,7 @@ import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
 from torch.utils.data import Dataset
-from trajpred_unc.utils.constants import (
-	FRAMES_IDS, KEY_IDX, OBS_NEIGHBORS, OBS_TRAJ, OBS_TRAJ_VEL, OBS_TRAJ_ACC, OBS_TRAJ_THETA, PRED_TRAJ, PRED_TRAJ_VEL, PRED_TRAJ_ACC,REFERENCE_IMG,PED_IDS,
-	TRAIN_DATA_STR, TEST_DATA_STR, VAL_DATA_STR, MUN_POS_CSV, DATASETS_DIR, SUBDATASETS_NAMES
-)
+from trajpred_unc.utils.constants import *
 import logging
 
 """
@@ -17,29 +14,52 @@ Trajectory dataset
 """
 class traj_dataset(Dataset):
 
-	def __init__(self, Xrel_Train, Yrel_Train, X_Train, Y_Train, Neighbors=None,Frame_Ids=None,Ped_Ids=None):
-		self.Xrel_Train= Xrel_Train
-		self.Yrel_Train= Yrel_Train
-		self.X_Train   = X_Train
-		self.Y_Train   = Y_Train
-		self.Frame_Ids = Frame_Ids
-		self.neighbors = Neighbors
+	def __init__(self, observations,target, Neighbors=None,Frame_Ids=None,Ped_Ids=None):
+		self.observations     = observations
+		self.target           = target
+		self.Frame_Ids        = Frame_Ids
+		self.neighbors        = Neighbors
 
 	def __len__(self):
-		return len(self.X_Train)
+		return len(self.observations)
 
 	def __getitem__(self, idx):
 		if torch.is_tensor(idx):
 			idx = idx.tolist()
 		# Access to elements
-		xrel = self.Xrel_Train[idx]
-		yrel = self.Yrel_Train[idx]
-		x    = self.X_Train[idx]
-		y    = self.Y_Train[idx]
+		observations = self.observations[idx]
+		target       = self.target[idx]
+		n            = None
+		if self.neighbors is not None:
+			n    = np.asarray(self.neighbors[idx])
+		return observations, target, n
+
+class traj_dataset_old(Dataset):
+
+	def __init__(self, observations_vel,target_vel,observations_pos,target_pos, Neighbors=None,Frame_Ids=None,Ped_Ids=None):
+		self.observations_vel = observations_vel
+		self.target_vel       = target_vel
+		self.observations_pos = observations_pos
+		self.target_pos       = target_pos
+		self.Frame_Ids        = Frame_Ids
+		self.neighbors        = Neighbors
+
+	def __len__(self):
+		return len(self.observations_pos)
+
+	def __getitem__(self, idx):
+		if torch.is_tensor(idx):
+			idx = idx.tolist()
+		# Access to elements
+		observations_vel = self.observations_vel[idx]
+		target_vel       = self.target_vel[idx]
+		observations_pos = self.observations_pos[idx]
+		target_pos       = self.target_pos[idx]
 		n    = None
 		if self.neighbors is not None:
 			n    = np.asarray(self.neighbors[idx])
-		return xrel, yrel, x, y, n
+		return observations_vel, target_vel, observations_pos, target_pos, n
+
 
 #  Trajectory dataset
 class traj_dataset_bitrap(Dataset):
@@ -80,7 +100,7 @@ def collate_fn_padd(batch):
 	'''
 	Padds batch of variable length
 	'''
-	xrels, yrels, xs, ys, ns = zip(*batch)
+	observations,target,ns = zip(*batch)
 	mask    = None
 	lengths = None
     ## Get sequence lengths
@@ -94,7 +114,7 @@ def collate_fn_padd(batch):
 		mask    = mask[:,:,:,0]
 	else:
 		ns      = None
-	return torch.Tensor(np.asarray(xrels)),torch.Tensor(np.asarray(yrels)),torch.Tensor(np.asarray(xs)),torch.Tensor(np.asarray(ys)),ns,lengths,mask
+	return torch.Tensor(np.asarray(observations)),torch.Tensor(np.asarray(target)),ns,lengths,mask
 
 def get_raw_data(datasets_path, dataset_name, delim):
 	"""
@@ -173,8 +193,6 @@ def prepare_data(datasets_path, datasets_names, config):
 			px = raw_traj_data[raw_traj_data[:, 1]==ped,2]
 			py = raw_traj_data[raw_traj_data[:, 1]==ped,3]
 			if len(px)>1:
-				# FIXME: same bug here as in Trajectron++, because of np.gradient. Needs to be corrected!
-				# TODO: see where to read the dt info (0.4)
 				vx = np.ediff1d(px, to_begin=(px[1] - px[0])) / config["dt"]
 				ax = np.ediff1d(vx, to_begin=(vx[1] - vx[0])) / config["dt"]
 				vx = np.expand_dims(vx,axis=1)
@@ -296,23 +314,28 @@ def prepare_data(datasets_path, datasets_names, config):
 	logging.info("Total number of sample sequences: {}".format(len(seq_pos_all)))
 	# We split into the obs traj and pred_traj
 	# [total, obs_len, 2] and  [total, pred_len, 2]
-	obs_traj      = seq_pos_all[:, :obs_len, :]
-	obs_traj_theta= seq_theta_all[:, :obs_len, :]
-	pred_traj     = seq_pos_all[:, obs_len:, :]
-	frame_obs     = seq_frames_all[:, :obs_len]
+	obs_traj_pos  = seq_pos_all[:, :obs_len, :]
 	obs_traj_vel  = seq_vel_all[:, :obs_len, :]
-	pred_traj_vel = seq_vel_all[:, obs_len:, :]
 	obs_traj_acc  = seq_acc_all[:, :obs_len, :]
+	obs_traj      = np.concatenate([obs_traj_pos, obs_traj_vel, obs_traj_acc], axis=2)
+	pred_traj_pos = seq_pos_all[:, obs_len:, :]
+	pred_traj_vel = seq_vel_all[:, obs_len:, :]
 	pred_traj_acc = seq_acc_all[:, obs_len:, :]
+	pred_traj     = np.concatenate([pred_traj_pos, pred_traj_vel, pred_traj_acc], axis=2)
+	obs_traj_theta= seq_theta_all[:, :obs_len, :]
+	frame_obs     = seq_frames_all[:, :obs_len]
 	neighbors_obs = seq_neighbors_all
 	# Save all these data as a dictionary
 	data = {
 		OBS_TRAJ:       obs_traj,
+		OBS_TRAJ_POS:   obs_traj_pos,
 		OBS_TRAJ_VEL:   obs_traj_vel,
 		OBS_TRAJ_ACC:   obs_traj_acc,
 		OBS_TRAJ_THETA: obs_traj_theta,
 		PRED_TRAJ:      pred_traj,
+		PRED_TRAJ_POS:  pred_traj_pos,
 		PRED_TRAJ_VEL:  pred_traj_vel,
+		PRED_TRAJ_ACC:  pred_traj_acc,
 		FRAMES_IDS:     frame_obs,
 		OBS_NEIGHBORS:  neighbors_obs,
 		PED_IDS:        seq_ped_ids_all
@@ -340,7 +363,6 @@ def setup_loo_experiment(config):
 		n_test_data  = len(test_data[list(test_data.keys())[2]])
 		n_train_data = len(train_data[list(train_data.keys())[2]])
 		idx          = np.random.permutation(n_train_data)
-		# TODO: validation should be done from a similar distribution as test set!
 		validation_pc= config["validation_proportion"]
 		validation   = int(n_train_data*validation_pc)
 		training     = int(n_train_data-validation)
@@ -350,33 +372,39 @@ def setup_loo_experiment(config):
 		idx_val   = idx[training:]
 		# Training set
 		training_data = {
-			OBS_TRAJ:       train_data[OBS_TRAJ][idx_train],
+			OBS_TRAJ    :   train_data[OBS_TRAJ][idx_train],
+			OBS_TRAJ_POS:   train_data[OBS_TRAJ_POS][idx_train],
 			OBS_TRAJ_VEL:   train_data[OBS_TRAJ_VEL][idx_train],
 			OBS_TRAJ_ACC:   train_data[OBS_TRAJ_ACC][idx_train],
 			OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_train],
-			PRED_TRAJ:      train_data[PRED_TRAJ][idx_train],
+			PRED_TRAJ	:   train_data[PRED_TRAJ][idx_train],
+			PRED_TRAJ_POS:  train_data[PRED_TRAJ_POS][idx_train],
 			PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_train],
 			FRAMES_IDS:     train_data[FRAMES_IDS][idx_train],
 			PED_IDS:        train_data[PED_IDS][idx_train],
 		}
 		# Test set
 		testing_data = {
-			OBS_TRAJ:       test_data[OBS_TRAJ][:],
+			OBS_TRAJ:	    test_data[OBS_TRAJ][:],
+			OBS_TRAJ_POS:   test_data[OBS_TRAJ_POS][:],
 			OBS_TRAJ_VEL:   test_data[OBS_TRAJ_VEL][:],
 			OBS_TRAJ_ACC:   test_data[OBS_TRAJ_ACC][:],
 			OBS_TRAJ_THETA: test_data[OBS_TRAJ_THETA][:],
-			PRED_TRAJ:      test_data[PRED_TRAJ][:],
+			PRED_TRAJ:	    test_data[PRED_TRAJ][:],
+			PRED_TRAJ_POS:  test_data[PRED_TRAJ_POS][:],
 			PRED_TRAJ_VEL:  test_data[PRED_TRAJ_VEL][:],
 			FRAMES_IDS:     test_data[FRAMES_IDS][:],
 			PED_IDS:        test_data[PED_IDS][:],
 		}
 		# Validation set
 		validation_data ={
-			OBS_TRAJ:       train_data[OBS_TRAJ][idx_val],
+			OBS_TRAJ:	    train_data[OBS_TRAJ][idx_val],
+			OBS_TRAJ_POS:   train_data[OBS_TRAJ_POS][idx_val],
 			OBS_TRAJ_VEL:   train_data[OBS_TRAJ_VEL][idx_val],
 			OBS_TRAJ_ACC:   train_data[OBS_TRAJ_ACC][:],
 			OBS_TRAJ_THETA: train_data[OBS_TRAJ_THETA][idx_val],
-			PRED_TRAJ:      train_data[PRED_TRAJ][idx_val],
+			PRED_TRAJ:	    train_data[PRED_TRAJ][idx_val],
+			PRED_TRAJ_POS:  train_data[PRED_TRAJ_POS][idx_val],
 			PRED_TRAJ_VEL:  train_data[PRED_TRAJ_VEL][idx_val],
 			FRAMES_IDS:     train_data[FRAMES_IDS][idx_val],
 			PED_IDS:        train_data[PED_IDS][idx_val],
@@ -435,13 +463,21 @@ def get_dataset(config):
 		reference_image = None
 	# Torch dataset
 	if config["use_neighbors"]==True:
-		train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ], Frame_Ids=training_data[FRAMES_IDS], Ped_Ids=training_data[PED_IDS],Neighbors=training_data[OBS_NEIGHBORS])
-		val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ],validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ], Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS], Neighbors=validation_data[OBS_NEIGHBORS])
-		test_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS], Ped_Ids=test_data[PED_IDS],Neighbors=test_data[OBS_NEIGHBORS])
+		train_data= traj_dataset(training_data[OBS_TRAJ],training_data[PRED_TRAJ],Frame_Ids=training_data[FRAMES_IDS],Ped_Ids=training_data[PED_IDS],Neighbors=training_data[OBS_NEIGHBORS])
+		val_data  = traj_dataset(validation_data[OBS_TRAJ],validation_data[PRED_TRAJ],Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS], Neighbors=validation_data[OBS_NEIGHBORS])
+		test_data = traj_dataset(test_data[OBS_TRAJ],test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS], Ped_Ids=test_data[PED_IDS],Neighbors=test_data[OBS_NEIGHBORS])
 	else:
-		train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ], training_data[PRED_TRAJ], Frame_Ids=training_data[FRAMES_IDS], Ped_Ids=training_data[PED_IDS])
-		val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ],validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ], validation_data[PRED_TRAJ], Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS])
-		test_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ], test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS], Ped_Ids=test_data[PED_IDS])
+		train_data= traj_dataset(training_data[OBS_TRAJ],training_data[PRED_TRAJ],Frame_Ids=training_data[FRAMES_IDS],Ped_Ids=training_data[PED_IDS])
+		val_data  = traj_dataset(validation_data[OBS_TRAJ],validation_data[PRED_TRAJ],Frame_Ids=validation_data[FRAMES_IDS],Ped_Ids=validation_data[PED_IDS])
+		test_data = traj_dataset(test_data[OBS_TRAJ],test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS],Ped_Ids=test_data[PED_IDS])
+	#if config["use_neighbors"]==True:
+	#	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ_POS], training_data[PRED_TRAJ_POS], Frame_Ids=training_data[FRAMES_IDS], Ped_Ids=training_data[PED_IDS],Neighbors=training_data[OBS_NEIGHBORS])
+	#	val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ],validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ_POS], validation_data[PRED_TRAJ_POS], Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS], Neighbors=validation_data[OBS_NEIGHBORS])
+	#	test_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ_POS], test_data[PRED_TRAJ_POS],Frame_Ids=test_data[FRAMES_IDS], Ped_Ids=test_data[PED_IDS],Neighbors=test_data[OBS_NEIGHBORS])
+	#else:
+	#	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ_POS], training_data[PRED_TRAJ_POS], Frame_Ids=training_data[FRAMES_IDS], Ped_Ids=training_data[PED_IDS])
+	#	val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ],validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ_POS], validation_data[PRED_TRAJ_POS], Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS])
+	#	test_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ_POS], test_data[PRED_TRAJ_POS],Frame_Ids=test_data[FRAMES_IDS], Ped_Ids=test_data[PED_IDS])
 
 	# Form batches
 	batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=config["batch_size"],shuffle=True,collate_fn=collate_fn_padd)
