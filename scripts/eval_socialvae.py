@@ -61,6 +61,7 @@ def test(model, test_data, config, fpc=1):
             else:
                 # n_samples x PRED_HORIZON x N x 2
                 # Predict
+                print(x.shape,neighbor.shape)
                 y_ = model(x, neighbor[:config.OB_HORIZON,:], n_predictions=config.PRED_SAMPLES)
             all_X_globals.append(x.cpu().numpy())
             all_pred_trajs.append(y_.cpu().numpy())
@@ -98,7 +99,7 @@ def main():
     spec     = importlib.util.spec_from_file_location("config", args.config)
     config   = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(config)
-
+    config.PRED_SAMPLES = 100
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
     args.device = torch.device(args.device)
     
@@ -158,7 +159,7 @@ def main():
     Ypreds = np.swapaxes(Ypreds, 0, 2)
     Ypreds = np.swapaxes(Ypreds, 1, 2)
 
-    pickle_filename = "socialvae_"+args.id_test
+    pickle_filename = "socialvae_ucy-"+args.id_test
     save_data_for_uncertainty_calibration(pickle_filename,Ypreds,Xs,Ys,None,args.id_test)
 
 if __name__ == '__main__':
