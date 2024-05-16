@@ -66,7 +66,6 @@ def main():
 
 		if torch.cuda.is_available():
 			observations  = observations.to(device)
-		print(observations.shape)
 		predicted_positions,sigmas_positions = model.predict(observations[:,:,2:4],observations[:,:,0:2])
 		# Plotting
 		ind = np.minimum(ind_sample,predicted_positions.shape[0]-1)

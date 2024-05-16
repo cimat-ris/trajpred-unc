@@ -14,7 +14,7 @@ import torch
 from trajpred_unc.models.lstm_encdec import lstm_encdec_gaussian
 from trajpred_unc.utils.datasets_utils import get_dataset
 from trajpred_unc.uncertainties.calibration import generate_uncertainty_evaluation_dataset
-from trajpred_unc.uncertainties.calibration_utils import save_data_for_calibration
+from trajpred_unc.uncertainties.calibration_utils import save_data_for_uncertainty_calibration
 from trajpred_unc.utils.plot_utils import plot_traj_world,plot_cov_world
 from trajpred_unc.utils.train_utils import train
 from trajpred_unc.utils.config import load_config,get_model_filename
@@ -61,7 +61,7 @@ def main():
 
 	ind_sample = np.random.randint(config["dataset"]["batch_size"])
 	# Testing
-	for batch_idx, (observations_vel,__,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
+	for batch_idx, (observations,target,__,__,__) in enumerate(batched_test_data):
 		__, ax = plt.subplots(1,1,figsize=(12,12))
 
 		# For each element of the ensemble
@@ -73,11 +73,11 @@ def main():
 			model.eval()
 
 			if torch.cuda.is_available():
-				observations_vel  = observations_vel.to(device)
-			predictions, sigmas = model.predict(observations_vel)
+				observations  = observations.to(device)
+			predictions, sigmas = model.predict(observations[:,:,2:4],observations[:,:,:2])
 			# Plotting
-			plot_traj_world(predictions[ind_sample,:,:],observations_abs[ind_sample,:,:],target_abs[ind_sample,:,:],ax)
-			plot_cov_world(predictions[ind_sample,:,:],sigmas[ind_sample,:,:],observations_abs[ind_sample,:,:],ax)
+			plot_traj_world(predictions[ind_sample,:,:],observations[ind_sample,:,:2].cpu(),target[ind_sample,:,:2].cpu(),ax)
+			plot_cov_world(predictions[ind_sample,:,:],sigmas[ind_sample,:,:],observations[ind_sample,:,:2].cpu(),ax)
 		plt.title('Trajectory samples {}'.format(batch_idx))
 		if config["misc"]["show_test"]:
 			plt.show()
@@ -85,36 +85,12 @@ def main():
 		break
 
 	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
-	__,__,observations_abs_e,target_abs_e,predictions_e,sigmas_e = generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=device,type="ensemble")
+	observations,target,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=device,type="ensemble")
 	#---------------------------------------------------------------------------------------------------------------
-
-	# Testing
-	for batch_idx, (observations_vel_c,__,observations_abs_c,target_abs_c,__,__,__) in enumerate(batched_test_data):
-
-		tpred_samples = []
-		sigmas_samples = []
-		# Muestreamos con cada modelo
-		for ind in range(config["misc"]["model_samples"]):
-			# Load the model from the ensemble
-			model_filename = config["train"]["save_dir"]+get_model_filename(config,ensemble_id=ind)
-			logging.info("Loading {}".format(model_filename))
-			model.load_state_dict(torch.load(model_filename))
-			model.eval()
-
-			if torch.cuda.is_available():
-				observations_vel_c  = observations_vel_c.to(device)
-
-			predictions, sigmas = model.predict(observations_vel_c)
-			tpred_samples.append(predictions)
-			sigmas_samples.append(sigmas)
-
-		predictions_c = np.array(tpred_samples)
-		sigmas_c      = np.array(sigmas_samples)
-		break
 	
 	# Save these testing data for uncertainty calibration
 	pickle_filename = config["train"]["model_name"]+"_ensemble_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
-	save_data_for_calibration(pickle_filename,predictions_c,predictions_e, observations_abs_c,observations_abs_e,target_abs_c,target_abs_e,sigmas_c,sigmas_e,config["dataset"]["id_test"])
+	save_data_for_uncertainty_calibration(pickle_filename,predictions,observations,target,sigmas,config["dataset"]["id_test"])
 
 if __name__ == "__main__":
 	main()

@@ -80,17 +80,17 @@ def main():
 
 	# Testing
 	ind_sample = np.random.randint(config["dataset"]["batch_size"])
-	for batch_idx, (observations_vel,__,observations_abs,target_abs,__,__,__) in enumerate(batched_test_data):
+	for batch_idx, (observations,target,__,__,__) in enumerate(batched_test_data):
 		__, ax = plt.subplots(1,1,figsize=(12,12))
 
 		# For each element of the ensemble
 		for ind in range(config["train"]["num_mctrain"]):
 			if torch.cuda.is_available():
-				observations_vel  = observations_vel.to(device)
-			predictions,__,sigmas = model.predict(observations_vel,observations_abs)
+				observations  = observations.to(device)
+			predictions,__,sigmas = model.predict(observations[:,:,2:4],observations[:,:,0:2])
 			# Plotting
-			plot_traj_world(predictions[ind_sample,:,:], observations_abs[ind_sample,:,:], target_abs[ind_sample,:,:], ax)
-			plot_cov_world(predictions[ind_sample,:,:],sigmas[ind_sample,:,:],observations_abs[ind_sample,:,:], ax)
+			plot_traj_world(predictions[ind_sample,:,:],observations[ind_sample,:,:2].cpu(),target[ind_sample,:,:2].cpu(),ax)
+			plot_cov_world(predictions[ind_sample,:,:],sigmas[ind_sample,:,:],observations[ind_sample,:,:2].cpu(), ax)
 		plt.title('Trajectory samples {}'.format(batch_idx))
 		plt.savefig(config["misc"]["plot_dir"]+"/pred_variational.pdf")
 		if config["misc"]["show_test"]:
@@ -100,12 +100,12 @@ def main():
 		break
 
 	#------------------ Generates sub-dataset for calibration evaluation ---------------------------
-	__,__,observations_abs,target_abs,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data, model,config,device=device,type="variational")
+	observations,target,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data, model,config,device=device,type="variational")
 	#---------------------------------------------------------------------------------------------------------------
 
 	# Save these testing data for uncertainty calibration
 	pickle_filename = config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
-	save_data_for_uncertainty_calibration(pickle_filename,predictions,observations_abs,target_abs,sigmas,config["dataset"]["id_test"])
+	save_data_for_uncertainty_calibration(pickle_filename,predictions,observations,target,sigmas,config["dataset"]["id_test"])
 
 
 
