@@ -61,17 +61,17 @@ def main():
 
 	# Testing a random trajectory index in all batches
 	ind_sample = np.random.randint(config["dataset"]["batch_size"])
-	for batch_idx, (observations_vel,__,observations_pos,target_abs,__,__,__) in enumerate(batched_test_data):
+	for batch_idx, (observations,target,__,__,__) in enumerate(batched_test_data):
 		__, ax = plt.subplots(1,1,figsize=(12,12))
 
 		if torch.cuda.is_available():
-			observations_vel  = observations_vel.to(device)
-
-		predicted_positions,sigmas_positions = model.predict(observations_vel,observations_pos)
+			observations  = observations.to(device)
+		print(observations.shape)
+		predicted_positions,sigmas_positions = model.predict(observations[:,:,2:4],observations[:,:,0:2])
 		# Plotting
 		ind = np.minimum(ind_sample,predicted_positions.shape[0]-1)
-		plot_traj_world(predicted_positions[ind,:,:],observations_pos[ind,:,:],target_abs[ind,:,:],ax)
-		plot_cov_world(predicted_positions[ind,:,:],sigmas_positions[ind,:,:],observations_pos[ind,:,:],ax)
+		plot_traj_world(predicted_positions[ind,:,:],observations[ind,:,0:2].cpu(),target[ind,:,0:2].cpu(),ax)
+		plot_cov_world(predicted_positions[ind,:,:],sigmas_positions[ind,:,:],observations[ind,:,0:2].cpu(),ax)
 		plt.legend()
 		plt.savefig(os.path.join(config["misc"]["plot_dir"],config["train"]["model_name"]+".pdf"))
 		if config["misc"]["show_test"]:
@@ -82,13 +82,13 @@ def main():
 			break
 
 	#------------------ Generates testing sub-dataset for uncertainty calibration and evaluation ---------------------------
-	__,__,observations_abs,target_abs,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data, model,config,device=device)
-	evaluation_minadefde(predictions,target_abs,config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]])
+	observations,target,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data, model,config,device=device)
+	evaluation_minadefde(predictions,target,config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]])
 	
 	#__,__,observations_abs_c,target_abs_c,predictions_c,sigmas_c = generate_uncertainty_calibration_dataset(batched_test_data,model,config,device=device)
 	# Save these testing data for uncertainty calibration
 	pickle_filename = config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]
-	save_data_for_uncertainty_calibration(pickle_filename,predictions, observations_abs,target_abs,sigmas,config["dataset"]["id_test"])
+	save_data_for_uncertainty_calibration(pickle_filename,predictions, observations,target,sigmas,config["dataset"]["id_test"])
 
 if __name__ == "__main__":
 	main()
