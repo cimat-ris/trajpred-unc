@@ -1,10 +1,12 @@
 # Dataset keys
 OBS_TRAJ       = 'obs_traj'
+OBS_TRAJ_POS   = 'obs_traj_pos'
 OBS_TRAJ_VEL   = 'obs_traj_vel'
 OBS_TRAJ_ACC   = 'obs_traj_acc'
 OBS_TRAJ_THETA = 'obs_traj_theta'
 OBS_NEIGHBORS  = 'obs_neighbors'
 PRED_TRAJ      = 'pred_traj'
+PRED_TRAJ_POS  = 'pred_traj_pos'
 PRED_TRAJ_VEL  = 'pred_traj_vel'
 PRED_TRAJ_ACC  = 'pred_traj_acc'
 FRAMES_IDS     = 'frames_ids'
