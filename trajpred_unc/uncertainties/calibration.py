@@ -112,15 +112,13 @@ def get_quantile(scores, alpha):
 def regression_isotonic_fit(predictions_calibration,gt_calibration, kde_size=1000, resample_size=100, sigmas_prediction=None):
 	predicted_hdr = []
 	# Cycle over the calibration data
-	for k in range(predictions_calibration.shape[1]):
+	for k in range(predictions_calibration.shape[0]):
 		if sigmas_prediction is not None:
 			# Evaluate the GT over the KDE
-			print(predictions_calibration.shape)
-			print(sigmas_prediction.shape)
-			__,f_gt0,f_samples,__ = evaluate_kde(predictions_calibration[:,k,:],sigmas_prediction[:,k,:],gt_calibration[k, :],kde_size,resample_size)
+			__,f_gt0,f_samples,__ = evaluate_kde(predictions_calibration[k,:,:],sigmas_prediction[k,:,:],gt_calibration[k, :],kde_size,resample_size)
 		else:
 			# Evaluate the GT over the KDE
-			__,f_gt0,f_samples,__ = evaluate_kde(predictions_calibration[:,k,:],None,gt_calibration[k,:],kde_size,resample_size)
+			__,f_gt0,f_samples,__ = evaluate_kde(predictions_calibration[k,:,:],None,gt_calibration[k,:],kde_size,resample_size)
 		# Deduce predicted alpha
 		predicted_hdr.append(get_alpha(f_samples,f_gt0))
 
