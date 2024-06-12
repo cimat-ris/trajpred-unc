@@ -32,12 +32,13 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 	observations= []
 	target      = []
 	total_trajectories  = 0
-	for batch_idx, (observations_,target_,__,__,__) in enumerate(batched_test_data):
+	# Keep observations and targets
+	for (observations_,targets_,__,__,__) in batched_test_data:
 		total_trajectories+=observations_.shape[0]
-		 # Batches saved into array respectively
+		# Batches saved into array respectively
 		observations.append(observations_)
-		target.append(target_)
-	# Batches concatenated to have only one
+		target.append(targets_)
+	# Batches concatenated
 	observations = torch.cat(observations, dim=0)
 	target       = torch.cat(target, dim=0)
 	logging.info('Using test data for uncertainty evaluation: {} trajectories'.format(total_trajectories))
@@ -114,6 +115,8 @@ def regression_isotonic_fit(predictions_calibration,gt_calibration, kde_size=100
 	for k in range(predictions_calibration.shape[1]):
 		if sigmas_prediction is not None:
 			# Evaluate the GT over the KDE
+			print(predictions_calibration.shape)
+			print(sigmas_prediction.shape)
 			__,f_gt0,f_samples,__ = evaluate_kde(predictions_calibration[:,k,:],sigmas_prediction[:,k,:],gt_calibration[k, :],kde_size,resample_size)
 		else:
 			# Evaluate the GT over the KDE
