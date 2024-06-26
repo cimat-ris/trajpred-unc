@@ -9,9 +9,7 @@ from torch.utils.data import Dataset
 from trajpred_unc.utils.constants import *
 import logging
 
-"""
-Trajectory dataset
-"""
+#  Trajectory dataset
 class traj_dataset(Dataset):
 
 	def __init__(self, observations,target, Neighbors=None,Frame_Ids=None,Ped_Ids=None):
@@ -31,37 +29,13 @@ class traj_dataset(Dataset):
 		target       = self.target[idx]
 		n            = None
 		if self.neighbors is not None:
-			n    = np.asarray(self.neighbors[idx])
+			if isinstance(idx, int):
+				n    = np.asarray(self.neighbors[idx])
+			else:
+				n    = np.asarray([self.neighbors[i] for i in idx])
 		return observations, target, n
 
-class traj_dataset_old(Dataset):
-
-	def __init__(self, observations_vel,target_vel,observations_pos,target_pos, Neighbors=None,Frame_Ids=None,Ped_Ids=None):
-		self.observations_vel = observations_vel
-		self.target_vel       = target_vel
-		self.observations_pos = observations_pos
-		self.target_pos       = target_pos
-		self.Frame_Ids        = Frame_Ids
-		self.neighbors        = Neighbors
-
-	def __len__(self):
-		return len(self.observations_pos)
-
-	def __getitem__(self, idx):
-		if torch.is_tensor(idx):
-			idx = idx.tolist()
-		# Access to elements
-		observations_vel = self.observations_vel[idx]
-		target_vel       = self.target_vel[idx]
-		observations_pos = self.observations_pos[idx]
-		target_pos       = self.target_pos[idx]
-		n    = None
-		if self.neighbors is not None:
-			n    = np.asarray(self.neighbors[idx])
-		return observations_vel, target_vel, observations_pos, target_pos, n
-
-
-#  Trajectory dataset
+#  Trajectory dataset (bitrap)
 class traj_dataset_bitrap(Dataset):
 
 	def __init__(self, X_global, Neighbors, Y_global, Frame_Ids=None):
@@ -85,17 +59,7 @@ class traj_dataset_bitrap(Dataset):
 			n = [self.neighbors[i] for i in idx]
 		return x, n, y
 
-def get_testing_batch_synthec(testing_data,testing_data_path):
-	# A trajectory id
-	testing_data_arr = list(testing_data.as_numpy_iterator())
-	randomtrajId     = np.random.randint(len(testing_data_arr),size=1)[0]
-	frame_id         = testing_data_arr[randomtrajId][FRAMES_IDS][0]
-	# Form the batch
-	filtered_data  = testing_data.filter(lambda x: x[FRAMES_IDS][0]==frame_id)
-	filtered_data  = filtered_data.batch(20)
-	for element in filtered_data.as_numpy_iterator():
-		return element
-
+# Collate function
 def collate_fn_padd(batch):
 	'''
 	Padds batch of variable length
@@ -463,6 +427,7 @@ def get_dataset(config):
 		reference_image = None
 	# Torch dataset
 	if config["use_neighbors"]==True:
+		print("Using neighbors")
 		train_data= traj_dataset(training_data[OBS_TRAJ],training_data[PRED_TRAJ],Frame_Ids=training_data[FRAMES_IDS],Ped_Ids=training_data[PED_IDS],Neighbors=training_data[OBS_NEIGHBORS])
 		val_data  = traj_dataset(validation_data[OBS_TRAJ],validation_data[PRED_TRAJ],Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS], Neighbors=validation_data[OBS_NEIGHBORS])
 		test_data = traj_dataset(test_data[OBS_TRAJ],test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS], Ped_Ids=test_data[PED_IDS],Neighbors=test_data[OBS_NEIGHBORS])
@@ -470,14 +435,6 @@ def get_dataset(config):
 		train_data= traj_dataset(training_data[OBS_TRAJ],training_data[PRED_TRAJ],Frame_Ids=training_data[FRAMES_IDS],Ped_Ids=training_data[PED_IDS])
 		val_data  = traj_dataset(validation_data[OBS_TRAJ],validation_data[PRED_TRAJ],Frame_Ids=validation_data[FRAMES_IDS],Ped_Ids=validation_data[PED_IDS])
 		test_data = traj_dataset(test_data[OBS_TRAJ],test_data[PRED_TRAJ],Frame_Ids=test_data[FRAMES_IDS],Ped_Ids=test_data[PED_IDS])
-	#if config["use_neighbors"]==True:
-	#	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ_POS], training_data[PRED_TRAJ_POS], Frame_Ids=training_data[FRAMES_IDS], Ped_Ids=training_data[PED_IDS],Neighbors=training_data[OBS_NEIGHBORS])
-	#	val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ],validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ_POS], validation_data[PRED_TRAJ_POS], Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS], Neighbors=validation_data[OBS_NEIGHBORS])
-	#	test_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ_POS], test_data[PRED_TRAJ_POS],Frame_Ids=test_data[FRAMES_IDS], Ped_Ids=test_data[PED_IDS],Neighbors=test_data[OBS_NEIGHBORS])
-	#else:
-	#	train_data= traj_dataset(training_data[OBS_TRAJ_VEL ], training_data[PRED_TRAJ_VEL],training_data[OBS_TRAJ_POS], training_data[PRED_TRAJ_POS], Frame_Ids=training_data[FRAMES_IDS], Ped_Ids=training_data[PED_IDS])
-	#	val_data  = traj_dataset(validation_data[OBS_TRAJ_VEL ],validation_data[PRED_TRAJ_VEL],validation_data[OBS_TRAJ_POS], validation_data[PRED_TRAJ_POS], Frame_Ids=validation_data[FRAMES_IDS], Ped_Ids=validation_data[PED_IDS])
-	#	test_data = traj_dataset(test_data[OBS_TRAJ_VEL ], test_data[PRED_TRAJ_VEL], test_data[OBS_TRAJ_POS], test_data[PRED_TRAJ_POS],Frame_Ids=test_data[FRAMES_IDS], Ped_Ids=test_data[PED_IDS])
 
 	# Form batches
 	batched_train_data = torch.utils.data.DataLoader(train_data,batch_size=config["batch_size"],shuffle=True,collate_fn=collate_fn_padd)
