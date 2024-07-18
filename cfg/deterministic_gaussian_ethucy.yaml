@@ -1,7 +1,7 @@
 dataset:
   pickle_dir: 'pickle/'  
   validation_proportion: 0.1
-  use_neighbors: True
+  use_neighbors: False
   batch_size: 256        
   person_max: 70 # Maximum number of persons in a frame
   obs_len: 8 # Observation length (trajlet size)
@@ -19,13 +19,15 @@ model:
 train:
   initial_lr: 0.001
   epochs: 220
-  no_retrain: False
+  no_retrain: True
   teacher_forcing: False
   save_dir : "training_checkpoints/"
   model_name: "deterministic_gaussian"
 misc:
   plot_losses: False
   plot_dir: "images/"
-  show_test: False
+  show_test: True
   samples_test: 10
-  model_samples: 3
+  ensemble: False # If True, this is an ensemble model
+  model_samples: 3 # Number of models in the ensemble
+  dropout_inference: False

@@ -21,7 +21,7 @@ model:
   output_dim: 2  
 train:
   initial_lr: 0.001
-  epochs: 2 #220
+  epochs: 20
   num_mctrain: 10
   no_retrain: False
   teacher_forcing: False
@@ -35,3 +35,4 @@ misc:
   log_level: 20
   seed: 1234
   model_samples: 10
+  dropout_inference: False

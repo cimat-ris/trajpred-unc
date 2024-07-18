@@ -93,7 +93,7 @@ def main():
 
 	#------------------ Generates testing sub-dataset for uncertainty calibration and evaluation ---------------------------
 	observations,target,predictions,sigmas = generate_uncertainty_evaluation_dataset(batched_test_data,model,config,device=device,type="dropout")
-	# TODO: the samples should be sampled from the Gaussian mixture, not only the mean
+	# Evaluates the minade and minfde based on means of the samples
 	evaluation_minadefde(predictions,target,config["train"]["model_name"]+"_"+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]])
 	
 	#---------------------------------------------------------------------------------------------------------------

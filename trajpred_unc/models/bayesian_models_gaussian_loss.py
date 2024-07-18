@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 from bayesian_torch.layers import LinearReparameterization
 from bayesian_torch.layers import LSTMReparameterization
-from trajpred_unc.models.losses import Gaussian2DLikelihood
+from trajpred_unc.models.losses import Gaussian2DLikelihood,convertToCov
 import numpy as np
 
 
@@ -83,13 +83,12 @@ class lstm_encdec_MCDropout(nn.Module):
 
         for i in range(prediction_horizon):
             # Decode last position and hidden state into new position
-            pred_pos,sigma_pos,hidden_state = self.decode(last_pos,hidden_state)
+            pred_pos,sigma_vel,hidden_state = self.decode(last_pos,hidden_state)
             # Keep new position and variance
             pred_traj.append(pred_pos)
             # Convert sigma_pos into real variances
-            sigma_pos[:,:,0]   = torch.exp(sigma_pos[:,:,0])+1e-2
-            sigma_pos[:,:,1]   = torch.exp(sigma_pos[:,:,1])+1e-2
-            sigma_traj.append(sigma_pos)
+            sigma_vel[:,:,0],sigma_vel[:,:,1],sigma_vel[:,:,2] = convertToCov(sigma_vel[:,:,0], sigma_vel[:,:,1], sigma_vel[:,:,2])
+            sigma_traj.append(sigma_vel)
             # Update the last position
             last_pos = pred_pos
 

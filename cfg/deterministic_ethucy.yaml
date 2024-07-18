@@ -22,7 +22,7 @@ model:
 train:
   initial_lr: 0.001
   epochs: 800
-  no_retrain: False
+  no_retrain: True
   teacher_forcing: False
   save_dir : "training_checkpoints/"
   model_name: "deterministic"
@@ -33,3 +33,4 @@ misc:
   samples_test: 10
   log_level: 20
   seed: 1234
+  dropout_inference: False

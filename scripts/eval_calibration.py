@@ -15,7 +15,9 @@ from trajpred_unc.utils.config import load_config
 
 # Load configuration file (conditional model)
 config = load_config("deterministic_gaussian_ethucy.yaml")
+config = load_config("deterministic_dropout_ethucy.yaml")
 #config = load_config("bitrap_ethucy.yaml")
+#config = load_config("socialvae_ethucy.yaml")
 
 def get_names(config):
 	"""
@@ -36,7 +38,7 @@ def compute_calibration_metrics():
 	logging.info('Evaluation of '+method_name+' model')
 	logging.info('Uncertainty calibration with '+SUBDATASETS_NAMES[config["dataset"]["id_dataset"]][config["dataset"]["id_test"]]+' as test dataset')
 	# Load data for calibration compute
-	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,sigmas_samples,sigmas_samples_full,__ = get_data_for_calibration(calibration_filename)
+	predictions_calibration,predictions_test,observations_calibration,observations_test,groundtruth_calibration, groundtruth_test,sigmas_calibration,sigmas_test,__ = get_data_for_calibration(calibration_filename)
 
 	# Resampling parameter
 	kde_size      = 150
@@ -46,8 +48,8 @@ def compute_calibration_metrics():
 	# 0: Conformal
 	# 1: Conformal with relative density
 	# 2: Regresion Isotonica
-	if sigmas_samples is not None:
-		generate_calibration_metrics(method_name,predictions_calibration,observations_calibration,groundtruth_calibration,predictions_test,observations_test,groundtruth_test,methods=[0,1,2],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_samples, sigmas_samples_full])
+	if sigmas_calibration is not None:
+		generate_calibration_metrics(method_name,predictions_calibration,observations_calibration,groundtruth_calibration,predictions_test,observations_test,groundtruth_test,methods=[0,1,2],kde_size=kde_size,resample_size=resample_size,gaussian=[sigmas_calibration, sigmas_test])
 	else:
 		generate_calibration_metrics(method_name,predictions_calibration,observations_calibration,groundtruth_calibration,predictions_test,observations_test,groundtruth_test,methods=[0,1,2],kde_size=kde_size,resample_size=resample_size,gaussian=[None, None])
 

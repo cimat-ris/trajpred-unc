@@ -49,7 +49,7 @@ def generate_uncertainty_evaluation_dataset(batched_test_data,model,config,devic
 
 	# Each sampled model
 	nsamples = 1
-	if config["misc"]["ensemble"]:
+	if config["misc"]["ensemble"] or config["misc"]["dropout_inference"]:
 		nsamples = config["misc"]["model_samples"]
 	for ind in range(nsamples):
 		if type == "ensemble":

@@ -19,13 +19,14 @@ model:
 train:
   initial_lr: 0.001
   epochs: 220 #220
-  no_retrain: False
+  no_retrain: True
   teacher_forcing: False
   save_dir : "training_checkpoints/"
-  model_name: "deterministic"
+  model_name: "deterministic-dropout"
 misc:
   plot_losses: True
   plot_dir: "images/"
   show_test: False
   samples_test: 10
   model_samples: 10
+  dropout_inference: True
